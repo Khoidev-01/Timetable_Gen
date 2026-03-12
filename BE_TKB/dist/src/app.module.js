@@ -21,6 +21,7 @@ const algorithm_module_1 = require("./algorithm/algorithm.module");
 const bullmq_1 = require("@nestjs/bullmq");
 const worker_module_1 = require("./worker/worker.module");
 const auth_module_1 = require("./auth/auth.module");
+const excel_module_1 = require("./excel/excel.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -43,7 +44,8 @@ exports.AppModule = AppModule = __decorate([
             timetables_module_1.TimetablesModule,
             algorithm_module_1.AlgorithmModule,
             worker_module_1.WorkerModule,
-            auth_module_1.AuthModule
+            auth_module_1.AuthModule,
+            excel_module_1.ExcelModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

@@ -7,7 +7,8 @@ TRUNCATE TABLE timetable_slots, teaching_assignments, classes, teachers, subject
 INSERT INTO academic_years (name, weeks, status, start_date, end_date) 
 VALUES ('2024-2025', 35, 'ACTIVE', '2024-09-05 00:00:00', '2025-05-31 00:00:00');
 
-INSERT INTO semesters (year_id, name, is_current) SELECT id, 'HK1', TRUE FROM academic_years;
+INSERT INTO semesters (year_id, name, is_current, term_order) SELECT id, 'HK1', TRUE, 1 FROM academic_years;
+INSERT INTO semesters (year_id, name, is_current, term_order) SELECT id, 'HK2', FALSE, 2 FROM academic_years;
 
 -- 3. ROOMS
 INSERT INTO rooms (name, type, floor) SELECT generate_series(101, 114)::text, 'CLASSROOM', 1;

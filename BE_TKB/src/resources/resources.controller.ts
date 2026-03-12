@@ -29,6 +29,7 @@ export class ResourcesController {
     @Get('teachers/:id') getTeacher(@Param('id') id: string) { return this.teacherService.findOne(id); }
     @Post('teachers') createTeacher(@Body() body: any) { return this.teacherService.create(body); }
     @Put('teachers/:id') updateTeacher(@Param('id') id: string, @Body() body: any) { return this.teacherService.update(id, body); }
+    @Delete('teachers/:id') deleteTeacher(@Param('id') id: string) { return this.teacherService.delete(id); }
 
     // TEACHER CONSTRAINTS
     @Put('teachers/:id/constraints')

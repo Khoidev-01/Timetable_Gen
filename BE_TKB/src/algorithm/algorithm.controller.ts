@@ -3,6 +3,7 @@ import { AlgorithmService } from './algorithm.service';
 import { AlgorithmProducer } from '../worker/algorithm.producer';
 import { ExportService } from './export.service';
 import type { Response } from 'express';
+import { buildAttachmentDisposition } from '../excel/excel.utils';
 
 @Controller('algorithm')
 export class AlgorithmController {
@@ -29,13 +30,13 @@ export class AlgorithmController {
 
     @Get('export/:semesterId')
     async exportSchedule(@Param('semesterId') semesterId: string, @Res() res: Response) {
-        const buffer = await this.exportService.exportScheduleToExcel(semesterId);
+        const payload = await this.exportService.exportScheduleToExcel(semesterId);
         res.set({
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition': 'attachment; filename=timetable.xlsx',
-            'Content-Length': buffer.length,
+            'Content-Disposition': buildAttachmentDisposition(payload.fileName),
+            'Content-Length': payload.buffer.length,
         });
-        res.end(buffer);
+        res.end(payload.buffer);
     }
 
     @Post('move-slot')

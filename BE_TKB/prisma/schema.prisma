@@ -35,6 +35,7 @@ model Semester {
   year_id     String
   name        String   // "HK1"
   is_current  Boolean  @default(false)
+  term_order  Int      @default(1)
 
   academic_year         AcademicYear @relation(fields: [year_id], references: [id])
   teaching_assignments  TeachingAssignment[]
@@ -117,6 +118,10 @@ model Teacher {
   email               String?
   phone               String?
   max_periods_per_week Int      @default(20)
+  department          String?
+  status              String   @default("Dang_day")
+  workload_reduction  Int      @default(0)
+  notes               String?
 
   user                User?
   
@@ -156,6 +161,9 @@ model Class {
   name                String   // "10A1"
   grade_level         Int      // 10, 11, 12
   main_session        Int      // 0: Morning, 1: Afternoon
+  student_count       Int?
+  combination_code    String?
+  notes               String?
   
   fixed_room_id       Int?
   fixed_room          Room?    @relation(fields: [fixed_room_id], references: [id])
@@ -167,6 +175,22 @@ model Class {
   timetable_slots      TimetableSlot[]
 
   @@map("classes")
+}
+
+model CurriculumCombination {
+  id                      String @id @default(uuid())
+  code                    String @unique
+  grade_level             Int
+  elective_subject_code_1 String
+  elective_subject_code_2 String
+  elective_subject_code_3 String
+  elective_subject_code_4 String
+  special_topic_code_1    String
+  special_topic_code_2    String
+  special_topic_code_3    String
+  notes                   String?
+
+  @@map("curriculum_combinations")
 }
 
 // ==========================================

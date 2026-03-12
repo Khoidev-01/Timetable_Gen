@@ -17,6 +17,19 @@ export class AssignmentsService {
         return this.prisma.teachingAssignment.create({ data });
     }
 
+    async update(id: string, data: any) {
+        return this.prisma.teachingAssignment.update({
+            where: { id },
+            data,
+        });
+    }
+
+    async delete(id: string) {
+        return this.prisma.teachingAssignment.delete({
+            where: { id },
+        });
+    }
+
     async importAssignments(semesterId: string, assignments: any[]) {
         // Bulk create logic
         // This relies on Excel parsing which should now return English fields

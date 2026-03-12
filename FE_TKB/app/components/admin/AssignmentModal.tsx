@@ -1,153 +1,192 @@
-
 'use client';
-import { useState, useEffect } from 'react';
+
+import { useEffect, useState } from 'react';
 
 interface AssignmentModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onSave: (data: any) => Promise<void>;
-    initialData?: any;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: any) => Promise<void>;
+  initialData?: any;
 }
 
-export default function AssignmentModal({ isOpen, onClose, onSave, initialData }: AssignmentModalProps) {
-    const [formData, setFormData] = useState({
+export default function AssignmentModal({
+  isOpen,
+  onClose,
+  onSave,
+  initialData,
+}: AssignmentModalProps) {
+  const [formData, setFormData] = useState({
+    teacher_id: '',
+    class_id: '',
+    subject_id: '',
+    total_periods: 2,
+  });
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchData = async () => {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const [teacherRes, classRes, subjectRes] = await Promise.all([
+        fetch('http://localhost:4000/resources/teachers', { headers }),
+        fetch('http://localhost:4000/organization/classes', { headers }),
+        fetch('http://localhost:4000/resources/subjects', { headers }),
+      ]);
+
+      if (teacherRes.ok) setTeachers(await teacherRes.json());
+      if (classRes.ok) setClasses(await classRes.json());
+      if (subjectRes.ok) setSubjects(await subjectRes.json());
+    };
+
+    fetchData();
+
+    if (initialData) {
+      setFormData({
+        teacher_id: initialData.teacher_id ?? initialData.teacher?.id ?? '',
+        class_id: initialData.class_id ?? initialData.class?.id ?? '',
+        subject_id: String(initialData.subject_id ?? initialData.subject?.id ?? ''),
+        total_periods: initialData.total_periods || 2,
+      });
+    } else {
+      setFormData({
         teacher_id: '',
         class_id: '',
         subject_id: '',
-        total_periods: 2
-    });
+        total_periods: 2,
+      });
+    }
+  }, [initialData, isOpen]);
 
-    const [teachers, setTeachers] = useState<any[]>([]);
-    const [classes, setClasses] = useState<any[]>([]);
-    const [subjects, setSubjects] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+  if (!isOpen) return null;
 
-    useEffect(() => {
-        if (!isOpen) return;
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsLoading(true);
 
-        const fetchData = async () => {
-            const token = localStorage.getItem('token');
-            const headers = { Authorization: `Bearer ${token}` };
+    try {
+      const teacher = teachers.find((item) => item.id === formData.teacher_id);
+      const currentClass = classes.find((item) => item.id === formData.class_id);
+      const subject = subjects.find((item) => String(item.id) === String(formData.subject_id));
 
-            const [tRes, cRes, sRes] = await Promise.all([
-                fetch('http://localhost:4000/resources/teachers', { headers }),
-                fetch('http://localhost:4000/organization/classes', { headers }),
-                fetch('http://localhost:4000/resources/subjects', { headers })
-            ]);
+      await onSave({
+        ...formData,
+        subject_id: Number(formData.subject_id),
+        total_periods: Number(formData.total_periods),
+        teacher,
+        class: currentClass,
+        subject,
+      });
+      onClose();
+    } catch (error) {
+      return;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-            if (tRes.ok) setTeachers(await tRes.json());
-            if (cRes.ok) setClasses(await cRes.json());
-            if (sRes.ok) setSubjects(await sRes.json());
-        };
-        fetchData();
-
-        if (initialData) {
-            setFormData({
-                teacher_id: initialData.teacher_id,
-                class_id: initialData.class_id,
-                subject_id: initialData.subject_id,
-                total_periods: initialData.total_periods || 2
-            });
-        } else {
-            setFormData({
-                teacher_id: '', class_id: '', subject_id: '',
-                total_periods: 2
-            });
-        }
-    }, [isOpen, initialData]);
-
-    if (!isOpen) return null;
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoading(true);
-        try {
-            await onSave({
-                ...formData,
-                total_periods: Number(formData.total_periods),
-                subject_id: Number(formData.subject_id)
-            });
-            // subject_id is Int in BE, class_id/teacher_id string
-            onClose();
-        } catch (error) {
-            // Handled parent
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 className="text-lg font-bold text-gray-800">
-                        {initialData ? 'Update Assignment' : 'New Assignment'}
-                    </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Teacher</label>
-                        <select className="w-full px-3 py-2 border rounded-lg"
-                            required
-                            value={formData.teacher_id}
-                            onChange={e => setFormData({ ...formData, teacher_id: e.target.value })}
-                        >
-                            <option value="">-- Select Teacher --</option>
-                            {teachers.map(t => (
-                                <option key={t.id} value={t.id}>{t.full_name} ({t.code})</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                            <select className="w-full px-3 py-2 border rounded-lg"
-                                required
-                                value={formData.class_id}
-                                onChange={e => setFormData({ ...formData, class_id: e.target.value })}
-                            >
-                                <option value="">-- Select Class --</option>
-                                {classes.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                            <select className="w-full px-3 py-2 border rounded-lg"
-                                required
-                                value={formData.subject_id}
-                                onChange={e => setFormData({ ...formData, subject_id: e.target.value })}
-                            >
-                                <option value="">-- Select Subject --</option>
-                                {subjects.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Periods / Week</label>
-                        <input type="number" className="w-full px-3 py-2 border rounded-lg"
-                            min={1}
-                            value={formData.total_periods}
-                            onChange={e => setFormData({ ...formData, total_periods: Number(e.target.value) })}
-                        />
-                    </div>
-
-                    <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-700">Cancel</button>
-                        <button type="submit" disabled={isLoading} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 text-white flex items-center gap-2">
-                            {isLoading && <span className="animate-spin text-white">⏳</span>}
-                            Save
-                        </button>
-                    </div>
-                </form>
-            </div>
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-6 py-4">
+          <h3 className="text-lg font-bold text-gray-800">
+            {initialData ? 'Cập nhật phân công' : 'Thêm phân công'}
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            ×
+          </button>
         </div>
-    );
+
+        <form onSubmit={handleSubmit} className="space-y-4 p-6">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Giáo viên</label>
+            <select
+              className="w-full rounded-lg border px-3 py-2"
+              required
+              value={formData.teacher_id}
+              onChange={(event) => setFormData({ ...formData, teacher_id: event.target.value })}
+            >
+              <option value="">-- Chọn giáo viên --</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.full_name} ({teacher.code})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Lớp</label>
+              <select
+                className="w-full rounded-lg border px-3 py-2"
+                required
+                value={formData.class_id}
+                onChange={(event) => setFormData({ ...formData, class_id: event.target.value })}
+              >
+                <option value="">-- Chọn lớp --</option>
+                {classes.map((currentClass) => (
+                  <option key={currentClass.id} value={currentClass.id}>
+                    {currentClass.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Môn học</label>
+              <select
+                className="w-full rounded-lg border px-3 py-2"
+                required
+                value={formData.subject_id}
+                onChange={(event) => setFormData({ ...formData, subject_id: event.target.value })}
+              >
+                <option value="">-- Chọn môn --</option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name} ({subject.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Số tiết / tuần</label>
+            <input
+              type="number"
+              min={1}
+              className="w-full rounded-lg border px-3 py-2"
+              value={formData.total_periods}
+              onChange={(event) =>
+                setFormData({ ...formData, total_periods: Number(event.target.value) })
+              }
+            />
+          </div>
+
+          <div className="mt-4 flex justify-end gap-3 border-t border-gray-100 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            >
+              {isLoading ? 'Đang lưu...' : 'Lưu'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }

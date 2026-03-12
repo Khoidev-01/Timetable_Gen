@@ -8,6 +8,7 @@ export declare class AcademicYearService {
             year_id: string;
             name: string;
             is_current: boolean;
+            term_order: number;
         }[];
     } & {
         id: string;
@@ -23,6 +24,7 @@ export declare class AcademicYearService {
             year_id: string;
             name: string;
             is_current: boolean;
+            term_order: number;
         }[];
     } & {
         id: string;
@@ -38,6 +40,7 @@ export declare class AcademicYearService {
             year_id: string;
             name: string;
             is_current: boolean;
+            term_order: number;
         }[];
     } & {
         id: string;
@@ -53,6 +56,7 @@ export declare class AcademicYearService {
             year_id: string;
             name: string;
             is_current: boolean;
+            term_order: number;
         }[];
     } & {
         id: string;

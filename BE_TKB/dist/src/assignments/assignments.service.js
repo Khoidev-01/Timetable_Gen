@@ -26,6 +26,17 @@ let AssignmentsService = class AssignmentsService {
     async create(data) {
         return this.prisma.teachingAssignment.create({ data });
     }
+    async update(id, data) {
+        return this.prisma.teachingAssignment.update({
+            where: { id },
+            data,
+        });
+    }
+    async delete(id) {
+        return this.prisma.teachingAssignment.delete({
+            where: { id },
+        });
+    }
     async importAssignments(semesterId, assignments) {
         return this.prisma.teachingAssignment.createMany({ data: assignments });
     }

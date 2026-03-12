@@ -10,6 +10,7 @@ export declare class SystemController {
             year_id: string;
             name: string;
             is_current: boolean;
+            term_order: number;
         }[];
     } & {
         id: string;
@@ -25,6 +26,7 @@ export declare class SystemController {
             year_id: string;
             name: string;
             is_current: boolean;
+            term_order: number;
         }[];
     } & {
         id: string;
@@ -40,6 +42,7 @@ export declare class SystemController {
             year_id: string;
             name: string;
             is_current: boolean;
+            term_order: number;
         }[];
     } & {
         id: string;
@@ -63,17 +66,20 @@ export declare class SystemController {
         year_id: string;
         name: string;
         is_current: boolean;
+        term_order: number;
     })[]>;
     createSemester(body: any): Promise<{
         id: string;
         year_id: string;
         name: string;
         is_current: boolean;
+        term_order: number;
     }>;
     setCurrentSemester(id: string): Promise<{
         id: string;
         year_id: string;
         name: string;
         is_current: boolean;
+        term_order: number;
     }>;
 }

@@ -38,6 +38,7 @@ let ResourcesController = class ResourcesController {
     getTeacher(id) { return this.teacherService.findOne(id); }
     createTeacher(body) { return this.teacherService.create(body); }
     updateTeacher(id, body) { return this.teacherService.update(id, body); }
+    deleteTeacher(id) { return this.teacherService.delete(id); }
     updateTeacherConstraints(id, body) {
         return this.teacherService.updateConstraints(id, body);
     }
@@ -127,6 +128,13 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], ResourcesController.prototype, "updateTeacher", null);
+__decorate([
+    (0, common_1.Delete)('teachers/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ResourcesController.prototype, "deleteTeacher", null);
 __decorate([
     (0, common_1.Put)('teachers/:id/constraints'),
     __param(0, (0, common_1.Param)('id')),

@@ -11,6 +11,10 @@ export declare class UsersService {
             email: string | null;
             phone: string | null;
             max_periods_per_week: number;
+            department: string | null;
+            status: string;
+            workload_reduction: number;
+            notes: string | null;
         } | null;
     } & {
         id: string;
@@ -29,6 +33,10 @@ export declare class UsersService {
             email: string | null;
             phone: string | null;
             max_periods_per_week: number;
+            department: string | null;
+            status: string;
+            workload_reduction: number;
+            notes: string | null;
         } | null;
     } & {
         id: string;

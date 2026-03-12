@@ -37,7 +37,7 @@ const client_1 = require("@prisma/client");
 const bcrypt = __importStar(require("bcrypt"));
 const prisma = new client_1.PrismaClient();
 async function main() {
-    console.log('Seeding System Data (English Schema)...');
+    console.log('Seeding system data...');
     const year = await prisma.academicYear.create({
         data: {
             name: '2023-2024',
@@ -46,48 +46,48 @@ async function main() {
             status: 'ACTIVE',
             semesters: {
                 create: [
-                    { name: 'Học kỳ 1', is_current: false },
-                    { name: 'Học kỳ 2', is_current: true },
-                ]
-            }
+                    { name: 'Học kỳ 1', is_current: false, term_order: 1 },
+                    { name: 'Học kỳ 2', is_current: true, term_order: 2 },
+                ],
+            },
         },
-        include: { semesters: true }
+        include: { semesters: true },
     });
-    console.log(`Created Year: ${year.name}`);
-    const semesterId = year.semesters.find(s => s.is_current)?.id;
+    console.log(`Created year: ${year.name}`);
     const hashedPassword = await bcrypt.hash('admin123', 10);
     await prisma.user.create({
         data: {
             username: 'admin',
             password_hash: hashedPassword,
-            role: 'ADMIN'
-        }
+            role: 'ADMIN',
+        },
     });
-    console.log('Created Admin: admin / admin123');
+    console.log('Created admin: admin / admin123');
     await prisma.room.createMany({
         data: [
             { name: '101', floor: 1, type: 'CLASSROOM' },
             { name: '102', floor: 1, type: 'CLASSROOM' },
             { name: '201', floor: 2, type: 'CLASSROOM' },
             { name: 'PC1', floor: 3, type: 'LAB_IT' },
-            { name: 'Lab Ly', floor: 3, type: 'LAB_PHYSICS' }
-        ]
+            { name: 'Lab Ly', floor: 3, type: 'LAB_PHYSICS' },
+        ],
     });
     console.log('Created sample rooms');
     await prisma.subject.createMany({
         data: [
             { code: 'TOAN', name: 'Toán', color: '#FF0000' },
-            { code: 'VAN', name: 'Ngữ Văn', color: '#00FF00' },
+            { code: 'VAN', name: 'Ngữ văn', color: '#00FF00' },
             { code: 'ANH', name: 'Tiếng Anh', color: '#0000FF' },
-            { code: 'TIN', name: 'Tin Học', color: '#FFFF00', is_special: false }
-        ]
+            { code: 'TIN', name: 'Tin học', color: '#FFFF00', is_special: false },
+        ],
+        skipDuplicates: true,
     });
     console.log('Created sample subjects');
-    console.log('Seeding Complete.');
+    console.log('Seeding complete.');
 }
 main()
-    .catch((e) => {
-    console.error(e);
+    .catch((error) => {
+    console.error(error);
     process.exit(1);
 })
     .finally(async () => {

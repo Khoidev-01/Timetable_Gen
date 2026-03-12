@@ -26,6 +26,12 @@ let AssignmentsController = class AssignmentsController {
     createAssignment(body) {
         return this.assignmentsService.create(body);
     }
+    updateAssignment(id, body) {
+        return this.assignmentsService.update(id, body);
+    }
+    deleteAssignment(id) {
+        return this.assignmentsService.delete(id);
+    }
 };
 exports.AssignmentsController = AssignmentsController;
 __decorate([
@@ -42,6 +48,21 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AssignmentsController.prototype, "createAssignment", null);
+__decorate([
+    (0, common_1.Put)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], AssignmentsController.prototype, "updateAssignment", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], AssignmentsController.prototype, "deleteAssignment", null);
 exports.AssignmentsController = AssignmentsController = __decorate([
     (0, common_1.Controller)('assignments'),
     __metadata("design:paramtypes", [assignments_service_1.AssignmentsService])

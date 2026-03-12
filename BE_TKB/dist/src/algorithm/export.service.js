@@ -44,116 +44,107 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExportService = void 0;
 const common_1 = require("@nestjs/common");
-const prisma_service_1 = require("../prisma/prisma.service");
 const ExcelJS = __importStar(require("exceljs"));
+const prisma_service_1 = require("../prisma/prisma.service");
+const excel_utils_1 = require("../excel/excel.utils");
 let ExportService = class ExportService {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
     async exportScheduleToExcel(semesterId) {
-        console.log(`[ExportService] Exporting for Semester: ${semesterId}`);
-        const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('Thời Khóa Biểu Toàn Trường', {
-            views: [{ state: 'frozen', xSplit: 3, ySplit: 1 }]
+        const semester = await this.prisma.semester.findUnique({
+            where: { id: semesterId },
+            include: { academic_year: true },
         });
-        const classes = await this.prisma.class.findMany({
-            orderBy: { name: 'asc' }
-        });
-        console.log(`[ExportService] Found ${classes.length} classes.`);
-        const subjects = await this.prisma.subject.findMany();
-        const teachers = await this.prisma.teacher.findMany();
-        const subjectMap = new Map(subjects.map(s => [s.id, s.name]));
-        const teacherMap = new Map(teachers.map(t => [t.id, t.full_name]));
-        const classMap = new Map(classes.map(c => [c.id, c]));
-        const latestTkb = await this.prisma.generatedTimetable.findFirst({
+        if (!semester) {
+            throw new common_1.NotFoundException('Không tìm thấy học kỳ cần xuất.');
+        }
+        const latestTimetable = await this.prisma.generatedTimetable.findFirst({
             where: { semester_id: semesterId },
             orderBy: { created_at: 'desc' },
-            include: { slots: true }
+            include: { slots: true },
         });
-        if (!latestTkb) {
-            console.error(`[ExportService] No TKB found for semester: ${semesterId}`);
-            throw new common_1.NotFoundException("Chưa có dữ liệu thời khóa biểu cho học kỳ này");
+        if (!latestTimetable) {
+            throw new common_1.NotFoundException('Chưa có dữ liệu thời khóa biểu cho học kỳ này.');
         }
-        console.log(`[ExportService] Found TKB ${latestTkb.id} with ${latestTkb.slots.length} slots.`);
-        const scheduleData = latestTkb.slots;
-        const slotMap = new Map();
-        scheduleData.forEach(slot => {
-            const cls = classMap.get(slot.class_id);
-            if (cls) {
-                const session = cls.main_session;
-                slotMap.set(`${slot.class_id}-${slot.day}-${session}-${slot.period}`, slot);
-            }
+        const [classes, subjects, teachers] = await Promise.all([
+            this.prisma.class.findMany({ orderBy: { name: 'asc' } }),
+            this.prisma.subject.findMany(),
+            this.prisma.teacher.findMany(),
+        ]);
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Codex';
+        workbook.created = new Date();
+        workbook.modified = new Date();
+        const worksheet = workbook.addWorksheet('Thời khóa biểu', {
+            views: [{ state: 'frozen', xSplit: 3, ySplit: 1 }],
         });
-        const columns = [
-            { header: 'Thứ', key: 'thu', width: 8 },
-            { header: 'Buổi', key: 'buoi', width: 10 },
-            { header: 'Tiết', key: 'tiet', width: 5 },
-            ...classes.map(c => ({ header: c.name, key: c.id, width: 25 }))
+        worksheet.columns = [
+            { header: 'Thứ', key: 'day', width: 10 },
+            { header: 'Buổi', key: 'session', width: 12 },
+            { header: 'Tiết', key: 'period', width: 8 },
+            ...classes.map((item) => ({ header: item.name, key: item.id, width: 24 })),
         ];
-        sheet.columns = columns;
-        const headerRow = sheet.getRow(1);
-        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
-        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-        headerRow.height = 30;
+        (0, excel_utils_1.applyHeaderRow)(worksheet.getRow(1));
+        const classMap = new Map(classes.map((item) => [item.id, item]));
+        const subjectMap = new Map(subjects.map((item) => [item.id, item]));
+        const teacherMap = new Map(teachers.map((item) => [item.id, item]));
+        const slotMap = new Map();
+        latestTimetable.slots.forEach((slot) => {
+            const classInfo = classMap.get(slot.class_id);
+            if (!classInfo)
+                return;
+            slotMap.set(`${slot.class_id}-${slot.day}-${classInfo.main_session}-${slot.period}`, slot);
+        });
         const days = [2, 3, 4, 5, 6, 7];
         const sessions = [0, 1];
         const periods = [1, 2, 3, 4, 5];
         let rowIndex = 2;
         for (const day of days) {
-            let firstRowOfDay = rowIndex;
+            const dayStart = rowIndex;
             for (const session of sessions) {
-                let firstRowOfSession = rowIndex;
-                const sessionName = session === 0 ? 'Sáng' : 'Chiều';
+                const sessionStart = rowIndex;
                 for (const period of periods) {
                     const rowValues = {
-                        thu: `Thứ ${day}`,
-                        buoi: sessionName,
-                        tiet: period
+                        day: `Thứ ${day}`,
+                        session: session === 0 ? 'Sáng' : 'Chiều',
+                        period,
                     };
-                    classes.forEach(cls => {
-                        const slot = slotMap.get(`${cls.id}-${day}-${session}-${period}`);
-                        if (slot) {
-                            const subjectName = subjectMap.get(slot.subject_id) || slot.subject_id + '';
-                            const teacherName = slot.teacher_id ? (teacherMap.get(slot.teacher_id) || '') : '';
-                            const teacherInitial = (teacherName || '').split(' ').pop() || '';
-                            rowValues[cls.id] = `${subjectName}\n(T.${teacherInitial})`;
+                    classes.forEach((item) => {
+                        const slot = slotMap.get(`${item.id}-${day}-${session}-${period}`);
+                        if (!slot) {
+                            rowValues[item.id] = '';
+                            return;
                         }
-                        else {
-                            rowValues[cls.id] = '';
-                        }
+                        const subject = subjectMap.get(slot.subject_id);
+                        const teacher = teacherMap.get(slot.teacher_id);
+                        const shortTeacher = teacher?.short_name || teacher?.full_name.split(' ').pop() || '';
+                        rowValues[item.id] = shortTeacher
+                            ? `${subject?.name ?? ''}\n(${shortTeacher})`
+                            : `${subject?.name ?? ''}`;
                     });
-                    const row = sheet.addRow(rowValues);
-                    row.height = 40;
-                    row.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-                    classes.forEach(cls => {
-                        const cell = row.getCell(cls.id);
-                        if (cell.value) {
-                            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-                        }
-                        else {
-                            cell.border = { top: { style: 'dotted' }, left: { style: 'dotted' }, bottom: { style: 'dotted' }, right: { style: 'dotted' } };
-                        }
+                    const row = worksheet.addRow(rowValues);
+                    row.height = 42;
+                    row.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                    row.eachCell((cell) => {
+                        cell.border = (0, excel_utils_1.thinBorder)();
                     });
-                    rowIndex++;
+                    rowIndex += 1;
                 }
-                sheet.mergeCells(firstRowOfSession, 2, rowIndex - 1, 2);
+                worksheet.mergeCells(sessionStart, 2, rowIndex - 1, 2);
             }
-            sheet.mergeCells(firstRowOfDay, 1, rowIndex - 1, 1);
+            worksheet.mergeCells(dayStart, 1, rowIndex - 1, 1);
         }
-        for (let r = 2; r < rowIndex; r++) {
-            sheet.getCell(`A${r}`).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-            sheet.getCell(`B${r}`).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-            sheet.getCell(`C${r}`).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-            sheet.getCell(`A${r}`).alignment = { vertical: 'middle', horizontal: 'center' };
-            sheet.getCell(`B${r}`).alignment = { vertical: 'middle', horizontal: 'center' };
-            sheet.getCell(`C${r}`).alignment = { vertical: 'middle', horizontal: 'center' };
+        for (let currentRow = 2; currentRow < rowIndex; currentRow += 1) {
+            worksheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+            worksheet.getCell(`B${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+            worksheet.getCell(`C${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
         }
-        console.log(`[ExportService] Writing buffer...`);
-        const buffer = await workbook.xlsx.writeBuffer();
-        console.log(`[ExportService] Done. Buffer size: ${buffer.byteLength}`);
-        return buffer;
+        const rawBuffer = await workbook.xlsx.writeBuffer();
+        const buffer = Buffer.isBuffer(rawBuffer) ? rawBuffer : Buffer.from(rawBuffer);
+        const fileName = `thoi-khoa-bieu-${semester.academic_year.name}-${semester.name}.xlsx`;
+        return { buffer, fileName };
     }
 };
 exports.ExportService = ExportService;

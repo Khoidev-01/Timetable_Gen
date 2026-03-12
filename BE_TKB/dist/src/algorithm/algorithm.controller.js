@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const algorithm_service_1 = require("./algorithm.service");
 const algorithm_producer_1 = require("../worker/algorithm.producer");
 const export_service_1 = require("./export.service");
+const excel_utils_1 = require("../excel/excel.utils");
 let AlgorithmController = class AlgorithmController {
     algorithmService;
     algorithmProducer;
@@ -36,13 +37,13 @@ let AlgorithmController = class AlgorithmController {
         return this.algorithmProducer.getResult(semesterId);
     }
     async exportSchedule(semesterId, res) {
-        const buffer = await this.exportService.exportScheduleToExcel(semesterId);
+        const payload = await this.exportService.exportScheduleToExcel(semesterId);
         res.set({
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition': 'attachment; filename=timetable.xlsx',
-            'Content-Length': buffer.length,
+            'Content-Disposition': (0, excel_utils_1.buildAttachmentDisposition)(payload.fileName),
+            'Content-Length': payload.buffer.length,
         });
-        res.end(buffer);
+        res.end(payload.buffer);
     }
     async moveSlot(body) {
         return this.algorithmService.moveSlot(body);

@@ -27,6 +27,10 @@ export class TeacherService {
         return this.prisma.teacher.update({ where: { id }, data });
     }
 
+    async delete(id: string) {
+        return this.prisma.teacher.delete({ where: { id } });
+    }
+
     // Constraint Management
     async updateConstraints(teacherId: string, constraints: any[]) {
         // Clear old hard/soft constraints for this teacher? Or merge?

@@ -35,6 +35,9 @@ let TeacherService = class TeacherService {
     async update(id, data) {
         return this.prisma.teacher.update({ where: { id }, data });
     }
+    async delete(id) {
+        return this.prisma.teacher.delete({ where: { id } });
+    }
     async updateConstraints(teacherId, constraints) {
         await this.prisma.teacherConstraint.deleteMany({ where: { teacher_id: teacherId } });
         if (constraints.length > 0) {

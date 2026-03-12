@@ -13,6 +13,7 @@ import { AlgorithmModule } from './algorithm/algorithm.module';
 import { BullModule } from '@nestjs/bullmq';
 import { WorkerModule } from './worker/worker.module';
 import { AuthModule } from './auth/auth.module';
+import { ExcelModule } from './excel/excel.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { AuthModule } from './auth/auth.module';
     TimetablesModule,
     AlgorithmModule,
     WorkerModule,
-    AuthModule
+    AuthModule,
+    ExcelModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -18,12 +18,19 @@ export declare class OrganizationController {
             email: string | null;
             phone: string | null;
             max_periods_per_week: number;
+            department: string | null;
+            status: string;
+            workload_reduction: number;
+            notes: string | null;
         } | null;
     } & {
         id: string;
         name: string;
         grade_level: number;
         main_session: number;
+        student_count: number | null;
+        combination_code: string | null;
+        notes: string | null;
         fixed_room_id: number | null;
         homeroom_teacher_id: string | null;
     })[]>;
@@ -43,12 +50,19 @@ export declare class OrganizationController {
             email: string | null;
             phone: string | null;
             max_periods_per_week: number;
+            department: string | null;
+            status: string;
+            workload_reduction: number;
+            notes: string | null;
         } | null;
     } & {
         id: string;
         name: string;
         grade_level: number;
         main_session: number;
+        student_count: number | null;
+        combination_code: string | null;
+        notes: string | null;
         fixed_room_id: number | null;
         homeroom_teacher_id: string | null;
     }>;
@@ -57,6 +71,9 @@ export declare class OrganizationController {
         name: string;
         grade_level: number;
         main_session: number;
+        student_count: number | null;
+        combination_code: string | null;
+        notes: string | null;
         fixed_room_id: number | null;
         homeroom_teacher_id: string | null;
     }>;
@@ -65,6 +82,9 @@ export declare class OrganizationController {
         name: string;
         grade_level: number;
         main_session: number;
+        student_count: number | null;
+        combination_code: string | null;
+        notes: string | null;
         fixed_room_id: number | null;
         homeroom_teacher_id: string | null;
     }>;
@@ -73,6 +93,9 @@ export declare class OrganizationController {
         name: string;
         grade_level: number;
         main_session: number;
+        student_count: number | null;
+        combination_code: string | null;
+        notes: string | null;
         fixed_room_id: number | null;
         homeroom_teacher_id: string | null;
     }>;
