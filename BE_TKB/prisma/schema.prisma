@@ -1,0 +1,244 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// GROUP 1: SYSTEM & CONFIG
+// ==========================================
+
+model AcademicYear {
+  id          String   @id @default(uuid())
+  name        String   // "2024-2025"
+  start_date  DateTime
+  end_date    DateTime
+  weeks       Int      @default(35)
+  status      YearStatus @default(ACTIVE)
+
+  semesters   Semester[]
+
+  @@map("academic_years")
+}
+
+enum YearStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model Semester {
+  id          String   @id @default(uuid())
+  year_id     String
+  name        String   // "HK1"
+  is_current  Boolean  @default(false)
+
+  academic_year         AcademicYear @relation(fields: [year_id], references: [id])
+  teaching_assignments  TeachingAssignment[]
+  generated_timetables  GeneratedTimetable[]
+
+  @@map("semesters")
+}
+
+
+
+// ==========================================
+// GROUP 2: RESOURCES
+// ==========================================
+
+model Room {
+  id          Int      @id @default(autoincrement())
+  name        String   // "101", "Lab Ly"
+  type        RoomType @default(CLASSROOM)
+  floor       Int      // 1, 2, 3
+  capacity    Int      @default(45)
+
+  classes           Class[] // Fixed rooms for classes
+  timetable_slots   TimetableSlot[]
+
+  @@map("rooms")
+}
+
+enum RoomType {
+  CLASSROOM
+  LAB_PHYSICS
+  LAB_CHEM
+  LAB_BIO
+  LAB_IT
+  YARD
+  MULTI_PURPOSE
+}
+
+model Subject {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique // "TOAN", "LY"
+  name        String   // "Toan Hoc"
+  color       String   // "#FF5733"
+  is_special  Boolean  @default(false) // Flag Raising, SHCN, GDQP
+  is_practice Boolean  @default(false)
+
+  teaching_assignments TeachingAssignment[]
+  timetable_slots      TimetableSlot[]
+
+  @@map("subjects")
+}
+
+// ==========================================
+// GROUP 3: HUMAN RESOURCES
+// ==========================================
+
+model User {
+  id                String   @id @default(uuid())
+  username          String   @unique
+  password_hash     String
+  role              UserRole @default(TEACHER)
+  
+  teacher_profile_id String? @unique
+  teacher_profile    Teacher? @relation(fields: [teacher_profile_id], references: [id])
+  
+  created_at        DateTime @default(now())
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  TEACHER
+}
+
+model Teacher {
+  id                  String   @id @default(uuid())
+  code                String   @unique // "GV001"
+  full_name           String
+  short_name          String?  // "Huong Van" - displayed on small slots
+  email               String?
+  phone               String?
+  max_periods_per_week Int      @default(20)
+
+  user                User?
+  
+  homeroom_classes    Class[]
+  constraints         TeacherConstraint[]
+  teaching_assignments TeachingAssignment[]
+  timetable_slots     TimetableSlot[]
+
+  @@map("teachers")
+}
+
+model TeacherConstraint {
+  id          Int      @id @default(autoincrement())
+  teacher_id  String
+  day_of_week Int      // 2-7
+  period      Int      // 1-5
+  session     Int      // 0: Morning, 1: Afternoon
+  type        ConstraintType
+
+  teacher     Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@index([teacher_id, day_of_week, period]) // Read-optimized constraint check
+  @@map("teacher_constraints")
+}
+
+enum ConstraintType {
+  BUSY  // Hard constraint
+  AVOID // Soft constraint
+}
+
+// ==========================================
+// GROUP 4: ORGANIZATION
+// ==========================================
+
+model Class {
+  id                  String   @id @default(uuid())
+  name                String   // "10A1"
+  grade_level         Int      // 10, 11, 12
+  main_session        Int      // 0: Morning, 1: Afternoon
+  
+  fixed_room_id       Int?
+  fixed_room          Room?    @relation(fields: [fixed_room_id], references: [id])
+
+  homeroom_teacher_id String?
+  homeroom_teacher    Teacher? @relation(fields: [homeroom_teacher_id], references: [id])
+
+  teaching_assignments TeachingAssignment[]
+  timetable_slots      TimetableSlot[]
+
+  @@map("classes")
+}
+
+// ==========================================
+// GROUP 5: ASSIGNMENTS (INPUT)
+// ==========================================
+
+model TeachingAssignment {
+  id                  String   @id @default(uuid())
+  semester_id         String
+  class_id            String
+  teacher_id          String
+  subject_id          Int
+  
+  total_periods       Int      // e.g. 3
+  period_type         PeriodType @default(THEORY)
+  required_room_type  RoomType?  // Nullable, strictly set if PRACTICE
+  block_config        String?    // "2+1"
+
+  semester            Semester @relation(fields: [semester_id], references: [id])
+  class               Class    @relation(fields: [class_id], references: [id])
+  teacher             Teacher  @relation(fields: [teacher_id], references: [id])
+  subject             Subject  @relation(fields: [subject_id], references: [id])
+
+  @@map("teaching_assignments")
+}
+
+enum PeriodType {
+  THEORY
+  PRACTICE
+  SPECIAL
+}
+
+// ==========================================
+// GROUP 6: TIMETABLE (OUTPUT)
+// ==========================================
+
+model GeneratedTimetable {
+  id            String   @id @default(uuid())
+  name          String
+  semester_id   String
+  is_official   Boolean  @default(false)
+  fitness_score Float?
+  created_at    DateTime @default(now())
+
+  semester      Semester @relation(fields: [semester_id], references: [id])
+  slots         TimetableSlot[]
+
+  @@map("generated_timetables")
+}
+
+model TimetableSlot {
+  id            String   @id @default(uuid())
+  timetable_id  String
+  class_id      String
+  subject_id    Int
+  teacher_id    String
+  room_id       Int?     // Map to physical room (Fixed or Lab)
+  
+  day           Int      // 2-7
+  period        Int      // 1-5
+  is_locked     Boolean  @default(false)
+
+  timetable     GeneratedTimetable @relation(fields: [timetable_id], references: [id], onDelete: Cascade)
+  class         Class   @relation(fields: [class_id], references: [id])
+  subject       Subject @relation(fields: [subject_id], references: [id])
+  teacher       Teacher @relation(fields: [teacher_id], references: [id])
+  room          Room?   @relation(fields: [room_id], references: [id])
+
+  // Unique Constraints for Validity
+  @@unique([timetable_id, class_id, day, period], name: "unique_class_slot")
+  @@unique([timetable_id, teacher_id, day, period], name: "unique_teacher_slot")
+  @@unique([timetable_id, room_id, day, period], name: "unique_room_slot")
+
+  @@map("timetable_slots")
+}

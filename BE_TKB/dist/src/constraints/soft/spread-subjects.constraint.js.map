@@ -1,0 +1,1 @@
+{"version":3,"file":"spread-subjects.constraint.js","sourceRoot":"","sources":["../../../../src/constraints/soft/spread-subjects.constraint.ts"],"names":[],"mappings":";;;AAAA,6EAA6G;AAE7G,MAAa,wBAAwB;IACjC,IAAI,GAAG,yCAAkB,CAAC,qBAAqB,CAAC;IAChD,QAAQ,GAAG,MAAe,CAAC;IAC3B,MAAM,GAAG,EAAE,CAAC;IAEZ,KAAK,CAAC,QAAwB;QAa1B,OAAO,IAAI,CAAC;IAChB,CAAC;CACJ;AApBD,4DAoBC"}

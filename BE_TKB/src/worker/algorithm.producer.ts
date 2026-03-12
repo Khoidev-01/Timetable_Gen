@@ -1,0 +1,106 @@
+import { Injectable } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { AlgorithmService } from '../algorithm/algorithm.service'; // Direct access for now or use Prisma
+import { PrismaService } from '../prisma/prisma.service';
+
+@Injectable()
+export class AlgorithmProducer {
+    constructor(
+        @InjectQueue('optimization') private optimizationQueue: Queue,
+        private prisma: PrismaService
+    ) { }
+
+    async startOptimization(semesterId: string) {
+        const job = await this.optimizationQueue.add('optimize-schedule', {
+            semesterId,
+            params: {
+                populationSize: 50,
+                maxGenerations: 100,
+                mutationRate: 0.02
+            }
+        });
+        return { message: 'Optimization started', jobId: job.id, semesterId };
+    }
+
+    async getJobStatus(jobId: string) {
+        const job = await this.optimizationQueue.getJob(jobId);
+        if (!job) return null;
+
+        const state = await job.getState();
+        const progress = job.progress;
+        const result = job.returnvalue;
+
+        return { id: job.id, state, progress, result };
+    }
+
+    async getResult(semesterId: string) {
+        const latestTkb = await this.prisma.generatedTimetable.findFirst({
+            where: { semester_id: semesterId },
+            orderBy: { created_at: 'desc' },
+            include: {
+                slots: true
+            }
+        });
+
+        if (!latestTkb) return [];
+
+        // Fetch Reference Data (Names)
+        const teacherIds = [...new Set(latestTkb.slots.map(t => t.teacher_id).filter(Boolean))];
+        const teachers = await this.prisma.teacher.findMany({
+            where: { id: { in: teacherIds as string[] } },
+            select: { id: true, full_name: true }
+        });
+        const teacherMap = new Map(teachers.map(t => [t.id, t.full_name]));
+
+        const roomIds = [...new Set(latestTkb.slots.map(t => t.room_id).filter(Boolean))];
+        const rooms = await this.prisma.room.findMany({
+            where: { id: { in: roomIds as number[] } },
+            select: { id: true, name: true }
+        });
+        const roomMap = new Map(rooms.map(r => [r.id, r.name]));
+
+        // Fetch Subject Names, Codes, Colors
+        const subjectIds = [...new Set(latestTkb.slots.map(t => t.subject_id).filter(Boolean))];
+        const subjects = await this.prisma.subject.findMany({
+            where: { id: { in: subjectIds as number[] } },
+            select: { id: true, name: true, code: true, color: true }
+        });
+        const subjectMap = new Map(subjects.map(s => [s.id, s]));
+
+        // Fetch Class Names
+        const classIds = [...new Set(latestTkb.slots.map(t => t.class_id).filter(Boolean))];
+        const classes = await this.prisma.class.findMany({
+            where: { id: { in: classIds as string[] } },
+            select: { id: true, name: true }
+        });
+        const classMap = new Map(classes.map(c => [c.id, c.name]));
+
+        const bestSchedule = latestTkb.slots.map(tiet => {
+            const subj = subjectMap.get(tiet.subject_id);
+            return {
+                id: tiet.id,
+                classId: tiet.class_id,
+                className: classMap.get(tiet.class_id),
+                subjectId: tiet.subject_id,
+                subjectName: subj?.name,
+                subject: subj ? { name: subj.name, code: subj.code, color: subj.color } : undefined,
+                teacherId: tiet.teacher_id,
+                teacherName: tiet.teacher_id ? teacherMap.get(tiet.teacher_id) : undefined,
+                roomId: tiet.room_id,
+                roomName: tiet.room_id ? roomMap.get(tiet.room_id) : undefined,
+                day: tiet.day,
+                period: tiet.period,
+                session: tiet.period <= 5 ? 0 : 1,
+                is_locked: tiet.is_locked
+            };
+        });
+
+        return {
+            bestSchedule,
+            fitness_score: latestTkb.fitness_score,
+            is_official: latestTkb.is_official,
+            generated_at: latestTkb.created_at
+        };
+    }
+}
