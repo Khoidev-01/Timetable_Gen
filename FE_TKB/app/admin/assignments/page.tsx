@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import AssignmentModal from '../../components/admin/AssignmentModal';
+import { API_URL } from '@/lib/api';
 
 interface Semester {
   id: string;
@@ -41,8 +42,6 @@ interface ImportResult {
   errors: Array<{ message: string; sheet: string; row: number; column: string }>;
   isError: boolean;
 }
-
-const API_URL = 'http://localhost:4000';
 
 function getFileNameFromDisposition(disposition: string | null, fallback: string) {
   if (!disposition) return fallback;

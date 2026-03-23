@@ -2,6 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import AccountModal from '../../components/admin/AccountModal';
+import { API_URL } from '@/lib/api';
 
 interface User {
     id: string;
@@ -19,7 +20,7 @@ export default function AccountsPage() {
     const fetchAccounts = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/users', {
+            const res = await fetch(`${API_URL}/users`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -40,8 +41,8 @@ export default function AccountsPage() {
     const handleSave = async (data: any) => {
         const token = localStorage.getItem('token');
         const url = selectedAccount
-            ? `http://localhost:4000/users/${selectedAccount.id}`
-            : 'http://localhost:4000/users';
+            ? `${API_URL}/users/${selectedAccount.id}`
+            : `${API_URL}/users`;
         const method = selectedAccount ? 'PUT' : 'POST';
 
         const res = await fetch(url, {
@@ -64,7 +65,7 @@ export default function AccountsPage() {
     const handleDelete = async (id: string) => {
         if (!confirm('Bạn có chắc chắn muốn xóa tài khoản này?')) return;
         const token = localStorage.getItem('token');
-        await fetch(`http://localhost:4000/users/${id}`, {
+        await fetch(`${API_URL}/users/${id}`, {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${token}` }
         });

@@ -2,6 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import TimetableGrid from '@/app/components/admin/TimetableGrid';
+import { API_URL } from '@/lib/api';
 
 interface Semester {
     id: string;
@@ -55,7 +56,7 @@ export default function TeacherSchedulePage() {
     const fetchSemesters = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/system/years', {
+            const res = await fetch(`${API_URL}/system/years`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -82,7 +83,7 @@ export default function TeacherSchedulePage() {
     const fetchTeachers = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/resources/teachers', {
+            const res = await fetch(`${API_URL}/resources/teachers`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -99,7 +100,7 @@ export default function TeacherSchedulePage() {
         setIsLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/algorithm/result/${selectedSemester}?teacherId=${viewTeacherId}`, {
+            const res = await fetch(`${API_URL}/algorithm/result/${selectedSemester}?teacherId=${viewTeacherId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {

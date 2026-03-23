@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ConstraintConfigController } from './constraint-config.controller';
 
-@Module({})
-export class ConstraintsModule {}
+@Module({
+    controllers: [ConstraintConfigController],
+})
+export class ConstraintsModule { }

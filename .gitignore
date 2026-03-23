@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+BE_TKB/dist/
+FE_TKB/.next/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+be-live.log
+
+# IDE
+.vscode/
+.idea/

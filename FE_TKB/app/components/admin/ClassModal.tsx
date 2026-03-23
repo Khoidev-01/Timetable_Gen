@@ -1,6 +1,7 @@
 
 'use client';
 import { useState, useEffect } from 'react';
+import { API_URL } from '@/lib/api';
 
 interface ClassModalProps {
     isOpen: boolean;
@@ -30,8 +31,8 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
             const headers = { Authorization: `Bearer ${token}` };
 
             const [roomsRes, teachersRes] = await Promise.all([
-                fetch('http://localhost:4000/resources/rooms', { headers }),
-                fetch('http://localhost:4000/resources/teachers', { headers })
+                fetch(`${API_URL}/resources/rooms`, { headers }),
+                fetch(`${API_URL}/resources/teachers`, { headers })
             ]);
 
             if (roomsRes.ok) setRooms(await roomsRes.json());

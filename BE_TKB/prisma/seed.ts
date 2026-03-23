@@ -2,6 +2,7 @@
 import { PrismaClient, PeriodType, RoomType } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -62,6 +63,15 @@ async function main() {
                 { code: 'GV_QP_1', full_name: 'GV QP 1', short_name: 'QP1', max_periods_per_week: 25 },
                 { code: 'BGH', full_name: 'Ban Giám Hiệu', short_name: 'BGH', max_periods_per_week: 0 }
             ]
+        });
+
+        // 2b. ADMIN USER
+        console.log('Seeding Admin User...');
+        const adminHash = await bcrypt.hash('123456', 10);
+        await prisma.user.upsert({
+            where: { username: 'admin' },
+            update: { password_hash: adminHash },
+            create: { username: 'admin', password_hash: adminHash, role: 'ADMIN' }
         });
 
         // 3. CLASSES (TS Implementation)

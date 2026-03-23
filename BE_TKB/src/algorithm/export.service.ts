@@ -58,9 +58,11 @@ export class ExportService {
     const slotMap = new Map<string, (typeof latestTimetable.slots)[number]>();
 
     latestTimetable.slots.forEach((slot) => {
-      const classInfo = classMap.get(slot.class_id);
-      if (!classInfo) return;
-      slotMap.set(`${slot.class_id}-${slot.day}-${classInfo.main_session}-${slot.period}`, slot);
+      // Derive session and relative period from absolute period
+      // period 1-5 = session 0 (Sang), period 6-10 = session 1 (Chieu)
+      const session = slot.period <= 5 ? 0 : 1;
+      const relativePeriod = slot.period <= 5 ? slot.period : slot.period - 5;
+      slotMap.set(`${slot.class_id}-${slot.day}-${session}-${relativePeriod}`, slot);
     });
 
     const days = [2, 3, 4, 5, 6, 7];

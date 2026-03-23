@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import TimetableGrid from '../../components/admin/TimetableGrid';
+import { API_URL } from '@/lib/api';
 
 interface Semester {
   id: string;
@@ -13,8 +14,6 @@ interface SchoolYear {
   name: string;
   semesters: Semester[];
 }
-
-const API_URL = 'http://localhost:4000';
 
 function getFileNameFromDisposition(disposition: string | null, fallback: string) {
   if (!disposition) return fallback;

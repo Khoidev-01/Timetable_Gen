@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '@/lib/api';
 
 interface Constraint {
     id: string;
@@ -26,7 +27,7 @@ export default function ConstraintConfig({ onClose }: ConstraintConfigProps) {
 
     const fetchConstraints = async () => {
         try {
-            const res = await fetch('http://localhost:4000/cau-hinh-rang-buoc');
+            const res = await fetch(`${API_URL}/cau-hinh-rang-buoc`);
             if (res.ok) {
                 const data = await res.json();
                 setConstraints(data);
@@ -40,7 +41,7 @@ export default function ConstraintConfig({ onClose }: ConstraintConfigProps) {
 
     const handleToggle = async (id: string, currentStatus: boolean) => {
         try {
-            await fetch(`http://localhost:4000/cau-hinh-rang-buoc/${id}`, {
+            await fetch(`${API_URL}/cau-hinh-rang-buoc/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_active: !currentStatus })
@@ -61,7 +62,7 @@ export default function ConstraintConfig({ onClose }: ConstraintConfigProps) {
 
     const updateWeightApi = async (id: string, weight: number) => {
         try {
-            await fetch(`http://localhost:4000/cau-hinh-rang-buoc/${id}`, {
+            await fetch(`${API_URL}/cau-hinh-rang-buoc/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ trong_so: weight })

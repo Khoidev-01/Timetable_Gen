@@ -1,1 +1,0 @@
-{"version":3,"file":"teacher-preference.constraint.js","sourceRoot":"","sources":["../../../../src/constraints/soft/teacher-preference.constraint.ts"],"names":[],"mappings":";;;AAAA,6EAA6G;AAE7G,MAAa,2BAA2B;IACpC,IAAI,GAAG,yCAAkB,CAAC,wBAAwB,CAAC;IACnD,QAAQ,GAAG,MAAe,CAAC;IAC3B,MAAM,GAAG,EAAE,CAAC;IAEZ,KAAK,CAAC,QAAwB;QAI1B,OAAO,IAAI,CAAC;IAChB,CAAC;CACJ;AAXD,kEAWC"}

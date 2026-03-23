@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { API_URL } from '@/lib/api';
 
 export default function TeacherProfilePage() {
     const [formData, setFormData] = useState({
@@ -22,7 +23,7 @@ export default function TeacherProfilePage() {
         setIsLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/auth/change-password', {
+            const res = await fetch(`${API_URL}/auth/change-password`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

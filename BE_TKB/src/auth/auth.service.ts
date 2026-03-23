@@ -1,16 +1,17 @@
 
 import { Injectable } from '@nestjs/common';
 import * as svgCaptcha from 'svg-captcha';
-import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
-    private readonly SECRET = 'MY_CAPTCHA_SECRET_KEY'; // Simple secret
+    private readonly SECRET = process.env.JWT_SECRET || 'MY_CAPTCHA_SECRET_KEY';
 
     constructor(
-        private usersService: UsersService,
+        private prisma: PrismaService,
         private jwtService: JwtService
     ) { }
 
@@ -22,8 +23,6 @@ export class AuthService {
             background: '#f0f0f0'
         });
 
-        // Simple "SessionID" = Hash(code + secret)
-        // In prod, use Redis or Session Store. Here we stay stateless.
         const hash = crypto.createHmac('sha256', this.SECRET)
             .update(captcha.text.toLowerCase())
             .digest('hex');
@@ -43,26 +42,31 @@ export class AuthService {
     }
 
     async validateUser(username: string, pass: string): Promise<any> {
-        // Check Admin
-        // const user = await this.usersService.findOne(username); // Assume UsersService has this
-        // Check logic manually for now or integrate with User Service
+        const user = await this.prisma.user.findUnique({
+            where: { username },
+            include: { teacher_profile: true }
+        });
 
-        // Mock Admin
-        if (username === 'admin' && pass === '123') {
-            return { id: 'admin', username: 'admin', role: 'ADMIN', full_name: 'Administrator' };
+        if (!user) return null;
+
+        // Compare password with bcrypt hash
+        const isMatch = await bcrypt.compare(pass, user.password_hash);
+        if (!isMatch) {
+            // Fallback: plain text comparison for legacy data
+            if (user.password_hash !== pass) return null;
         }
 
-        // Check DB via UsersService
-        // Need to update UsersService to supports findByUsername
-        // OR direct prisma call?
-        // Let's use Prisma directly via UsersService if available, or just mock for step 1
-
-        // Real implementation using findAll?
-        // Let's assume UsersService needs an update, or use PrismaService here directly?
-        // Better: Inject PrismaService if UsersService is scant.
-
-        // Actually, let me inject PrismaService here for speed as UsersService might be basic CRUD
-        return null; // Update this after checking UsersService
+        return {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            full_name: user.teacher_profile?.full_name || user.username,
+            teacher_profile: user.teacher_profile ? {
+                id: user.teacher_profile.id,
+                code: user.teacher_profile.code,
+                full_name: user.teacher_profile.full_name,
+            } : undefined
+        };
     }
 
     async login(user: any) {
@@ -71,5 +75,46 @@ export class AuthService {
             access_token: this.jwtService.sign(payload),
             user
         };
+    }
+
+    async getProfile(userId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: { teacher_profile: true }
+        });
+        if (!user) return null;
+        return {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            full_name: user.teacher_profile?.full_name || user.username,
+            teacherId: user.teacher_profile?.id || undefined,
+            teacher_profile: user.teacher_profile ? {
+                id: user.teacher_profile.id,
+                code: user.teacher_profile.code,
+                full_name: user.teacher_profile.full_name,
+            } : undefined
+        };
+    }
+
+    async changePassword(userId: string, oldPassword: string, newPassword: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new Error('User not found');
+
+        // Verify old password
+        const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
+        if (!isMatch) {
+            // Fallback plain text check
+            if (user.password_hash !== oldPassword) {
+                throw new Error('Mật khẩu cũ không đúng');
+            }
+        }
+
+        const hashedNew = await bcrypt.hash(newPassword, 10);
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { password_hash: hashedNew }
+        });
+        return { success: true, message: 'Đổi mật khẩu thành công' };
     }
 }

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { API_URL } from '@/lib/api';
 
 interface AssignmentDetailModalProps {
     isOpen: boolean;
@@ -38,8 +39,8 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
 
             // Fetch Assignments and Duties in parallel
             const [assignRes, dutyRes] = await Promise.all([
-                fetch(`http://localhost:4000/phan-cong-chuyen-mon/teacher/${teacher.id}`, { headers }),
-                fetch(`http://localhost:4000/kiem-nhiem/teacher/${teacher.id}`, { headers })
+                fetch(`${API_URL}/phan-cong-chuyen-mon/teacher/${teacher.id}`, { headers }),
+                fetch(`${API_URL}/kiem-nhiem/teacher/${teacher.id}`, { headers })
             ]);
 
             if (assignRes.ok) setAssignments(await assignRes.json());
@@ -57,8 +58,8 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
             const token = localStorage.getItem('token');
             const headers = { Authorization: `Bearer ${token}` };
             const [cRes, sRes] = await Promise.all([
-                fetch('http://localhost:4000/lop-hoc', { headers }),
-                fetch('http://localhost:4000/mon-hoc', { headers })
+                fetch(`${API_URL}/lop-hoc`, { headers }),
+                fetch(`${API_URL}/mon-hoc`, { headers })
             ]);
             if (cRes.ok) setClasses(await cRes.json());
             if (sRes.ok) setSubjects(await sRes.json());
@@ -79,14 +80,14 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
             let res;
             if (editingAssignmentId) {
                 // Update
-                res = await fetch(`http://localhost:4000/phan-cong-chuyen-mon/${editingAssignmentId}`, {
+                res = await fetch(`${API_URL}/phan-cong-chuyen-mon/${editingAssignmentId}`, {
                     method: 'PATCH',
                     headers,
                     body
                 });
             } else {
                 // Create
-                res = await fetch('http://localhost:4000/phan-cong-chuyen-mon', {
+                res = await fetch(`${API_URL}/phan-cong-chuyen-mon`, {
                     method: 'POST',
                     headers,
                     body
@@ -122,7 +123,7 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
         if (!confirm('Xóa phân công này?')) return;
         try {
             const token = localStorage.getItem('token');
-            await fetch(`http://localhost:4000/phan-cong-chuyen-mon/${id}`, {
+            await fetch(`${API_URL}/phan-cong-chuyen-mon/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -144,13 +145,13 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
 
             let res;
             if (editingDutyId) {
-                res = await fetch(`http://localhost:4000/kiem-nhiem/${editingDutyId}`, {
+                res = await fetch(`${API_URL}/kiem-nhiem/${editingDutyId}`, {
                     method: 'PATCH',
                     headers,
                     body
                 });
             } else {
-                res = await fetch('http://localhost:4000/kiem-nhiem', {
+                res = await fetch(`${API_URL}/kiem-nhiem`, {
                     method: 'POST',
                     headers,
                     body
@@ -185,7 +186,7 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
         if (!confirm('Xóa nhiệm vụ này?')) return;
         try {
             const token = localStorage.getItem('token');
-            await fetch(`http://localhost:4000/kiem-nhiem/${id}`, {
+            await fetch(`${API_URL}/kiem-nhiem/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` }
             });

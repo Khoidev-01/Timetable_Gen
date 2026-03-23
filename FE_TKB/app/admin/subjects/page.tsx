@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import SubjectModal from '../../components/admin/SubjectModal';
+import { API_URL } from '@/lib/api';
 
 // ... (Define Subject Interface with Batch Flags)
 interface Subject {
@@ -33,7 +34,7 @@ export default function SubjectsPage() {
             if (!t) return;
             setToken(t);
             setIsLoading(true);
-            const res = await fetch('http://localhost:4000/resources/subjects', {
+            const res = await fetch(`${API_URL}/resources/subjects`, {
                 headers: { Authorization: `Bearer ${t}` }
             });
             if (res.ok) {
@@ -86,7 +87,7 @@ export default function SubjectsPage() {
         try {
             // 1. Delete
             const delPromises = deletedIds.map(id =>
-                fetch(`http://localhost:4000/resources/subjects/${id}`, {
+                fetch(`${API_URL}/resources/subjects/${id}`, {
                     method: 'DELETE',
                     headers: { Authorization: `Bearer ${token}` }
                 })
@@ -96,7 +97,7 @@ export default function SubjectsPage() {
             const newItems = subjects.filter(s => s.isNew);
             const createPromises = newItems.map(s => {
                 const { id, isNew, isModified, tempId, ...payload } = s;
-                return fetch('http://localhost:4000/resources/subjects', {
+                return fetch(`${API_URL}/resources/subjects`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify(payload)
@@ -107,7 +108,7 @@ export default function SubjectsPage() {
             const modItems = subjects.filter(s => s.isModified && !s.isNew);
             const updatePromises = modItems.map(s => {
                 const { id, isNew, isModified, tempId, ...payload } = s;
-                return fetch(`http://localhost:4000/resources/subjects/${id}`, {
+                return fetch(`${API_URL}/resources/subjects/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify(payload)

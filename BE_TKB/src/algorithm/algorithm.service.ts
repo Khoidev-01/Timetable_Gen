@@ -421,21 +421,43 @@ export class AlgorithmService {
     }
 
     private calculateFitness(slots: any[]): number {
-        const violations = this.constraintService.checkHardConstraints(slots);
-        return 1000 - (violations * 100);
+        const hardViolations = this.constraintService.checkHardConstraints(slots);
+        const softPenalty = this.constraintService.calculatePenalty(slots);
+        return 1000 - (hardViolations * 100) - softPenalty;
     }
 
     private getConflicts(slots: any[]): any[] {
         const conflictedSlots: any[] = [];
-        const map = new Map<string, any[]>();
+
+        // Teacher conflicts
+        const teacherMap = new Map<string, any[]>();
         slots.forEach(s => {
-            const key = `${s.teacherId}-${s.day}-${s.period}`;
-            if (!map.has(key)) map.set(key, []);
-            map.get(key)!.push(s);
+            const key = `teacher-${s.teacherId}-${s.day}-${s.period}`;
+            if (!teacherMap.has(key)) teacherMap.set(key, []);
+            teacherMap.get(key)!.push(s);
         });
-        map.forEach(group => {
+        teacherMap.forEach(group => {
             if (group.length > 1) conflictedSlots.push(...group);
         });
+
+        // Class conflicts
+        const classMap = new Map<string, any[]>();
+        slots.forEach(s => {
+            const key = `class-${s.classId}-${s.day}-${s.period}`;
+            if (!classMap.has(key)) classMap.set(key, []);
+            classMap.get(key)!.push(s);
+        });
+        classMap.forEach(group => {
+            if (group.length > 1) conflictedSlots.push(...group);
+        });
+
+        // Teacher busy time violations
+        for (const s of slots) {
+            if (this.constraintService.isTeacherBusy(s.teacherId, s.day, s.period)) {
+                conflictedSlots.push(s);
+            }
+        }
+
         return conflictedSlots;
     }
 
@@ -492,14 +514,11 @@ export class AlgorithmService {
     async moveSlot(data: { slotId: string, newDay: number, newPeriod: number }) {
         const { slotId, newDay, newPeriod } = data;
 
-        // 1. Get Source Slot
         const sourceSlot = await this.prisma.timetableSlot.findUnique({
             where: { id: slotId }
         });
         if (!sourceSlot) throw new Error('Slot not found');
 
-        // 2. Find Target Slot (Same Class, Target Time)
-        // We assume we are moving within the Class Grid context.
         const targetSlot = await this.prisma.timetableSlot.findFirst({
             where: {
                 timetable_id: sourceSlot.timetable_id,
@@ -509,37 +528,32 @@ export class AlgorithmService {
             }
         });
 
-        const updates: any[] = [];
-
         if (targetSlot) {
-            // SWAP with 3-Step to avoid Unique Constraint (timetable_id, class_id, day, period)
-
-            // 1. Move Source to Temp
-            updates.push(this.prisma.timetableSlot.update({
-                where: { id: sourceSlot.id },
-                data: { day: 9, period: 99 } // Temp values
-            }));
-
-            // 2. Move Target to Source's Original Position
-            updates.push(this.prisma.timetableSlot.update({
-                where: { id: targetSlot.id },
-                data: { day: sourceSlot.day, period: sourceSlot.period, is_locked: true }
-            }));
-
-            // 3. Move Source (from Temp) to Target's Original Position
-            updates.push(this.prisma.timetableSlot.update({
-                where: { id: sourceSlot.id },
-                data: { day: newDay, period: newPeriod, is_locked: true }
-            }));
+            // SWAP with sequential transaction to avoid unique constraint violations
+            await this.prisma.$transaction(async (tx) => {
+                // 1. Move Source to temp position
+                await tx.timetableSlot.update({
+                    where: { id: sourceSlot.id },
+                    data: { day: 0, period: 0 }
+                });
+                // 2. Move Target to Source's original position
+                await tx.timetableSlot.update({
+                    where: { id: targetSlot.id },
+                    data: { day: sourceSlot.day, period: sourceSlot.period, is_locked: true }
+                });
+                // 3. Move Source to Target's original position
+                await tx.timetableSlot.update({
+                    where: { id: sourceSlot.id },
+                    data: { day: newDay, period: newPeriod, is_locked: true }
+                });
+            });
         } else {
-            // MOVE to Empty
-            updates.push(this.prisma.timetableSlot.update({
+            await this.prisma.timetableSlot.update({
                 where: { id: sourceSlot.id },
                 data: { day: newDay, period: newPeriod, is_locked: true }
-            }));
+            });
         }
 
-        await this.prisma.$transaction(updates);
         return { success: true };
     }
     async toggleLock(slotId: string) {

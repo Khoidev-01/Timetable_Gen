@@ -1,6 +1,7 @@
 
 'use client';
 import { useState, useEffect } from 'react';
+import { API_URL } from '@/lib/api';
 
 interface AccountModalProps {
     isOpen: boolean;
@@ -141,7 +142,7 @@ function TeacherSelect({ value, onChange }: { value: string, onChange: (val: str
         const fetchTeachers = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const res = await fetch('http://localhost:4000/resources/teachers', {
+                const res = await fetch(`${API_URL}/resources/teachers`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (res.ok) {

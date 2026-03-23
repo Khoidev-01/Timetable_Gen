@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { API_URL } from '@/lib/api';
 
 interface ConstraintConfig {
     id: string;
@@ -22,7 +23,7 @@ export default function ConfigurationPage() {
     const fetchConstraints = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:4000/cau-hinh-rang-buoc', {
+            const res = await fetch(`${API_URL}/cau-hinh-rang-buoc`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -44,7 +45,7 @@ export default function ConfigurationPage() {
     const handleToggleActive = async (id: string, currentState: boolean) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/cau-hinh-rang-buoc/${id}`, {
+            const res = await fetch(`${API_URL}/cau-hinh-rang-buoc/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -66,7 +67,7 @@ export default function ConfigurationPage() {
     const handleWeightChange = async (id: string, newWeight: number) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/cau-hinh-rang-buoc/${id}`, {
+            const res = await fetch(`${API_URL}/cau-hinh-rang-buoc/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

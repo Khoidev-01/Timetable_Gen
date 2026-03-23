@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '@/lib/api';
 
 interface LoginProps {
     onLoginSuccess: (user: any) => void;
@@ -18,7 +19,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     const fetchCaptcha = async () => {
         try {
             // updated port
-            const res = await fetch('http://localhost:4000/auth/captcha', { method: 'POST' });
+            const res = await fetch(`${API_URL}/auth/captcha`, { method: 'POST' });
             const data = await res.json();
             setCaptchaSvg(data.img);
             setCaptchaSessionId(data.sessionId);
@@ -37,7 +38,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         setIsLoading(true);
 
         try {
-            const res = await fetch('http://localhost:4000/auth/login', {
+            const res = await fetch(`${API_URL}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

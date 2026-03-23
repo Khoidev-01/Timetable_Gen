@@ -8,6 +8,7 @@ import { DraggableLesson } from './dnd/DraggableLesson';
 import { DroppableCell } from './dnd/DroppableCell';
 import TeacherRegistration from './TeacherRegistration';
 import ConstraintConfig from './ConstraintConfig';
+import { API_URL } from '@/lib/api';
 
 // Fallback data (Moved outside to be shared)
 const FALLBACK_SUBJECTS = [
@@ -125,9 +126,9 @@ export default function TimetableGrid({ currentUser, onLogout }: TimetableGridPr
 
                 // 1. Fetch Metadata (Classes, Subjects, Teachers)
                 const [classRes, metaRes, scheduleRes] = await Promise.all([
-                    fetch(`http://localhost:4000/algorithm/classes/${SEMESTER_ID}`),
-                    fetch(`http://localhost:4000/algorithm/metadata`),
-                    fetch(`http://localhost:4000/algorithm/result/${SEMESTER_ID}`)
+                    fetch(`${API_URL}/algorithm/classes/${SEMESTER_ID}`),
+                    fetch(`${API_URL}/algorithm/metadata`),
+                    fetch(`${API_URL}/algorithm/result/${SEMESTER_ID}`)
                 ]);
 
                 const classData = await classRes.json();
@@ -227,7 +228,7 @@ export default function TimetableGrid({ currentUser, onLogout }: TimetableGridPr
                 schedule: schedule
             };
 
-            const response = await fetch('http://localhost:4000/algorithm/save', {
+            const response = await fetch(`${API_URL}/algorithm/save`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -262,7 +263,7 @@ export default function TimetableGrid({ currentUser, onLogout }: TimetableGridPr
 
         setIsSendingFeedback(true);
         try {
-            const response = await fetch('http://localhost:4000/phan-hoi', {
+            const response = await fetch(`${API_URL}/phan-hoi`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -300,7 +301,7 @@ export default function TimetableGrid({ currentUser, onLogout }: TimetableGridPr
         // Call Backend API
         /*
         try {
-            await fetch(`http://localhost:4000/algorithm/lock/${lessonId}`, { method: 'POST' });
+            await fetch(`${API_URL}/algorithm/lock/${lessonId}`, { method: 'POST' });
         } catch (error) {
             console.error("Failed to lock lesson:", error);
             // Revert on failure
@@ -438,7 +439,7 @@ export default function TimetableGrid({ currentUser, onLogout }: TimetableGridPr
                         <button
                             onClick={() => {
                                 const SEMESTER_ID = 'e4c0a561-144a-4fbe-9016-40023b8f1a95';
-                                window.open(`http://localhost:4000/data-export/${SEMESTER_ID}`, '_blank');
+                                window.open(`${API_URL}/data-export/${SEMESTER_ID}`, '_blank');
                             }}
                             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition-all"
                         >

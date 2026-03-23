@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import TeacherModal from '../../components/admin/TeacherModal';
+import { API_URL } from '@/lib/api';
 
 interface Teacher {
   id: string;
@@ -26,7 +27,7 @@ export default function TeachersPage() {
       if (!currentToken) return;
 
       setToken(currentToken);
-      const response = await fetch('http://localhost:4000/resources/teachers', {
+      const response = await fetch(`${API_URL}/resources/teachers`, {
         headers: { Authorization: `Bearer ${currentToken}` },
       });
       if (response.ok) {
@@ -47,7 +48,7 @@ export default function TeachersPage() {
     if (!confirm('Bạn có chắc muốn xóa giáo viên này?')) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/resources/teachers/${id}`, {
+      const response = await fetch(`${API_URL}/resources/teachers/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -65,8 +66,8 @@ export default function TeachersPage() {
   const handleSave = async (data: any) => {
     try {
       const url = editingTeacher
-        ? `http://localhost:4000/resources/teachers/${editingTeacher.id}`
-        : 'http://localhost:4000/resources/teachers';
+        ? `${API_URL}/resources/teachers/${editingTeacher.id}`
+        : `${API_URL}/resources/teachers`;
       const method = editingTeacher ? 'PUT' : 'POST';
 
       const response = await fetch(url, {

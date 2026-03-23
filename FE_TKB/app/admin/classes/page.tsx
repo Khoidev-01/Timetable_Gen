@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import ClassModal from '../../components/admin/ClassModal';
+import { API_URL } from '@/lib/api';
 
 interface ClassData {
     id: string;
@@ -24,7 +25,7 @@ export default function ClassesPage() {
             if (!t) return;
             setToken(t);
 
-            const res = await fetch('http://localhost:4000/organization/classes', {
+            const res = await fetch(`${API_URL}/organization/classes`, {
                 headers: { Authorization: `Bearer ${t}` }
             });
             if (res.ok) {
@@ -45,7 +46,7 @@ export default function ClassesPage() {
     const handleDelete = async (id: string) => {
         if (!confirm('Bạn có chắc chắn muốn xóa lớp này?')) return;
         try {
-            const res = await fetch(`http://localhost:4000/organization/classes/${id}`, {
+            const res = await fetch(`${API_URL}/organization/classes/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -59,8 +60,8 @@ export default function ClassesPage() {
     const handleSave = async (data: any) => {
         try {
             const url = editingClass
-                ? `http://localhost:4000/organization/classes/${editingClass.id}`
-                : 'http://localhost:4000/organization/classes';
+                ? `${API_URL}/organization/classes/${editingClass.id}`
+                : `${API_URL}/organization/classes`;
             const method = editingClass ? 'PUT' : 'POST';
 
             const res = await fetch(url, {

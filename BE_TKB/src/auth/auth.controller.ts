@@ -1,16 +1,19 @@
 
-import { Controller, Post, Body, Res, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Patch, Res, Req, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import type { Response } from 'express';
+import { JwtService } from '@nestjs/jwt';
+import type { Response, Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
-    constructor(private authService: AuthService) { }
+    constructor(
+        private authService: AuthService,
+        private jwtService: JwtService
+    ) { }
 
     @Post('captcha')
     async getCaptcha(@Res() res: Response) {
         const captcha = this.authService.createCaptcha();
-        // Return 200 OK with JSON
         res.status(200).send(captcha);
     }
 
@@ -30,5 +33,34 @@ export class AuthController {
 
         // 3. Login (Generate JWT)
         return this.authService.login(user);
+    }
+
+    @Get('profile')
+    async getProfile(@Req() req: Request) {
+        const user = this.extractUser(req);
+        const profile = await this.authService.getProfile(user.sub);
+        if (!profile) throw new UnauthorizedException('User not found');
+        return profile;
+    }
+
+    @Patch('change-password')
+    async changePassword(@Req() req: Request, @Body() body: any) {
+        const user = this.extractUser(req);
+        try {
+            return await this.authService.changePassword(user.sub, body.oldPassword, body.newPassword);
+        } catch (e: any) {
+            throw new BadRequestException(e.message);
+        }
+    }
+
+    private extractUser(req: Request): any {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) throw new UnauthorizedException('Missing authorization header');
+        const token = authHeader.replace('Bearer ', '');
+        try {
+            return this.jwtService.verify(token);
+        } catch {
+            throw new UnauthorizedException('Invalid token');
+        }
     }
 }

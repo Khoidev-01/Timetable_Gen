@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { API_URL } from '@/lib/api';
 
 interface BusySlot {
     day: number;
@@ -26,7 +27,7 @@ export default function TeacherFeedbackPage() {
                 } else {
                     // Fallback: Fetch Profile from /auth/profile which returns teacherId
                     try {
-                        const res = await fetch(`http://localhost:4000/auth/profile`, {
+                        const res = await fetch(`${API_URL}/auth/profile`, {
                             headers: { Authorization: `Bearer ${token}` }
                         });
                         const profile = await res.json();
@@ -49,7 +50,7 @@ export default function TeacherFeedbackPage() {
 
     const fetchCurrentBusyData = async (tid: string, token: string) => {
         try {
-            const res = await fetch(`http://localhost:4000/giao-vien/${tid}`, {
+            const res = await fetch(`${API_URL}/giao-vien/${tid}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -88,7 +89,7 @@ export default function TeacherFeedbackPage() {
         setMessage({ type: '', text: '' });
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:4000/giao-vien/${teacherId}/busy-time`, {
+            const res = await fetch(`${API_URL}/giao-vien/${teacherId}/busy-time`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

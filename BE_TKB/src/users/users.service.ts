@@ -1,6 +1,7 @@
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
@@ -16,22 +17,30 @@ export class UsersService {
         return user;
     }
 
+    async findByUsername(username: string) {
+        return this.prisma.user.findUnique({ where: { username }, include: { teacher_profile: true } });
+    }
+
     async create(data: any) {
-        // In a real app, hash password here.
-        // mapping plain password to password_hash if provided
         const { password, ...rest } = data;
-        const payload = { ...rest, password_hash: password || '123456' };
-        return this.prisma.user.create({ data: payload });
+        const hashedPassword = await bcrypt.hash(password || '123456', 10);
+        return this.prisma.user.create({
+            data: { ...rest, password_hash: hashedPassword },
+            include: { teacher_profile: true }
+        });
     }
 
     async update(id: string, data: any) {
         const { password, ...rest } = data;
-        const payload = { ...rest };
-        if (password) payload.password_hash = password;
+        const payload: any = { ...rest };
+        if (password) {
+            payload.password_hash = await bcrypt.hash(password, 10);
+        }
 
         return this.prisma.user.update({
             where: { id },
-            data: payload
+            data: payload,
+            include: { teacher_profile: true }
         });
     }
 

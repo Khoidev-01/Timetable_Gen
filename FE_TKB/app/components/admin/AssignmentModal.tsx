@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { API_URL } from '@/lib/api';
 
 interface AssignmentModalProps {
   isOpen: boolean;
@@ -34,9 +35,9 @@ export default function AssignmentModal({
       const headers = { Authorization: `Bearer ${token}` };
 
       const [teacherRes, classRes, subjectRes] = await Promise.all([
-        fetch('http://localhost:4000/resources/teachers', { headers }),
-        fetch('http://localhost:4000/organization/classes', { headers }),
-        fetch('http://localhost:4000/resources/subjects', { headers }),
+        fetch(`${API_URL}/resources/teachers`, { headers }),
+        fetch(`${API_URL}/organization/classes`, { headers }),
+        fetch(`${API_URL}/resources/subjects`, { headers }),
       ]);
 
       if (teacherRes.ok) setTeachers(await teacherRes.json());

@@ -14,6 +14,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { WorkerModule } from './worker/worker.module';
 import { AuthModule } from './auth/auth.module';
 import { ExcelModule } from './excel/excel.module';
+import { ConstraintsModule } from './constraints/constraints.module';
 
 @Module({
   imports: [
@@ -30,11 +31,11 @@ import { ExcelModule } from './excel/excel.module';
     OrganizationModule,
     AssignmentsModule,
     TimetablesModule,
-    TimetablesModule,
     AlgorithmModule,
     WorkerModule,
     AuthModule,
     ExcelModule,
+    ConstraintsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

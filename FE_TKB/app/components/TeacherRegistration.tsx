@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '@/lib/api';
 
 interface TeacherRegistrationProps {
     teacherId: string;
@@ -16,7 +17,7 @@ export default function TeacherRegistration({ teacherId, onClose }: TeacherRegis
     useEffect(() => {
         const fetchTeacher = async () => {
             try {
-                const res = await fetch(`http://localhost:4000/giao-vien/${teacherId}`);
+                const res = await fetch(`${API_URL}/giao-vien/${teacherId}`);
 
                 if (!res.ok) {
                     if (res.status === 404) {
@@ -69,7 +70,7 @@ export default function TeacherRegistration({ teacherId, onClose }: TeacherRegis
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await fetch(`http://localhost:4000/giao-vien/${teacherId}`, {
+            await fetch(`${API_URL}/giao-vien/${teacherId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
