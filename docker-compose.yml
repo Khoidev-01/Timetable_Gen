@@ -64,6 +64,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    environment:
+      PORT: 3000
     expose:
       - "3000"
     healthcheck:
