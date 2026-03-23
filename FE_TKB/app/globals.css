@@ -1,40 +1,70 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-accent: #8b5cf6;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ---- Light Mode (default) ---- */
+:root {
+  --bg-base: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f1f5f9;
+  --bg-sidebar: #0f172a;
+  --bg-sidebar-hover: #1e293b;
+  --bg-sidebar-active: #2563eb;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-sidebar: #cbd5e1;
+  --border-default: #e2e8f0;
+  --border-light: #f1f5f9;
+  --shadow-color: rgba(0, 0, 0, 0.05);
+}
+
+/* ---- Dark Mode ---- */
+.dark {
+  --bg-base: #0f172a;
+  --bg-surface: #1e293b;
+  --bg-surface-hover: #334155;
+  --bg-sidebar: #020617;
+  --bg-sidebar-hover: #0f172a;
+  --bg-sidebar-active: #2563eb;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-sidebar: #94a3b8;
+  --border-default: #334155;
+  --border-light: #1e293b;
+  --shadow-color: rgba(0, 0, 0, 0.3);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  transition: background-color 0.2s, color 0.2s;
 }
 
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ---- Utility ---- */
 .writing-vertical {
   writing-mode: vertical-rl;
-  text-orientation: upright; /* Or mixed/sideways depending on preference, actually vertical-rl usually rotates text flow */
-}
-/* Specifically for the header style I used: transform -rotate-90 combined with writing-mode might be tricky.
-   Let's just use CSS transform and standard text for now, or just writing-mode: vertical-lr.
-   Actually, standard Tailwind doesn't have it.
-   Let's stick to inline style or just simple CSS class.
-*/
-.writing-vertical {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
+  text-orientation: mixed;
 }
