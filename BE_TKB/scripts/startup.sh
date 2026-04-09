@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-echo "Running Prisma migrations..."
-npx prisma migrate deploy
+echo "Syncing database schema..."
+npx prisma db push --skip-generate
 
 echo "Seeding admin user if not exists..."
 node scripts/seed-admin.js
