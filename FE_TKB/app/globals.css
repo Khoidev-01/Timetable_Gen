@@ -45,6 +45,18 @@ body {
   color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   transition: background-color 0.2s, color 0.2s;
+  color-scheme: light;
+}
+
+.dark body,
+.dark {
+  color-scheme: dark;
+}
+
+/* Native select/option elements */
+.dark select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 /* ---- Scrollbar ---- */

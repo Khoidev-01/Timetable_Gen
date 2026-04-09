@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import TimetableGrid from '../../components/admin/TimetableGrid';
@@ -40,6 +40,7 @@ export default function TimetablePage() {
   const [classes, setClasses] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [isYearModalOpen, setIsYearModalOpen] = useState(false);
+  const [editingYearId, setEditingYearId] = useState<string | null>(null);
   const [newYearName, setNewYearName] = useState('');
   const [newYearStart, setNewYearStart] = useState('');
   const [newYearEnd, setNewYearEnd] = useState('');
@@ -115,13 +116,35 @@ export default function TimetablePage() {
     }
   };
 
-  const handleCreateYear = async (event: React.FormEvent) => {
+  const openCreateYearModal = () => {
+    setEditingYearId(null);
+    setNewYearName('');
+    setNewYearStart('');
+    setNewYearEnd('');
+    setIsYearModalOpen(true);
+  };
+
+  const openEditYearModal = () => {
+    const year = years.find((y) => y.id === selectedYearId) as any;
+    if (!year) return;
+    setEditingYearId(year.id);
+    setNewYearName(year.name);
+    setNewYearStart(year.start_date ? new Date(year.start_date).toISOString().split('T')[0] : '');
+    setNewYearEnd(year.end_date ? new Date(year.end_date).toISOString().split('T')[0] : '');
+    setIsYearModalOpen(true);
+  };
+
+  const handleSaveYear = async (event: React.FormEvent) => {
     event.preventDefault();
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/system/years`, {
-        method: 'POST',
+      const isEditing = !!editingYearId;
+      const url = isEditing ? `${API_URL}/system/years/${editingYearId}` : `${API_URL}/system/years`;
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -130,24 +153,51 @@ export default function TimetablePage() {
           name: newYearName,
           start_date: new Date(newYearStart),
           end_date: new Date(newYearEnd),
-          status: 'ACTIVE',
+          ...(!isEditing && { status: 'ACTIVE' }),
         }),
       });
 
       if (!response.ok) {
-        showToast('Không thể tạo năm học.', 'error');
+        const err = await response.json().catch(() => null);
+        showToast(err?.message || `Không thể ${isEditing ? 'cập nhật' : 'tạo'} năm học.`, 'error');
         return;
       }
 
       setIsYearModalOpen(false);
-      setNewYearName('');
-      setNewYearStart('');
-      setNewYearEnd('');
+      setEditingYearId(null);
       fetchYears();
-      showToast('Đã thêm năm học mới.', 'success');
+      showToast(isEditing ? 'Đã cập nhật năm học.' : 'Đã thêm năm học mới.', 'success');
     } catch (error) {
       console.error(error);
-      showToast('Lỗi kết nối khi tạo năm học.', 'error');
+      showToast('Lỗi kết nối.', 'error');
+    }
+  };
+
+  const handleDeleteYear = async () => {
+    if (!selectedYearId) return;
+    const year = years.find((y) => y.id === selectedYearId);
+    if (!confirm(`Bạn có chắc muốn xóa năm học "${year?.name}"? Thao tác này không thể hoàn tác.`)) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/system/years/${selectedYearId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        showToast(err?.message || 'Không thể xóa năm học.', 'error');
+        return;
+      }
+
+      setSelectedYearId('');
+      setSelectedSemesterId('');
+      fetchYears();
+      showToast('Đã xóa năm học.', 'success');
+    } catch (error) {
+      console.error(error);
+      showToast('Lỗi kết nối khi xóa năm học.', 'error');
     }
   };
 
@@ -351,7 +401,7 @@ export default function TimetablePage() {
     <div className="relative space-y-6 pb-20">
       {toast && (
         <div
-          className={`fixed right-6 top-20 z-50 rounded-lg border-l-4 bg-white px-6 py-4 shadow-lg ${
+          className={`fixed right-6 top-20 z-50 rounded-lg border-l-4 bg-[var(--bg-surface)] px-6 py-4 shadow-lg ${
             toast.type === 'success'
               ? 'border-green-500 text-green-700'
               : 'border-red-500 text-red-700'
@@ -361,22 +411,40 @@ export default function TimetablePage() {
         </div>
       )}
 
-      <h1 className="text-2xl font-bold text-gray-800">Xếp thời khóa biểu</h1>
+      <h1 className="text-2xl font-bold text-[var(--text-primary)]">Xếp thời khóa biểu</h1>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-sm">
         <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="block text-sm font-bold text-gray-800">Năm học</label>
-              <button
-                onClick={() => setIsYearModalOpen(true)}
-                className="rounded bg-blue-100 px-2 py-1 text-xs font-bold text-blue-600 hover:bg-blue-200"
-              >
-                + Thêm
-              </button>
+              <label className="block text-sm font-bold text-[var(--text-primary)]">Năm học</label>
+              <div className="flex gap-1">
+                <button
+                  onClick={openEditYearModal}
+                  disabled={!selectedYearId}
+                  className="rounded bg-amber-100 px-2 py-1 text-xs font-bold text-amber-600 hover:bg-amber-200 disabled:opacity-40"
+                  title="Sửa năm học"
+                >
+                  ✏️ Sửa
+                </button>
+                <button
+                  onClick={handleDeleteYear}
+                  disabled={!selectedYearId}
+                  className="rounded bg-red-100 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-200 disabled:opacity-40"
+                  title="Xóa năm học"
+                >
+                  🗑️
+                </button>
+                <button
+                  onClick={openCreateYearModal}
+                  className="rounded bg-blue-100 px-2 py-1 text-xs font-bold text-blue-600 hover:bg-blue-200"
+                >
+                  + Thêm
+                </button>
+              </div>
             </div>
             <select
-              className="w-full rounded-lg border border-gray-300 bg-white p-2 font-medium text-black"
+              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 font-medium text-[var(--text-primary)]"
               value={selectedYearId}
               onChange={(event) => {
                 const year = years.find((item) => item.id === event.target.value);
@@ -393,9 +461,9 @@ export default function TimetablePage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-800">Học kỳ</label>
+            <label className="mb-2 block text-sm font-bold text-[var(--text-primary)]">Học kỳ</label>
             <select
-              className="w-full rounded-lg border border-gray-300 bg-white p-2 font-medium text-black"
+              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 font-medium text-[var(--text-primary)]"
               value={selectedSemesterId}
               onChange={(event) => setSelectedSemesterId(event.target.value)}
             >
@@ -442,20 +510,20 @@ export default function TimetablePage() {
       </div>
 
       {result?.bestSchedule && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-sm">
           <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <h2 className="text-xl font-bold text-gray-800">Thời khóa biểu hoàn chỉnh</h2>
-              <div className="mt-1 text-sm text-gray-500">
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">Thời khóa biểu hoàn chỉnh</h2>
+              <div className="mt-1 text-sm text-[var(--text-muted)]">
                 Fitness: {result.fitness_score ?? '---'}
               </div>
             </div>
 
-            <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 p-2">
-              <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+            <div className="flex items-center gap-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] p-2">
+              <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-sm">
                 <button
                   className={`px-4 py-2 text-sm font-medium ${
-                    viewMode === 'CLASS' ? 'bg-blue-600 text-white' : 'text-gray-600'
+                    viewMode === 'CLASS' ? 'bg-blue-600 text-white' : 'text-[var(--text-secondary)]'
                   }`}
                   onClick={() => setViewMode('CLASS')}
                 >
@@ -463,7 +531,7 @@ export default function TimetablePage() {
                 </button>
                 <button
                   className={`px-4 py-2 text-sm font-medium ${
-                    viewMode === 'TEACHER' ? 'bg-blue-600 text-white' : 'text-gray-600'
+                    viewMode === 'TEACHER' ? 'bg-blue-600 text-white' : 'text-[var(--text-secondary)]'
                   }`}
                   onClick={() => setViewMode('TEACHER')}
                 >
@@ -472,7 +540,7 @@ export default function TimetablePage() {
               </div>
 
               <select
-                className="min-w-[220px] rounded-md border border-gray-400 bg-white p-2 text-base font-semibold text-black"
+                className="min-w-[220px] rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-base font-semibold text-[var(--text-primary)]"
                 value={selectedEntityId}
                 onChange={(event) => setSelectedEntityId(event.target.value)}
               >
@@ -503,22 +571,22 @@ export default function TimetablePage() {
 
       {isYearModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-6 py-4">
-              <h3 className="text-lg font-bold text-gray-800">Thêm năm học mới</h3>
-              <button onClick={() => setIsYearModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-[var(--bg-surface)] shadow-xl">
+            <div className="flex items-center justify-between border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-6 py-4">
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">{editingYearId ? 'Sửa năm học' : 'Thêm năm học mới'}</h3>
+              <button onClick={() => setIsYearModalOpen(false)} className="text-gray-400 hover:text-[var(--text-secondary)]">
                 ×
               </button>
             </div>
-            <form onSubmit={handleCreateYear} className="space-y-4 p-6">
+            <form onSubmit={handleSaveYear} className="space-y-4 p-6">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
                   Tên năm học (ví dụ: 2026-2027)
                 </label>
                 <input
                   type="text"
                   required
-                  className="w-full rounded-lg border border-gray-300 p-2"
+                  className="w-full rounded-lg border border-[var(--border-default)] p-2"
                   value={newYearName}
                   onChange={(event) => setNewYearName(event.target.value)}
                   placeholder="2026-2027"
@@ -526,21 +594,21 @@ export default function TimetablePage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Ngày bắt đầu</label>
+                  <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Ngày bắt đầu</label>
                   <input
                     type="date"
                     required
-                    className="w-full rounded-lg border border-gray-300 p-2"
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-primary)]"
                     value={newYearStart}
                     onChange={(event) => setNewYearStart(event.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Ngày kết thúc</label>
+                  <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Ngày kết thúc</label>
                   <input
                     type="date"
                     required
-                    className="w-full rounded-lg border border-gray-300 p-2"
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-primary)]"
                     value={newYearEnd}
                     onChange={(event) => setNewYearEnd(event.target.value)}
                   />
@@ -550,7 +618,7 @@ export default function TimetablePage() {
                 <button
                   type="button"
                   onClick={() => setIsYearModalOpen(false)}
-                  className="rounded-lg bg-gray-100 px-4 py-2 font-medium text-gray-600 hover:bg-gray-200"
+                  className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 font-medium text-[var(--text-secondary)] hover:bg-gray-200"
                 >
                   Hủy
                 </button>
@@ -558,7 +626,7 @@ export default function TimetablePage() {
                   type="submit"
                   className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700"
                 >
-                  Tạo mới
+                  {editingYearId ? 'Lưu thay đổi' : 'Tạo mới'}
                 </button>
               </div>
             </form>

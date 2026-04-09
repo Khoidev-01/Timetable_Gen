@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { API_URL } from '@/lib/api';
@@ -94,18 +94,18 @@ export default function AssignmentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-6 py-4">
-          <h3 className="text-lg font-bold text-gray-800">
+        <div className="flex items-center justify-between border-b border-[var(--border-light)] bg-[var(--bg-surface-hover)] px-6 py-4">
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">
             {initialData ? 'Cập nhật phân công' : 'Thêm phân công'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-gray-400 hover:text-[var(--text-secondary)]">
             ×
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Giáo viên</label>
+            <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Giáo viên</label>
             <select
               className="w-full rounded-lg border px-3 py-2"
               required
@@ -123,7 +123,7 @@ export default function AssignmentModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Lớp</label>
+              <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Lớp</label>
               <select
                 className="w-full rounded-lg border px-3 py-2"
                 required
@@ -140,7 +140,7 @@ export default function AssignmentModal({
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Môn học</label>
+              <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Môn học</label>
               <select
                 className="w-full rounded-lg border px-3 py-2"
                 required
@@ -158,7 +158,7 @@ export default function AssignmentModal({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Số tiết / tuần</label>
+            <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Số tiết / tuần</label>
             <input
               type="number"
               min={1}
@@ -170,11 +170,11 @@ export default function AssignmentModal({
             />
           </div>
 
-          <div className="mt-4 flex justify-end gap-3 border-t border-gray-100 pt-4">
+          <div className="mt-4 flex justify-end gap-3 border-t border-[var(--border-light)] pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200"
+              className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 text-[var(--text-secondary)] hover:bg-gray-200"
             >
               Hủy
             </button>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -34,7 +34,7 @@ export default function AdminSidebar({ onLogout }: { onLogout: () => void }) {
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'} p-4 border-b border-white/10`}>
           {!collapsed && <AppLogo size="sm" />}
           <button onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-sidebar)] transition-colors">
+            className="p-1.5 rounded-lg hover:bg-[var(--bg-surface)]/10 text-[var(--text-sidebar)] transition-colors">
             {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
@@ -52,7 +52,7 @@ export default function AdminSidebar({ onLogout }: { onLogout: () => void }) {
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150
                   ${isActive
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-medium'
-                    : 'text-[var(--text-sidebar)] hover:bg-white/8 hover:text-white'
+                    : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-surface)]/8 hover:text-white'
                   }
                   ${collapsed ? 'justify-center' : ''}`}
               >

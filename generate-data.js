@@ -538,6 +538,27 @@ function applyBodyRow(row, isAlt = false) {
   });
 }
 
+/**
+ * Helper: Set up a sheet with title row 1 + header row 2.
+ * ExcelJS worksheet.columns writes headers to row 1, which gets
+ * overwritten by applyTitleRow. This function explicitly writes
+ * header values to row 2 so the import scanner can find them.
+ */
+function setupSheet(worksheet, columnDefs, title) {
+  // Set column keys and widths (header goes to row 1 internally)
+  worksheet.columns = columnDefs.map(c => ({ key: c.key, width: c.width }));
+
+  // Write title to row 1 (merged)
+  applyTitleRow(worksheet, 1, title, columnDefs.length);
+
+  // Explicitly write header values to row 2
+  const headerRow = worksheet.getRow(2);
+  columnDefs.forEach((col, idx) => {
+    headerRow.getCell(idx + 1).value = col.header;
+  });
+  applyHeaderRow(headerRow);
+}
+
 // ============================================================
 // 9. BUILD WORKBOOK
 // ============================================================
@@ -636,19 +657,17 @@ async function buildWorkbook() {
 
   // ---- Sheet 4: DM_Giao_vien ----
   const teacherSheet = workbook.addWorksheet('DM_Giao_vien', { views: [{ state: 'frozen', ySplit: 2 }] });
-  teacherSheet.columns = [
-    { header: 'Mã_GV', key: 'code', width: 12 },
-    { header: 'Họ_tên', key: 'fullName', width: 28 },
-    { header: 'Tổ_CM', key: 'department', width: 20 },
-    { header: 'Môn_chuyên_môn_chính', key: 'majorSubject', width: 22 },
-    { header: 'Trạng_thái', key: 'status', width: 14 },
-    { header: 'Định_mức_tuần', key: 'baseLoad', width: 14 },
-    { header: 'Giảm_trừ_tuần', key: 'reduction', width: 14 },
-    { header: 'Định_mức_hiệu_lực', key: 'effectiveLoad', width: 16 },
-    { header: 'Ghi_chú', key: 'notes', width: 30 },
-  ];
-  applyTitleRow(teacherSheet, 1, `Danh mục giáo viên - Năm học ${schoolYear}`, 9);
-  applyHeaderRow(teacherSheet.getRow(2));
+  setupSheet(teacherSheet, [
+    { header: 'Mã GV', key: 'code', width: 12 },
+    { header: 'Họ tên', key: 'fullName', width: 28 },
+    { header: 'Tổ CM', key: 'department', width: 20 },
+    { header: 'Môn chuyên môn chính', key: 'majorSubject', width: 22 },
+    { header: 'Trạng thái', key: 'status', width: 14 },
+    { header: 'Định mức tuần', key: 'baseLoad', width: 14 },
+    { header: 'Giảm trừ tuần', key: 'reduction', width: 14 },
+    { header: 'Định mức hiệu lực', key: 'effectiveLoad', width: 16 },
+    { header: 'Ghi chú', key: 'notes', width: 30 },
+  ], `Danh mục giáo viên - Năm học ${schoolYear}`);
   teachers.forEach((t, i) => {
     const row = teacherSheet.addRow(t);
     applyBodyRow(row, i % 2 === 1);
@@ -656,19 +675,17 @@ async function buildWorkbook() {
 
   // ---- Sheet 5: DM_Lop ----
   const classSheet = workbook.addWorksheet('DM_Lop', { views: [{ state: 'frozen', ySplit: 2 }] });
-  classSheet.columns = [
+  setupSheet(classSheet, [
     { header: 'Lớp', key: 'name', width: 12 },
     { header: 'Khối', key: 'gradeLevel', width: 8 },
-    { header: 'Sĩ_số', key: 'studentCount', width: 10 },
-    { header: 'Buổi_học', key: 'session', width: 12 },
-    { header: 'Mã_tổ_hợp', key: 'combinationCode', width: 14 },
-    { header: 'Phòng_chính', key: 'roomName', width: 14 },
-    { header: 'GVCN_Mã', key: 'homeroomCode', width: 12 },
-    { header: 'GVCN_Họ_tên', key: 'homeroomName', width: 28 },
-    { header: 'Ghi_chú', key: 'notes', width: 36 },
-  ];
-  applyTitleRow(classSheet, 1, `Danh mục lớp - Năm học ${schoolYear}`, 9);
-  applyHeaderRow(classSheet.getRow(2));
+    { header: 'Sĩ số', key: 'studentCount', width: 10 },
+    { header: 'Buổi học', key: 'session', width: 12 },
+    { header: 'Mã tổ hợp', key: 'combinationCode', width: 14 },
+    { header: 'Phòng chính', key: 'roomName', width: 14 },
+    { header: 'GVCN Mã', key: 'homeroomCode', width: 12 },
+    { header: 'GVCN Họ tên', key: 'homeroomName', width: 28 },
+    { header: 'Ghi chú', key: 'notes', width: 36 },
+  ], `Danh mục lớp - Năm học ${schoolYear}`);
 
   // Phân GVCN cho lớp (lấy từ pool GV, mỗi GV CN 1 lớp)
   let gvcnIndex = 0;
@@ -696,20 +713,18 @@ async function buildWorkbook() {
 
   // ---- Sheet 6: DM_To_hop ----
   const comboSheet = workbook.addWorksheet('DM_To_hop', { views: [{ state: 'frozen', ySplit: 2 }] });
-  comboSheet.columns = [
-    { header: 'Mã_tổ_hợp', key: 'code', width: 14 },
+  setupSheet(comboSheet, [
+    { header: 'Mã tổ hợp', key: 'code', width: 14 },
     { header: 'Khối', key: 'gradeLevel', width: 8 },
-    { header: 'Môn_tự_chọn_1', key: 'elective1', width: 16 },
-    { header: 'Môn_tự_chọn_2', key: 'elective2', width: 16 },
-    { header: 'Môn_tự_chọn_3', key: 'elective3', width: 16 },
-    { header: 'Môn_tự_chọn_4', key: 'elective4', width: 16 },
-    { header: 'Chuyên_đề_1', key: 'special1', width: 16 },
-    { header: 'Chuyên_đề_2', key: 'special2', width: 16 },
-    { header: 'Chuyên_đề_3', key: 'special3', width: 16 },
-    { header: 'Ghi_chú', key: 'notes', width: 30 },
-  ];
-  applyTitleRow(comboSheet, 1, 'Danh mục tổ hợp môn học - Áp dụng cả 3 khối', 10);
-  applyHeaderRow(comboSheet.getRow(2));
+    { header: 'Môn tự chọn 1', key: 'elective1', width: 16 },
+    { header: 'Môn tự chọn 2', key: 'elective2', width: 16 },
+    { header: 'Môn tự chọn 3', key: 'elective3', width: 16 },
+    { header: 'Môn tự chọn 4', key: 'elective4', width: 16 },
+    { header: 'Chuyên đề 1', key: 'special1', width: 16 },
+    { header: 'Chuyên đề 2', key: 'special2', width: 16 },
+    { header: 'Chuyên đề 3', key: 'special3', width: 16 },
+    { header: 'Ghi chú', key: 'notes', width: 30 },
+  ], 'Danh mục tổ hợp môn học - Áp dụng cả 3 khối');
 
   // Mỗi tổ hợp dùng cho 3 khối
   let comboIdx = 0;
@@ -737,25 +752,23 @@ async function buildWorkbook() {
 
   // ---- Sheet 7: Phan_cong ----
   const assignSheet = workbook.addWorksheet('Phan_cong', { views: [{ state: 'frozen', ySplit: 2, xSplit: 4 }] });
-  assignSheet.columns = [
+  setupSheet(assignSheet, [
     { header: 'STT', key: 'order', width: 8 },
-    { header: 'Năm_học', key: 'schoolYear', width: 14 },
+    { header: 'Năm học', key: 'schoolYear', width: 14 },
     { header: 'Khối', key: 'gradeLevel', width: 8 },
     { header: 'Lớp', key: 'className', width: 12 },
-    { header: 'Mã_tổ_hợp', key: 'combinationCode', width: 14 },
-    { header: 'Mã_môn', key: 'subjectCode', width: 16 },
-    { header: 'Tên_môn', key: 'subjectName', width: 36 },
-    { header: 'Nhóm_CT', key: 'programGroup', width: 22 },
-    { header: 'Tiết_HK1', key: 'periodsHk1', width: 10 },
-    { header: 'Tiết_HK2', key: 'periodsHk2', width: 10 },
-    { header: 'GV_HK1_Mã', key: 'teacherHk1Code', width: 12 },
-    { header: 'GV_HK1_Họ_tên', key: 'teacherHk1Name', width: 26 },
-    { header: 'GV_HK2_Mã', key: 'teacherHk2Code', width: 12 },
-    { header: 'GV_HK2_Họ_tên', key: 'teacherHk2Name', width: 26 },
-    { header: 'Ghi_chú', key: 'notes', width: 30 },
-  ];
-  applyTitleRow(assignSheet, 1, `Bảng phân công giảng dạy - Năm học ${schoolYear}`, 15);
-  applyHeaderRow(assignSheet.getRow(2));
+    { header: 'Mã tổ hợp', key: 'combinationCode', width: 14 },
+    { header: 'Mã môn', key: 'subjectCode', width: 16 },
+    { header: 'Tên môn', key: 'subjectName', width: 36 },
+    { header: 'Nhóm CT', key: 'programGroup', width: 22 },
+    { header: 'Tiết HK1', key: 'periodsHk1', width: 10 },
+    { header: 'Tiết HK2', key: 'periodsHk2', width: 10 },
+    { header: 'GV HK1 Mã', key: 'teacherHk1Code', width: 12 },
+    { header: 'GV HK1 Họ tên', key: 'teacherHk1Name', width: 26 },
+    { header: 'GV HK2 Mã', key: 'teacherHk2Code', width: 12 },
+    { header: 'GV HK2 Họ tên', key: 'teacherHk2Name', width: 26 },
+    { header: 'Ghi chú', key: 'notes', width: 30 },
+  ], `Bảng phân công giảng dạy - Năm học ${schoolYear}`);
   assignments.forEach((a, i) => {
     const row = assignSheet.addRow(a);
     applyBodyRow(row, i % 2 === 1);
@@ -763,15 +776,13 @@ async function buildWorkbook() {
 
   // ---- Sheet 8: DM_Phong (Sheet bổ sung - Phòng học) ----
   const roomSheet = workbook.addWorksheet('DM_Phong', { views: [{ state: 'frozen', ySplit: 2 }] });
-  roomSheet.columns = [
-    { header: 'Tên_phòng', key: 'name', width: 14 },
+  setupSheet(roomSheet, [
+    { header: 'Tên phòng', key: 'name', width: 14 },
     { header: 'Loại', key: 'type', width: 18 },
     { header: 'Tầng', key: 'floor', width: 8 },
-    { header: 'Sức_chứa', key: 'capacity', width: 12 },
-    { header: 'Ghi_chú', key: 'notes', width: 50 },
-  ];
-  applyTitleRow(roomSheet, 1, 'Danh mục phòng học - 3 tầng × 15 phòng + Sân bãi', 5);
-  applyHeaderRow(roomSheet.getRow(2));
+    { header: 'Sức chứa', key: 'capacity', width: 12 },
+    { header: 'Ghi chú', key: 'notes', width: 50 },
+  ], 'Danh mục phòng học - 3 tầng × 15 phòng + Sân bãi');
 
   const roomTypeLabels = {
     CLASSROOM: 'Phòng học',

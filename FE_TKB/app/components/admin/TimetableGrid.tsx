@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useMemo, useState } from 'react';
 import { DndContext, useDraggable, useDroppable, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
 
@@ -65,14 +65,14 @@ const SlotContent = ({ slot, viewMode, isOverlay = false }: { slot: ScheduleSlot
                 borderLeftWidth: '4px'
             }}
         >
-            <span className="font-extrabold text-gray-900 text-[13px] leading-tight text-center drop-shadow-sm uppercase tracking-wide">
+            <span className="font-extrabold text-[var(--text-primary)] text-[13px] leading-tight text-center drop-shadow-sm uppercase tracking-wide">
                 {slot.subject?.name || slot.subjectName || slot.subjectId}
             </span>
-            <span className="text-[11px] text-gray-700 font-semibold leading-tight text-center mt-0.5">
+            <span className="text-[11px] text-[var(--text-secondary)] font-semibold leading-tight text-center mt-0.5">
                 {viewMode === 'CLASS' ? (slot.teacher?.full_name || slot.teacherName || slot.teacherId) : (slot.class?.name || slot.className || slot.classId)}
             </span>
             {(slot.room?.name || slot.roomName) && (
-                <span className="text-[10px] bg-white/60 text-black px-1.5 rounded-full border border-black/10 shadow-sm mt-0.5 font-mono">
+                <span className="text-[10px] bg-[var(--bg-surface)]/60 text-[var(--text-primary)] px-1.5 rounded-full border border-black/10 shadow-sm mt-0.5 font-mono">
                     {slot.room?.name || slot.roomName}
                 </span>
             )}
@@ -104,7 +104,7 @@ const DraggableSlot = ({ slot, viewMode, isEditable, onToggleLock }: { slot: Sch
                     className={`absolute top-1 right-1 p-1 rounded-full shadow-sm transition-all z-10
                         ${slot.is_locked
                             ? 'bg-red-100 text-red-600 opacity-100'
-                            : 'bg-white text-gray-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 hover:bg-blue-50'}
+                            : 'bg-[var(--bg-surface)] text-gray-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 hover:bg-blue-50'}
                     `}
                     title={slot.is_locked ? "Click to Unlock" : "Click to Lock"}
                 >
@@ -129,8 +129,8 @@ const DroppableCell = ({ day, session, period, children }: { day: number, sessio
     return (
         <td
             ref={setNodeRef}
-            className={`p-1 border border-gray-200 text-center relative h-20 align-top transition-colors 
-            ${isOver ? 'bg-emerald-50 ring-2 ring-emerald-500' : 'bg-white'}`}
+            className={`p-1 border border-[var(--border-default)] text-center relative h-20 align-top transition-colors 
+            ${isOver ? 'bg-emerald-50 ring-2 ring-emerald-500' : 'bg-[var(--bg-surface)]'}`}
         >
             {children}
         </td>
@@ -211,30 +211,30 @@ export default function TimetableGrid({ schedule, viewMode, selectedEntityId, on
 
     return (
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-300 select-none">
+            <div className="bg-[var(--bg-surface)] rounded-lg shadow-sm overflow-hidden border border-[var(--border-default)] select-none">
                 <div className="overflow-x-auto">
                     <table className="min-w-full border-collapse">
-                        <thead className="bg-gray-100 text-gray-700 text-sm font-bold border-b-2 border-gray-300">
+                        <thead className="bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] text-sm font-bold border-b-2 border-[var(--border-default)]">
                             <tr>
-                                <th className="p-3 border border-gray-300 w-16 text-center bg-gray-100">Buổi</th>
-                                <th className="p-3 border border-gray-300 w-12 text-center bg-gray-100">Tiết</th>
+                                <th className="p-3 border border-[var(--border-default)] w-16 text-center bg-[var(--bg-surface-hover)]">Buổi</th>
+                                <th className="p-3 border border-[var(--border-default)] w-12 text-center bg-[var(--bg-surface-hover)]">Tiết</th>
                                 {days.map(d => (
-                                    <th key={d} className="p-3 border border-gray-300 text-center w-32 bg-gray-100">
+                                    <th key={d} className="p-3 border border-[var(--border-default)] text-center w-32 bg-[var(--bg-surface-hover)]">
                                         {d === 8 ? 'CN' : `Thứ ${d}`}
                                     </th>
                                 ))}
                             </tr>
                         </thead>
-                        <tbody className="text-sm text-gray-700">
+                        <tbody className="text-sm text-[var(--text-secondary)]">
                             {/* Morning Session (0) */}
                             {periods.map((p, index) => (
                                 <tr key={`morning-${p}`}>
                                     {index === 0 && (
-                                        <td rowSpan={5} className="p-2 border border-gray-300 text-center font-bold bg-blue-50 text-blue-800 align-middle">
+                                        <td rowSpan={5} className="p-2 border border-[var(--border-default)] text-center font-bold bg-blue-50 text-blue-800 align-middle">
                                             SÁNG
                                         </td>
                                     )}
-                                    <td className="p-2 border border-gray-300 text-center font-bold bg-gray-50">{p}</td>
+                                    <td className="p-2 border border-[var(--border-default)] text-center font-bold bg-[var(--bg-surface-hover)]">{p}</td>
                                     {days.map(d => renderCell(d, 0, p))}
                                 </tr>
                             ))}
@@ -246,11 +246,11 @@ export default function TimetableGrid({ schedule, viewMode, selectedEntityId, on
                             {periods.map((p, index) => (
                                 <tr key={`afternoon-${p}`}>
                                     {index === 0 && (
-                                        <td rowSpan={5} className="p-2 border border-gray-300 text-center font-bold bg-orange-50 text-orange-800 align-middle">
+                                        <td rowSpan={5} className="p-2 border border-[var(--border-default)] text-center font-bold bg-orange-50 text-orange-800 align-middle">
                                             CHIỀU
                                         </td>
                                     )}
-                                    <td className="p-2 border border-gray-300 text-center font-bold bg-gray-50">{p}</td>
+                                    <td className="p-2 border border-[var(--border-default)] text-center font-bold bg-[var(--bg-surface-hover)]">{p}</td>
                                     {days.map(d => renderCell(d, 1, p))}
                                 </tr>
                             ))}

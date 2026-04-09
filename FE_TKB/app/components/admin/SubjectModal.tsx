@@ -1,4 +1,4 @@
-
+﻿
 'use client';
 import { useState, useEffect } from 'react';
 
@@ -48,17 +48,17 @@ export default function SubjectModal({ isOpen, onClose, onSave, initialData }: S
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 className="text-lg font-bold text-gray-800">
+            <div className="bg-[var(--bg-surface)] rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                <div className="px-6 py-4 border-b border-[var(--border-light)] flex justify-between items-center bg-[var(--bg-surface-hover)]">
+                    <h3 className="text-lg font-bold text-[var(--text-primary)]">
                         {initialData ? 'Update Subject' : 'Add New Subject'}
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-[var(--text-secondary)]">✕</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Subject Code</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Subject Code</label>
                         <input className="w-full px-3 py-2 border rounded-lg"
                             required
                             value={formData.code}
@@ -67,7 +67,7 @@ export default function SubjectModal({ isOpen, onClose, onSave, initialData }: S
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Subject Name</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Subject Name</label>
                         <input className="w-full px-3 py-2 border rounded-lg"
                             required
                             value={formData.name}
@@ -84,22 +84,22 @@ export default function SubjectModal({ isOpen, onClose, onSave, initialData }: S
                             checked={formData.is_special}
                             onChange={e => setFormData({ ...formData, is_special: e.target.checked })}
                         />
-                        <label htmlFor="is_special" className="text-sm font-medium text-gray-700">Special Subject (e.g. PE, Defense)</label>
+                        <label htmlFor="is_special" className="text-sm font-medium text-[var(--text-secondary)]">Special Subject (e.g. PE, Defense)</label>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Display Color</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Display Color</label>
                         <div className="flex gap-2 items-center">
                             <input type="color" className="h-10 w-20 border rounded cursor-pointer"
                                 value={formData.color}
                                 onChange={e => setFormData({ ...formData, color: e.target.value })}
                             />
-                            <span className="text-sm text-gray-500">{formData.color}</span>
+                            <span className="text-sm text-[var(--text-muted)]">{formData.color}</span>
                         </div>
                     </div>
 
-                    <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-700">Cancel</button>
+                    <div className="pt-4 flex justify-end gap-3 border-t border-[var(--border-light)] mt-4">
+                        <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--bg-surface-hover)] rounded-lg hover:bg-gray-200 text-[var(--text-secondary)]">Cancel</button>
                         <button type="submit" disabled={isLoading} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 text-white flex items-center gap-2">
                             {isLoading && <span className="animate-spin text-white">⏳</span>}
                             Save

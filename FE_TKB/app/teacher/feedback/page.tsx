@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect } from 'react';
 import { API_URL } from '@/lib/api';
 
@@ -120,7 +120,7 @@ export default function TeacherFeedbackPage() {
                 key={`${day}-${session}-${period}`}
                 onClick={() => toggleSlot(day, session, period)}
                 className={`border border-gray-200 text-center cursor-pointer transition-colors h-14 w-32 relative
-                ${busy ? 'bg-red-100 hover:bg-red-200' : 'bg-white hover:bg-gray-50'}`}
+                ${busy ? 'bg-red-100 hover:bg-red-200' : 'bg-white hover:bg-[var(--bg-surface-hover)]'}`}
             >
                 {busy && (
                     <span className="text-red-600 font-bold text-xs">BẬN</span>
@@ -154,12 +154,12 @@ export default function TeacherFeedbackPage() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="min-w-full border-collapse">
-                        <thead className="bg-gray-100 text-gray-700 text-sm font-bold border-b-2 border-gray-300">
+                        <thead className="bg-[var(--bg-surface-hover)] text-gray-700 text-sm font-bold border-b-2 border-gray-300">
                             <tr>
-                                <th className="p-3 border border-gray-300 w-16 text-center bg-gray-100">Buổi</th>
-                                <th className="p-3 border border-gray-300 w-12 text-center bg-gray-100">Tiết</th>
+                                <th className="p-3 border border-gray-300 w-16 text-center bg-[var(--bg-surface-hover)]">Buổi</th>
+                                <th className="p-3 border border-gray-300 w-12 text-center bg-[var(--bg-surface-hover)]">Tiết</th>
                                 {days.map(d => (
-                                    <th key={d} className="p-3 border border-gray-300 text-center bg-gray-100">
+                                    <th key={d} className="p-3 border border-gray-300 text-center bg-[var(--bg-surface-hover)]">
                                         Thứ {d}
                                     </th>
                                 ))}

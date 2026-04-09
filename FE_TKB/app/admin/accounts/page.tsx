@@ -1,4 +1,4 @@
-
+﻿
 'use client';
 import { useState, useEffect } from 'react';
 import AccountModal from '../../components/admin/AccountModal';
@@ -75,7 +75,7 @@ export default function AccountsPage() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-800">Quản lý Tài khoản</h1>
+                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quản lý Tài khoản</h1>
                 <button
                     onClick={() => { setSelectedAccount(null); setIsModalOpen(true); }}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
@@ -84,43 +84,43 @@ export default function AccountsPage() {
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--border-default)] overflow-hidden">
                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="bg-[var(--bg-surface-hover)] border-b">
                         <tr>
-                            <th className="p-4 text-xs font-semibold text-gray-500 uppercase">Tên đăng nhập</th>
-                            <th className="p-4 text-xs font-semibold text-gray-500 uppercase">Vai trò</th>
-                            <th className="p-4 text-xs font-semibold text-gray-500 uppercase">Giáo viên liên kết</th>
-                            <th className="p-4 text-xs font-semibold text-gray-500 uppercase text-right">Thao tác</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase">Tên đăng nhập</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase">Vai trò</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase">Giáo viên liên kết</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase text-right">Thao tác</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-[var(--border-light)]">
                         {isLoading ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-gray-500">Đang tải...</td></tr>
+                            <tr><td colSpan={4} className="p-8 text-center text-[var(--text-muted)]">Đang tải...</td></tr>
                         ) : accounts.length === 0 ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-gray-500">Không tìm thấy tài khoản nào.</td></tr>
+                            <tr><td colSpan={4} className="p-8 text-center text-[var(--text-muted)]">Không tìm thấy tài khoản nào.</td></tr>
                         ) : (
                             accounts.map((acc) => (
-                                <tr key={acc.id} className="hover:bg-gray-50">
-                                    <td className="p-4 font-medium text-gray-900">{acc.username}</td>
+                                <tr key={acc.id} className="hover:bg-[var(--bg-surface-hover)]">
+                                    <td className="p-4 font-medium text-[var(--text-primary)]">{acc.username}</td>
                                     <td className="p-4">
                                         <span className={`px-2 py-1 rounded text-xs font-semibold ${acc.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                             {acc.role}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-gray-600">
+                                    <td className="p-4 text-[var(--text-secondary)]">
                                         {acc.teacher_profile ? `${acc.teacher_profile.full_name} (${acc.teacher_profile.code})` : '-'}
                                     </td>
                                     <td className="p-4 text-right space-x-2">
                                         <button
                                             onClick={() => { setSelectedAccount(acc); setIsModalOpen(true); }}
-                                            className="text-gray-500 hover:text-blue-600 font-medium text-sm"
+                                            className="text-[var(--text-muted)] hover:text-blue-600 font-medium text-sm"
                                         >
                                             Sửa
                                         </button>
                                         <button
                                             onClick={() => handleDelete(acc.id)}
-                                            className="text-gray-500 hover:text-red-600 font-medium text-sm"
+                                            className="text-[var(--text-muted)] hover:text-red-600 font-medium text-sm"
                                         >
                                             Xóa
                                         </button>

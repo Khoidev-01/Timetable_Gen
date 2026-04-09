@@ -1,5 +1,5 @@
 
-import { Controller, Get, Post, Body, Param, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
 import { AcademicYearService } from './academic-year.service';
 import { SemesterService } from './semester.service';
 
@@ -18,6 +18,16 @@ export class SystemController {
     @Post('years')
     createYear(@Body() body: any) {
         return this.yearService.create(body);
+    }
+
+    @Put('years/:id')
+    updateYear(@Param('id') id: string, @Body() body: any) {
+        return this.yearService.update(id, body);
+    }
+
+    @Delete('years/:id')
+    deleteYear(@Param('id') id: string) {
+        return this.yearService.delete(id);
     }
 
     @Get('years/active')

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -94,7 +94,7 @@ export default function TeachersPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Quản lý giáo viên</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quản lý giáo viên</h1>
         <div className="flex gap-2">
           <Link
             href="/admin/assignments"
@@ -114,14 +114,14 @@ export default function TeachersPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+      <div className="rounded-xl border border-[var(--border-default)] bg-blue-50 px-4 py-3 text-sm text-blue-800">
         File Excel nhập tổng năm học được xử lý tại trang <b>Phân công chuyên môn</b> để đồng bộ
         giáo viên, lớp, tổ hợp và phân công cho cả hai học kỳ.
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-white shadow-sm">
         <table className="w-full border-collapse text-left">
-          <thead className="border-b border-gray-200 bg-gray-50 font-semibold text-gray-900">
+          <thead className="border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] font-semibold text-[var(--text-primary)]">
             <tr>
               <th className="px-6 py-4">Mã GV</th>
               <th className="px-6 py-4">Họ và tên</th>
@@ -130,7 +130,7 @@ export default function TeachersPage() {
               <th className="px-6 py-4 text-right">Thao tác</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 text-gray-600">
+          <tbody className="divide-y divide-[var(--border-light)] text-[var(--text-secondary)]">
             {isLoading ? (
               <tr>
                 <td colSpan={5} className="py-8 text-center">
@@ -145,12 +145,12 @@ export default function TeachersPage() {
               </tr>
             ) : (
               teachers.map((teacher) => (
-                <tr key={teacher.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-gray-900">{teacher.code}</td>
+                <tr key={teacher.id} className="hover:bg-[var(--bg-surface-hover)]">
+                  <td className="px-6 py-4 font-medium text-[var(--text-primary)]">{teacher.code}</td>
                   <td className="px-6 py-4 font-medium">{teacher.full_name}</td>
                   <td className="px-6 py-4 text-sm">
-                    <div className="text-gray-900">{teacher.email || '--'}</div>
-                    <div className="text-gray-500">{teacher.phone || '--'}</div>
+                    <div className="text-[var(--text-primary)]">{teacher.email || '--'}</div>
+                    <div className="text-[var(--text-muted)]">{teacher.phone || '--'}</div>
                   </td>
                   <td className="px-6 py-4">
                     <span className="rounded bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">

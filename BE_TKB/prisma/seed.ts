@@ -3,10 +3,13 @@ import * as bcrypt from 'bcrypt';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ExcelService } from '../src/excel/excel.service';
+import { NotificationService } from '../src/notifications/notification.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 const prisma = new PrismaService();
-const excelService = new ExcelService(prisma);
+// Stub notification service for seeding (no real notifications needed)
+const notificationService = new NotificationService(prisma);
+const excelService = new ExcelService(prisma, notificationService);
 
 const MOCK_WORKBOOK = path.resolve(
   __dirname,

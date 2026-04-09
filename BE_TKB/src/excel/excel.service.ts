@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PeriodType, Prisma, RoomType } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notifications/notification.service';
 import {
   GUIDE_ROWS,
   HEADER_ALIASES,
@@ -224,7 +225,10 @@ export class ExcelService {
     '#65A30D',
   ];
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   async downloadTemplate(academicYearId: string): Promise<ExportPayload> {
     const context = await this.getYearContext(academicYearId);
@@ -373,6 +377,13 @@ export class ExcelService {
         },
       };
     });
+
+    // Send notification about successful import
+    try {
+      await this.notificationService.notifyImportSuccess(summary);
+    } catch (e) {
+      // Don't fail import if notification fails
+    }
 
     return {
       summary,
@@ -1424,12 +1435,15 @@ export class ExcelService {
   ): { headerRow: number; columns: Partial<Record<keyof T, number>> } | null {
     let bestMatch: { headerRow: number; columns: Partial<Record<keyof T, number>>; score: number } | null = null;
 
-    for (let rowNumber = 1; rowNumber <= Math.min(worksheet.rowCount, 10); rowNumber += 1) {
+    for (let rowNumber = 1; rowNumber <= Math.min(worksheet.rowCount, 15); rowNumber += 1) {
       const row = worksheet.getRow(rowNumber);
       const columns: Partial<Record<keyof T, number>> = {};
+      const cellValues: string[] = [];
+
       row.eachCell((cell, colNumber) => {
         const normalized = normalizeKey(getCellText(cell));
         if (!normalized) return;
+        cellValues.push(normalized);
 
         (Object.entries(aliasMap) as Array<[keyof T, readonly string[]]>).forEach(([field, aliases]) => {
           if (!columns[field] && aliases.includes(normalized)) {
@@ -1437,6 +1451,9 @@ export class ExcelService {
           }
         });
       });
+
+      // Skip merged title rows (all cells have same value)
+      if (cellValues.length > 1 && new Set(cellValues).size === 1) continue;
 
       const score = Object.keys(columns).length;
       if (score === 0) continue;
@@ -1446,12 +1463,23 @@ export class ExcelService {
     }
 
     if (!bestMatch) {
+      // Build debug info: show what the first 5 rows contain
+      const debugRows: string[] = [];
+      for (let r = 1; r <= Math.min(worksheet.rowCount, 5); r++) {
+        const vals: string[] = [];
+        worksheet.getRow(r).eachCell((c) => {
+          const t = getCellText(c);
+          if (t) vals.push(t.substring(0, 20));
+        });
+        if (vals.length > 0) debugRows.push(`Row ${r}: [${vals.join(', ')}]`);
+      }
+
       errors.push({
         sheet: sheetName,
         row: 0,
         column: '',
         code: 'invalid_header',
-        message: `Không tìm thấy hàng tiêu đề hợp lệ cho sheet ${sheetName}.`,
+        message: `Không tìm thấy hàng tiêu đề hợp lệ cho sheet ${sheetName}. ${debugRows.length > 0 ? 'Dữ liệu tìm thấy: ' + debugRows.join(' | ') : 'Sheet trống.'}`,
       });
       return null;
     }
