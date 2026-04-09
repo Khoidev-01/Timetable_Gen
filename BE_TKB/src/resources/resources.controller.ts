@@ -1,5 +1,6 @@
 
 import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { RoomService } from './room.service';
 import { SubjectService } from './subject.service';
 import { TeacherService } from './teacher.service';
@@ -7,10 +8,23 @@ import { TeacherService } from './teacher.service';
 @Controller('resources')
 export class ResourcesController {
     constructor(
+        private readonly prisma: PrismaService,
         private readonly roomService: RoomService,
         private readonly subjectService: SubjectService,
         private readonly teacherService: TeacherService
     ) { }
+
+    // DASHBOARD STATS
+    @Get('stats')
+    async getStats() {
+        const [teachers, classes, subjects, rooms] = await Promise.all([
+            this.prisma.teacher.count(),
+            this.prisma.class.count(),
+            this.prisma.subject.count(),
+            this.prisma.room.count(),
+        ]);
+        return { teachers, classes, subjects, rooms };
+    }
 
     // ROOMS
     @Get('rooms') getRooms() { return this.roomService.findAll(); }
@@ -34,7 +48,6 @@ export class ResourcesController {
     // TEACHER CONSTRAINTS
     @Put('teachers/:id/constraints')
     updateTeacherConstraints(@Param('id') id: string, @Body() body: any) {
-        // body should be array of constraints
         return this.teacherService.updateConstraints(id, body);
     }
 }

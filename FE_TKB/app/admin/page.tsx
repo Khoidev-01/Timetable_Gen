@@ -1,15 +1,30 @@
 'use client';
 
-import { Users, School, BookOpen, DoorOpen, CalendarDays, Activity } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Users, School, BookOpen, DoorOpen, CalendarDays, Activity, Loader2 } from 'lucide-react';
+import { API_URL } from '@/lib/api';
 
-const stats = [
-  { label: 'Giáo viên', value: '45', icon: Users, gradient: 'from-blue-500 to-blue-600' },
-  { label: 'Lớp học', value: '24', icon: School, gradient: 'from-emerald-500 to-emerald-600' },
-  { label: 'Môn học', value: '12', icon: BookOpen, gradient: 'from-violet-500 to-violet-600' },
-  { label: 'Phòng học', value: '30', icon: DoorOpen, gradient: 'from-amber-500 to-amber-600' },
+const statConfig = [
+  { key: 'teachers', label: 'Giáo viên', icon: Users, gradient: 'from-blue-500 to-blue-600' },
+  { key: 'classes', label: 'Lớp học', icon: School, gradient: 'from-emerald-500 to-emerald-600' },
+  { key: 'subjects', label: 'Môn học', icon: BookOpen, gradient: 'from-violet-500 to-violet-600' },
+  { key: 'rooms', label: 'Phòng học', icon: DoorOpen, gradient: 'from-amber-500 to-amber-600' },
 ];
 
 export default function AdminDashboard() {
+  const [stats, setStats] = useState<Record<string, number>>({
+    teachers: 0, classes: 0, subjects: 0, rooms: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_URL}/resources/stats`)
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Welcome banner */}
@@ -23,8 +38,9 @@ export default function AdminDashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, idx) => {
+        {statConfig.map((stat, idx) => {
           const Icon = stat.icon;
+          const value = stats[stat.key] ?? 0;
           return (
             <div key={idx} className="bg-[var(--bg-surface)] p-5 rounded-xl border border-[var(--border-default)]
               hover:shadow-lg transition-all group">
@@ -33,7 +49,9 @@ export default function AdminDashboard() {
                   <Icon size={20} className="text-white" />
                 </div>
               </div>
-              <p className="text-2xl md:text-3xl font-bold text-[var(--text-primary)]">{stat.value}</p>
+              <p className="text-2xl md:text-3xl font-bold text-[var(--text-primary)]">
+                {loading ? <Loader2 size={24} className="animate-spin text-gray-400" /> : value}
+              </p>
               <p className="text-sm text-[var(--text-muted)] mt-0.5">{stat.label}</p>
             </div>
           );
