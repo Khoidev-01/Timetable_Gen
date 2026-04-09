@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
@@ -241,7 +241,6 @@ export default function TimetableGrid({ currentUser, onLogout }: TimetableGridPr
             }
 
             const result = await response.json();
-            // console.log("Save successful:", result);
             alert("Đã lưu lịch thành công vào CSDL!");
         } catch (error) {
             console.error("Error saving schedule:", error);
@@ -298,20 +297,7 @@ export default function TimetableGrid({ currentUser, onLogout }: TimetableGridPr
         );
         dispatch(setSchedule(updatedSchedule));
 
-        // Call Backend API
-        /*
-        try {
-            await fetch(`${API_URL}/algorithm/lock/${lessonId}`, { method: 'POST' });
-        } catch (error) {
-            console.error("Failed to lock lesson:", error);
-            // Revert on failure
-             dispatch(setSchedule(schedule));
-        }
-        */
-        // Note: Since we are saving the whole schedule via /save, the lock status will be persisted there if we include it in the saved data.
-        // However, for immediate feedback or specific lock API, we can implement separate endpoint.
-        // For now, let's assume it saves with the main Save button or we add a specific PATCH.
-        // Let's implement a specific patch for locking to be safe and instant.
+        // Lock status is persisted when saving the whole schedule via /save endpoint.
     };
 
     return (
@@ -373,8 +359,7 @@ export default function TimetableGrid({ currentUser, onLogout }: TimetableGridPr
                             </button>
                         </div>
 
-                        {/* Feedback Button (Only in Teacher Mode - Moved to Right of Toggle) */}
-                        {/* Feedback Button (Only in Teacher Mode - Moved to Right of Toggle) */}
+                        {/* Feedback Button (Teacher Mode only) */}
                         {viewMode === 'TEACHER' && (
                             <button
                                 onClick={() => {
@@ -393,8 +378,7 @@ export default function TimetableGrid({ currentUser, onLogout }: TimetableGridPr
                             </button>
                         )}
 
-                        {/* Registration Button (Only in Teacher Mode - Moved to Right of Feedback) */}
-                        {/* Registration Button (Only in Teacher Mode - Moved to Right of Feedback) */}
+                        {/* Registration Button (Teacher Mode only) */}
                         {viewMode === 'TEACHER' && (
                             <button
                                 onClick={() => {
@@ -600,10 +584,6 @@ export default function TimetableGrid({ currentUser, onLogout }: TimetableGridPr
                 </div>
             </div>
 
-            {/* State for Registration Modal - assuming this is inside a functional component */}
-            {/* You would typically declare this at the top of your component function, e.g.,
-            const [showRegistrationModal, setShowRegistrationModal] = useState(false);
-            */}
 
             {
                 showRegistrationModal && selectedClass && viewMode === 'TEACHER' && (

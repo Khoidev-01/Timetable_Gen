@@ -16,8 +16,12 @@ Thumbs.db
 
 # Logs
 *.log
-be-live.log
 
 # IDE
 .vscode/
 .idea/
+
+# Scratch / Temp files
+*.sql
+*.tmp
+*.bak

@@ -50,15 +50,6 @@ export class AlgorithmService {
                         roomId: s.room_id || undefined,
                         isLocked: true
                     });
-                    // Mark resources as busy?
-                    // solution.teacherBusy.add(...) -> Algorithm logic uses this Set? 
-                    // initializeSolution sets are empty. Phase 2 checks isSlotOccupied (which iterates slots).
-                    // Phase 3 Genetic uses slots.
-                    // So just pushing to slots is sufficient for conflict checks if checkTeacherConflict checks `solution.slots`.
-                    // But wait, checkFixedSlot? 
-                    // Phase 1 might try to add fixed slots. It checks `isSlotOccupied`?
-                    // Phase 1 usually iterates classes and adds slots.
-                    // I need to update Phase 1 to check `if (this.isSlotOccupied(solution.slots, cls.id, d, p)) continue;`.
                 });
             }
 
@@ -125,9 +116,9 @@ export class AlgorithmService {
             return undefined;
         };
 
-        const bghTeacher = teachers.find((t: any) => t.code === 'BGH') || teachers[0];
-        const bghId = bghTeacher ? bghTeacher.id : null;
-        if (!bghId) log(`[WARN] No Teacher found for system slots!`);
+        // Chào cờ: ưu tiên dùng GVCN cho mỗi lớp, fallback sang GV đầu tiên
+        const bghTeacher = teachers.find((t: any) => t.code === 'BGH');
+        const fallbackTeacherId = bghTeacher ? bghTeacher.id : null;
 
         let fixedCount = 0;
 
@@ -175,7 +166,8 @@ export class AlgorithmService {
                             if (['SHCN', 'SH_CN', 'SINH_HOAT', 'SH_DAU_TUAN', 'SH_CUOI_TUAN'].includes(check.subjectCode)) {
                                 teacherId = cls.homeroom_teacher_id;
                             } else if (check.subjectCode === 'CHAO_CO') {
-                                teacherId = bghId;
+                                // Chào cờ: dùng GVCN của lớp để tránh conflict khi 1 GV dạy nhiều lớp cùng lúc
+                                teacherId = cls.homeroom_teacher_id || fallbackTeacherId;
                             } else if (['GDDP', 'HDTN'].includes(check.subjectCode)) {
                                 const assignment = data.assignments.find((a: any) =>
                                     a.class_id === cls.id && a.subject_id === subjId
@@ -183,7 +175,7 @@ export class AlgorithmService {
                                 if (assignment) teacherId = assignment.teacher_id;
                             }
 
-                            if (!teacherId) teacherId = bghId;
+                            if (!teacherId) teacherId = cls.homeroom_teacher_id || fallbackTeacherId || (teachers[0] ? teachers[0].id : null);
 
                             // Assign Room
                             let roomId = cls.fixed_room_id;
@@ -220,7 +212,7 @@ export class AlgorithmService {
         const classAssignments = new Map<string, any[]>();
         assignments.forEach((agg: any) => {
             const subject = data.subjects.find((s: any) => s.id === agg.subject_id);
-            if (subject && !['CHAO_CO', 'SH_DAU_TUAN', 'SH_CUOI_TUAN', 'GDDP', 'HDTN'].includes(subject.code)) {
+            if (subject && !['CHAO_CO', 'SH_DAU_TUAN', 'SH_CUOI_TUAN'].includes(subject.code)) {
                 if (!classAssignments.has(agg.class_id)) classAssignments.set(agg.class_id, []);
                 classAssignments.get(agg.class_id)!.push({ ...agg });
             }
@@ -301,13 +293,17 @@ export class AlgorithmService {
                         if (canPlace) {
                             // EXECUTE PLACEMENT
                             periodsToCheck.forEach(p => {
+                                // GDTC/GDQP học tại sân bãi, không dùng phòng học
+                                const subject = data.subjects.find((s: any) => s.id === assign.subject_id);
+                                const isYardSubject = subject && ['GDTC', 'GDQP'].includes(subject.code);
+                                const yardRoom = isYardSubject ? data.rooms.find((r: any) => r.type === 'YARD') : null;
                                 solution.slots.push({
                                     id: crypto.randomUUID(),
                                     day, period: p,
                                     classId: cls.id,
                                     subjectId: assign.subject_id,
                                     teacherId: assign.teacher_id,
-                                    roomId: cls.fixed_room_id,
+                                    roomId: isYardSubject ? (yardRoom?.id || undefined) : cls.fixed_room_id,
                                     isLocked: false
                                 });
                             });

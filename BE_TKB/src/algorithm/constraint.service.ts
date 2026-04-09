@@ -82,6 +82,12 @@ export class ConstraintService {
     }
 
     getValidRooms(grade: number, session: 'SANG' | 'CHIEU', period: number, subjectType: 'LY_THUYET' | 'THUC_HANH', subjectCode?: string): number[] {
+        // GDTC, GDQP → Sân bãi (YARD)
+        if (subjectCode && ['GDTC', 'GDQP'].includes(subjectCode.toUpperCase())) {
+            return [this.getRoomId('SAN_BANH'), this.getRoomId('SAN_TDTT')]
+                .filter((id): id is number => id !== undefined);
+        }
+
         if (subjectType === 'THUC_HANH' && subjectCode) {
             const code = subjectCode.toUpperCase();
             if (code.includes('TIN')) return [this.getRoomId('314'), this.getRoomId('315')].filter((id): id is number => id !== undefined);
@@ -95,6 +101,9 @@ export class ConstraintService {
         if (grade === 12 && isMorningPeriod) return this.getRangeRoomIds(101, 114);
         if (grade === 11 && !isMorningPeriod) return this.getRangeRoomIds(101, 114);
         if (grade === 10 && isMorningPeriod) return this.getRangeRoomIds(201, 214);
+        // Khối 10 chiều (khác buổi GDTC/GDQP) hoặc khối 11 sáng → dùng phòng trống tầng 2
+        if (grade === 10 && !isMorningPeriod) return this.getRangeRoomIds(201, 214);
+        if (grade === 11 && isMorningPeriod) return this.getRangeRoomIds(101, 114);
 
         return [...this.getRangeRoomIds(101, 114), ...this.getRangeRoomIds(201, 214)];
     }

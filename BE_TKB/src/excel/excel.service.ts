@@ -326,7 +326,9 @@ export class ExcelService {
               total_periods: row.hk1.totalPeriods,
               period_type: row.periodType,
               required_room_type:
-                row.periodType === PeriodType.PRACTICE ? RoomType.LAB_IT : null,
+                row.periodType === PeriodType.PRACTICE
+                  ? this.resolveLabRoomType(row.subjectCode)
+                  : null,
               block_config: row.notes ?? null,
             });
           }
@@ -343,7 +345,9 @@ export class ExcelService {
               total_periods: row.hk2.totalPeriods,
               period_type: row.periodType,
               required_room_type:
-                row.periodType === PeriodType.PRACTICE ? RoomType.LAB_IT : null,
+                row.periodType === PeriodType.PRACTICE
+                  ? this.resolveLabRoomType(row.subjectCode)
+                  : null,
               block_config: row.notes ?? null,
             });
           }
@@ -593,7 +597,7 @@ export class ExcelService {
         });
       }
 
-      const assignmentKey = `${classKey}:${resolved.subjectCode}`;
+      const assignmentKey = `${classKey}:${resolved.subjectCode}:${resolved.periodType}`;
       if (item.periodsHk1 > 0) {
         const hk1Key = `${assignmentKey}:1`;
         if (seenAssignmentKeys.has(hk1Key)) {
@@ -628,7 +632,7 @@ export class ExcelService {
         combinationCode: item.combinationCode,
         subjectCode: resolved.subjectCode,
         subjectName: resolved.subjectName,
-        periodType: resolved.periodType,
+        periodType: this.refinePeriodType(resolved.periodType, item.programGroup, item.notes),
         notes: item.notes,
         hk1:
           item.periodsHk1 > 0 && item.teacherHk1Code
@@ -1633,5 +1637,34 @@ export class ExcelService {
     }
     const canonical = this.normalizeSubjectEntry(value);
     return canonical ? `CD_${canonical}` : value.toUpperCase();
+  }
+
+  private resolveLabRoomType(subjectCode: string): RoomType {
+    switch (subjectCode) {
+      case 'LY':
+        return RoomType.LAB_PHYSICS;
+      case 'HOA':
+        return RoomType.LAB_CHEM;
+      case 'SINH':
+        return RoomType.LAB_BIO;
+      case 'TIN':
+        return RoomType.LAB_IT;
+      default:
+        return RoomType.LAB_IT;
+    }
+  }
+
+  private refinePeriodType(
+    basePeriodType: PeriodType,
+    programGroup?: string,
+    notes?: string,
+  ): PeriodType {
+    if (basePeriodType !== PeriodType.THEORY) return basePeriodType;
+    const pg = normalizeKey(programGroup ?? '');
+    const n = normalizeKey(notes ?? '');
+    if (pg.includes('thuchanh') || n.includes('thuchanh')) {
+      return PeriodType.PRACTICE;
+    }
+    return basePeriodType;
   }
 }
