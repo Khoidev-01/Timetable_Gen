@@ -1,9 +1,11 @@
 import { Module, Global } from '@nestjs/common';
+import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationService } from './notification.service';
 import { NotificationController } from './notification.controller';
 
-@Global() // Make NotificationService available everywhere without explicit imports
+@Global()
 @Module({
+  imports: [PrismaModule],
   controllers: [NotificationController],
   providers: [NotificationService],
   exports: [NotificationService],
