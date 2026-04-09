@@ -95,11 +95,11 @@ export const HEADER_ALIASES = {
     notes: ['ghichu', 'ghich'],
   },
   classes: {
-    name: ['lop', 'lp'],
+    name: ['lop', 'lp', 'tenlop'],
     gradeLevel: ['khoi', 'khi'],
     studentCount: ['siso', 'ss'],
     session: ['buoihoc', 'buihc', 'ca'],
-    combinationCode: ['matohop', 'mthp'],
+    combinationCode: ['matohop', 'mthp', 'tohop'],
     homeroomCode: ['gvcnma', 'gvcnm'],
     homeroomName: ['gvcnhoten', 'gvcnhtn'],
     notes: ['ghichu', 'ghich'],

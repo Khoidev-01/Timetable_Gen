@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect } from 'react';
 import { API_URL } from '@/lib/api';
 
@@ -91,14 +91,14 @@ export default function ConfigurationPage() {
 
     return (
         <div className="space-y-8 pb-20">
-            <h1 className="text-2xl font-bold text-gray-800">Cấu hình thuật toán & Ràng buộc</h1>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Cấu hình thuật toán & Ràng buộc</h1>
 
             {isLoading ? (
-                <div className="text-center py-10 text-gray-500">Đang tải cấu hình...</div>
+                <div className="text-center py-10 text-[var(--text-muted)]">Đang tải cấu hình...</div>
             ) : (
                 <>
                     {/* Hard Constraints Section */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--border-default)] overflow-hidden">
                         <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex justify-between items-center">
                             <div>
                                 <h2 className="text-lg font-bold text-red-800">Ràng buộc Cứng (Hard Constraints)</h2>
@@ -107,15 +107,15 @@ export default function ConfigurationPage() {
                             <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">{hardConstraints.length} Rules</span>
                         </div>
 
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-[var(--border-light)]">
                             {hardConstraints.map(c => (
-                                <div key={c.id} className="p-6 hover:bg-gray-50 transition flex items-start justify-between gap-4">
+                                <div key={c.id} className="p-6 hover:bg-[var(--bg-surface-hover)] transition flex items-start justify-between gap-4">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-xs font-mono font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{c.ma_rang_buoc}</span>
-                                            <h3 className="font-semibold text-gray-800">{c.ten_rang_buoc}</h3>
+                                            <span className="text-xs font-mono font-bold text-gray-400 bg-[var(--bg-surface-hover)] px-1.5 py-0.5 rounded">{c.ma_rang_buoc}</span>
+                                            <h3 className="font-semibold text-[var(--text-primary)]">{c.ten_rang_buoc}</h3>
                                         </div>
-                                        <p className="text-sm text-gray-600">{c.mo_ta}</p>
+                                        <p className="text-sm text-[var(--text-secondary)]">{c.mo_ta}</p>
                                     </div>
 
                                     <div className="flex items-center gap-4">
@@ -127,8 +127,8 @@ export default function ConfigurationPage() {
                                                 checked={c.is_active}
                                                 onChange={() => handleToggleActive(c.id, c.is_active)}
                                             />
-                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                                            <span className="ml-3 text-sm font-medium text-gray-700 w-16 text-right">
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--bg-surface)] after:border-[var(--border-default)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                                            <span className="ml-3 text-sm font-medium text-[var(--text-secondary)] w-16 text-right">
                                                 {c.is_active ? 'Bật' : 'Tắt'}
                                             </span>
                                         </label>
@@ -139,7 +139,7 @@ export default function ConfigurationPage() {
                     </div>
 
                     {/* Soft Constraints Section */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--border-default)] overflow-hidden">
                         <div className="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
                             <div>
                                 <h2 className="text-lg font-bold text-blue-800">Ràng buộc Mềm (Soft Constraints)</h2>
@@ -148,24 +148,24 @@ export default function ConfigurationPage() {
                             <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">{softConstraints.length} Rules</span>
                         </div>
 
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-[var(--border-light)]">
                             {softConstraints.map(c => (
-                                <div key={c.id} className="p-6 hover:bg-gray-50 transition flex items-start justify-between gap-4">
+                                <div key={c.id} className="p-6 hover:bg-[var(--bg-surface-hover)] transition flex items-start justify-between gap-4">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-xs font-mono font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{c.ma_rang_buoc}</span>
-                                            <h3 className="font-semibold text-gray-800">{c.ten_rang_buoc}</h3>
+                                            <span className="text-xs font-mono font-bold text-gray-400 bg-[var(--bg-surface-hover)] px-1.5 py-0.5 rounded">{c.ma_rang_buoc}</span>
+                                            <h3 className="font-semibold text-[var(--text-primary)]">{c.ten_rang_buoc}</h3>
                                         </div>
-                                        <p className="text-sm text-gray-600">{c.mo_ta}</p>
+                                        <p className="text-sm text-[var(--text-secondary)]">{c.mo_ta}</p>
                                     </div>
 
                                     <div className="flex items-center gap-6">
                                         {/* Weight Input */}
                                         <div className="flex flex-col items-end">
-                                            <label className="text-xs font-medium text-gray-500 mb-1">Trọng số (Penalty)</label>
+                                            <label className="text-xs font-medium text-[var(--text-muted)] mb-1">Trọng số (Penalty)</label>
                                             <input
                                                 type="number"
-                                                className="w-20 text-right p-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                className="w-20 text-right p-1.5 border border-[var(--border-default)] rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                                 value={c.trong_so}
                                                 // Update on Blur to minimize writes
                                                 onBlur={(e) => handleWeightChange(c.id, parseInt(e.target.value))}
@@ -184,8 +184,8 @@ export default function ConfigurationPage() {
                                                 checked={c.is_active}
                                                 onChange={() => handleToggleActive(c.id, c.is_active)}
                                             />
-                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                            <span className="ml-3 text-sm font-medium text-gray-700 w-16 text-right">
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--bg-surface)] after:border-[var(--border-default)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                            <span className="ml-3 text-sm font-medium text-[var(--text-secondary)] w-16 text-right">
                                                 {c.is_active ? 'Bật' : 'Tắt'}
                                             </span>
                                         </label>

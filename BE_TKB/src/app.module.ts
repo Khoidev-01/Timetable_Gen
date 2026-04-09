@@ -15,6 +15,7 @@ import { WorkerModule } from './worker/worker.module';
 import { AuthModule } from './auth/auth.module';
 import { ExcelModule } from './excel/excel.module';
 import { ConstraintsModule } from './constraints/constraints.module';
+import { NotificationModule } from './notifications/notification.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ConstraintsModule } from './constraints/constraints.module';
     AuthModule,
     ExcelModule,
     ConstraintsModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

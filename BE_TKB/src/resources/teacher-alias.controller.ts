@@ -1,5 +1,6 @@
 import { Controller, Get, Patch, Param, Body, NotFoundException } from '@nestjs/common';
 import { TeacherService } from './teacher.service';
+import { NotificationService } from '../notifications/notification.service';
 
 /**
  * Vietnamese alias routes for teacher endpoints.
@@ -7,7 +8,10 @@ import { TeacherService } from './teacher.service';
  */
 @Controller('giao-vien')
 export class TeacherAliasController {
-    constructor(private readonly teacherService: TeacherService) { }
+    constructor(
+        private readonly teacherService: TeacherService,
+        private readonly notificationService: NotificationService,
+    ) { }
 
     @Get(':id')
     async getTeacher(@Param('id') id: string) {
@@ -95,7 +99,20 @@ export class TeacherAliasController {
             type: 'BUSY'
         }));
 
+        const teacher = await this.teacherService.findOne(id);
         await this.teacherService.updateConstraints(id, constraints);
+
+        // Notify admins about busy schedule registration
+        try {
+            await this.notificationService.notifyBusyScheduleUpdate(
+                teacher.full_name,
+                teacher.code,
+                busySlots.length,
+            );
+        } catch (e) {
+            console.error('Failed to create notification:', e);
+        }
+
         return { success: true, message: 'Đã cập nhật lịch bận' };
     }
 }

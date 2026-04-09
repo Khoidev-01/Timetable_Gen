@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import AssignmentModal from '../../components/admin/AssignmentModal';
@@ -399,11 +399,11 @@ export default function AssignmentsPage() {
       />
 
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Phân công chuyên môn</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Phân công chuyên môn</h1>
         <div className="flex gap-2">
           <div className="flex items-center gap-2">
             <select
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 font-medium text-black focus:ring-2 focus:ring-blue-500"
+              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
               value={selectedYearId}
               onChange={(event) => {
                 const nextYear = years.find((item) => item.id === event.target.value);
@@ -426,7 +426,7 @@ export default function AssignmentsPage() {
             </button>
           </div>
           <select
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 font-medium text-black focus:ring-2 focus:ring-blue-500"
+            className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
             value={selectedSemesterId}
             onChange={(event) => setSelectedSemesterId(event.target.value)}
           >
@@ -439,10 +439,10 @@ export default function AssignmentsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="text-sm text-gray-600">
+      <div className="flex flex-col gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="text-sm text-[var(--text-secondary)]">
           Đang xem:
-          <span className="ml-2 font-semibold text-gray-900">
+          <span className="ml-2 font-semibold text-[var(--text-primary)]">
             {activeYear?.name} {currentSemester ? `- ${currentSemester.name}` : ''}
           </span>
           {isDirty && (
@@ -478,9 +478,9 @@ export default function AssignmentsPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-sm">
         <table className="w-full border-collapse text-left">
-          <thead className="border-b border-gray-200 bg-gray-50 font-semibold text-gray-900">
+          <thead className="border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] font-semibold text-[var(--text-primary)]">
             <tr>
               <th className="px-6 py-4">Giáo viên</th>
               <th className="px-6 py-4">Lớp</th>
@@ -489,7 +489,7 @@ export default function AssignmentsPage() {
               <th className="px-6 py-4 text-right">Thao tác</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 text-gray-600">
+          <tbody className="divide-y divide-[var(--border-light)] text-[var(--text-secondary)]">
             {isLoading ? (
               <tr>
                 <td colSpan={5} className="py-8 text-center">
@@ -508,13 +508,13 @@ export default function AssignmentsPage() {
                   key={assignment.id}
                   className={
                     assignment.isNew
-                      ? 'bg-green-50'
+                      ? 'bg-green-900/20'
                       : assignment.isModified
-                        ? 'bg-amber-50'
-                        : 'hover:bg-gray-50'
+                        ? 'bg-amber-900/20'
+                        : 'hover:bg-[var(--bg-surface-hover)]'
                   }
                 >
-                  <td className="px-6 py-4 font-medium text-gray-900">
+                  <td className="px-6 py-4 font-medium text-[var(--text-primary)]">
                     {assignment.teacher?.full_name || 'Chưa có giáo viên'}
                   </td>
                   <td className="px-6 py-4">{assignment.class?.name || '---'}</td>
@@ -549,8 +549,8 @@ export default function AssignmentsPage() {
       </div>
 
       {isDirty && (
-        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full border border-gray-200 bg-white px-6 py-3 shadow-2xl">
-          <span className="font-bold text-gray-700">Có thay đổi chưa lưu</span>
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-6 py-3 shadow-2xl">
+          <span className="font-bold text-[var(--text-primary)]">Có thay đổi chưa lưu</span>
           <button
             onClick={handleDiscard}
             disabled={isSaving}
@@ -570,12 +570,12 @@ export default function AssignmentsPage() {
 
       {importResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h3 className="text-lg font-bold text-gray-800">
+          <div className="w-full max-w-3xl rounded-xl bg-[var(--bg-surface)] shadow-xl">
+            <div className="flex items-center justify-between border-b border-[var(--border-default)] px-6 py-4">
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">
                 {importResult.isError ? 'Import Excel thất bại' : 'Import Excel hoàn tất'}
               </h3>
-              <button onClick={() => setImportResult(null)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setImportResult(null)} className="text-gray-400 hover:text-[var(--text-secondary)]">
                 ×
               </button>
             </div>
@@ -641,22 +641,22 @@ export default function AssignmentsPage() {
 
       {isYearModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-6 py-4">
-              <h3 className="text-lg font-bold text-gray-800">Thêm năm học mới</h3>
-              <button onClick={() => setIsYearModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-[var(--bg-surface)] shadow-xl">
+            <div className="flex items-center justify-between border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-6 py-4">
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Thêm năm học mới</h3>
+              <button onClick={() => setIsYearModalOpen(false)} className="text-gray-400 hover:text-[var(--text-secondary)]">
                 ×
               </button>
             </div>
             <form onSubmit={handleCreateYear} className="space-y-4 p-6">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
                   Tên năm học (ví dụ: 2026-2027)
                 </label>
                 <input
                   type="text"
                   required
-                  className="w-full rounded-lg border border-gray-300 p-2"
+                  className="w-full rounded-lg border border-[var(--border-default)] p-2"
                   value={newYearName}
                   onChange={(event) => setNewYearName(event.target.value)}
                   placeholder="2026-2027"
@@ -664,21 +664,21 @@ export default function AssignmentsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Ngày bắt đầu</label>
+                  <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Ngày bắt đầu</label>
                   <input
                     type="date"
                     required
-                    className="w-full rounded-lg border border-gray-300 p-2"
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-primary)]"
                     value={newYearStart}
                     onChange={(event) => setNewYearStart(event.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Ngày kết thúc</label>
+                  <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Ngày kết thúc</label>
                   <input
                     type="date"
                     required
-                    className="w-full rounded-lg border border-gray-300 p-2"
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-primary)]"
                     value={newYearEnd}
                     onChange={(event) => setNewYearEnd(event.target.value)}
                   />
@@ -688,7 +688,7 @@ export default function AssignmentsPage() {
                 <button
                   type="button"
                   onClick={() => setIsYearModalOpen(false)}
-                  className="rounded-lg bg-gray-100 px-4 py-2 font-medium text-gray-600 hover:bg-gray-200"
+                  className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 font-medium text-[var(--text-secondary)] hover:bg-gray-200"
                 >
                   Hủy
                 </button>

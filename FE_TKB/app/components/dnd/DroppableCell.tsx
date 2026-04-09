@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
@@ -26,10 +26,10 @@ export function DroppableCell({ id, children, isValid, activeId, day, period, is
         } else if (isValid === true) {
             bgClass = 'bg-blue-50 ring-2 ring-inset ring-blue-400 z-20';
         } else {
-            bgClass = 'bg-gray-100';
+            bgClass = 'bg-[var(--bg-surface-hover)]';
         }
     } else {
-        bgClass = 'hover:bg-gray-50/80';
+        bgClass = 'hover:bg-[var(--bg-surface-hover)]/80';
     }
 
     return (

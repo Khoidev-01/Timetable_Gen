@@ -1,4 +1,4 @@
-
+﻿
 'use client';
 import { useState, useEffect } from 'react';
 import { API_URL } from '@/lib/api';
@@ -87,18 +87,18 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 className="text-lg font-bold text-gray-800">
+            <div className="bg-[var(--bg-surface)] rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+                <div className="px-6 py-4 border-b border-[var(--border-light)] flex justify-between items-center bg-[var(--bg-surface-hover)]">
+                    <h3 className="text-lg font-bold text-[var(--text-primary)]">
                         {initialData ? 'Update Class' : 'Add New Class'}
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-[var(--text-secondary)]">✕</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Class Name</label>
                             <input className="w-full px-3 py-2 border rounded-lg"
                                 required
                                 value={formData.name}
@@ -107,7 +107,7 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level</label>
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Grade Level</label>
                             <select className="w-full px-3 py-2 border rounded-lg"
                                 value={formData.grade_level}
                                 onChange={e => setFormData({ ...formData, grade_level: Number(e.target.value) })}
@@ -121,7 +121,7 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Main Session</label>
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Main Session</label>
                             <select className="w-full px-3 py-2 border rounded-lg"
                                 value={formData.main_session}
                                 onChange={e => setFormData({ ...formData, main_session: Number(e.target.value) })}
@@ -131,7 +131,7 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Fixed Room</label>
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Fixed Room</label>
                             <select className="w-full px-3 py-2 border rounded-lg"
                                 value={formData.fixed_room_id}
                                 onChange={e => setFormData({ ...formData, fixed_room_id: e.target.value })}
@@ -145,7 +145,7 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Homeroom Teacher</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Homeroom Teacher</label>
                         <select className="w-full px-3 py-2 border rounded-lg"
                             value={formData.homeroom_teacher_id}
                             onChange={e => setFormData({ ...formData, homeroom_teacher_id: e.target.value })}
@@ -157,8 +157,8 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
                         </select>
                     </div>
 
-                    <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-700">Cancel</button>
+                    <div className="pt-4 flex justify-end gap-3 border-t border-[var(--border-light)] mt-4">
+                        <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--bg-surface-hover)] rounded-lg hover:bg-gray-200 text-[var(--text-secondary)]">Cancel</button>
                         <button type="submit" disabled={isLoading} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 text-white flex items-center gap-2">
                             {isLoading && <span className="animate-spin text-white">⏳</span>}
                             Save

@@ -266,3 +266,29 @@ model TimetableSlot {
 
   @@map("timetable_slots")
 }
+
+// ==========================================
+// GROUP 7: NOTIFICATIONS
+// ==========================================
+
+model Notification {
+  id          String   @id @default(uuid())
+  user_id     String?  // Recipient user ID (null = broadcast to all admins)
+  category    NotificationCategory
+  title       String
+  message     String
+  metadata    Json?    // Extra info (e.g. teacher name, import stats)
+  is_read     Boolean  @default(false)
+  created_at  DateTime @default(now())
+
+  @@index([user_id, is_read, created_at])
+  @@map("notifications")
+}
+
+enum NotificationCategory {
+  IMPORT        // Excel import results
+  TIMETABLE     // TKB generation status
+  FEEDBACK      // Teacher feedback/request
+  BUSY_SCHEDULE // Teacher busy time registration
+  SYSTEM        // General system events
+}
