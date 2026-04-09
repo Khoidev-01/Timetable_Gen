@@ -1611,8 +1611,8 @@ export class ExcelService {
   private parseSessionLabel(value: string): number | null {
     const normalized = normalizeKey(value);
     if (!normalized) return 0;
-    if (['0', 'sang', 'buoisang', 'morning'].includes(normalized)) return 0;
-    if (['1', 'chieu', 'buoichieu', 'afternoon'].includes(normalized)) return 1;
+    if (['0', 'sang', 'sng', 'buoisang', 'morning'].includes(normalized)) return 0;
+    if (['1', 'chieu', 'chiu', 'buoichieu', 'afternoon'].includes(normalized)) return 1;
     return null;
   }
 
