@@ -454,7 +454,7 @@ export class ExcelService {
       errors,
     );
     this.validateDuplicateCodes(
-      parsed.combinations.map((item) => ({ value: item.code, rowNumber: item.rowNumber })),
+      parsed.combinations.map((item) => ({ value: `${item.code}__${item.gradeLevel}`, rowNumber: item.rowNumber })),
       WORKBOOK_SHEET_NAMES.combinations,
       'Mã_tổ_hợp',
       'duplicate_combination_code',
@@ -608,7 +608,9 @@ export class ExcelService {
         });
       }
 
-      const assignmentKey = `${classKey}:${resolved.subjectCode}:${resolved.periodType}`;
+      const refinedPeriodType = this.refinePeriodType(resolved.periodType, item.programGroup, item.notes);
+
+      const assignmentKey = `${classKey}:${resolved.subjectCode}:${refinedPeriodType}`;
       if (item.periodsHk1 > 0) {
         const hk1Key = `${assignmentKey}:1`;
         if (seenAssignmentKeys.has(hk1Key)) {
@@ -643,7 +645,7 @@ export class ExcelService {
         combinationCode: item.combinationCode,
         subjectCode: resolved.subjectCode,
         subjectName: resolved.subjectName,
-        periodType: this.refinePeriodType(resolved.periodType, item.programGroup, item.notes),
+        periodType: refinedPeriodType,
         notes: item.notes,
         hk1:
           item.periodsHk1 > 0 && item.teacherHk1Code
