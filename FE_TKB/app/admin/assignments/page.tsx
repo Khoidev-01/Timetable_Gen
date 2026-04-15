@@ -133,8 +133,36 @@ export default function AssignmentsPage() {
     }
   }, [selectedSemesterId]);
 
+  const parseDDMMYYYY = (value: string): Date | null => {
+    const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return null;
+    const [, dd, mm, yyyy] = match;
+    const date = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    if (isNaN(date.getTime())) return null;
+    return date;
+  };
+
+  const formatDateInput = (value: string): string => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  };
+
   const handleCreateYear = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    const startDate = parseDDMMYYYY(newYearStart);
+    const endDate = parseDDMMYYYY(newYearEnd);
+    if (!startDate || !endDate) {
+      alert('Ngày không hợp lệ. Vui lòng nhập đúng định dạng dd/mm/yyyy.');
+      return;
+    }
+    if (endDate <= startDate) {
+      alert('Ngày kết thúc phải sau ngày bắt đầu.');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/system/years`, {
@@ -145,8 +173,8 @@ export default function AssignmentsPage() {
         },
         body: JSON.stringify({
           name: newYearName,
-          start_date: new Date(newYearStart),
-          end_date: new Date(newYearEnd),
+          start_date: startDate,
+          end_date: endDate,
           status: 'ACTIVE',
         }),
       });
@@ -670,21 +698,27 @@ export default function AssignmentsPage() {
                 <div>
                   <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Ngày bắt đầu</label>
                   <input
-                    type="date"
+                    type="text"
                     required
+                    inputMode="numeric"
+                    placeholder="dd/mm/yyyy"
+                    maxLength={10}
                     className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-primary)]"
                     value={newYearStart}
-                    onChange={(event) => setNewYearStart(event.target.value)}
+                    onChange={(event) => setNewYearStart(formatDateInput(event.target.value))}
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Ngày kết thúc</label>
                   <input
-                    type="date"
+                    type="text"
                     required
+                    inputMode="numeric"
+                    placeholder="dd/mm/yyyy"
+                    maxLength={10}
                     className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-primary)]"
                     value={newYearEnd}
-                    onChange={(event) => setNewYearEnd(event.target.value)}
+                    onChange={(event) => setNewYearEnd(formatDateInput(event.target.value))}
                   />
                 </div>
               </div>
