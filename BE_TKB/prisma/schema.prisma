@@ -117,6 +117,9 @@ model Teacher {
   short_name          String?  // "Huong Van" - displayed on small slots
   email               String?
   phone               String?
+  major_subject       String?  // Môn chuyên môn chính: "TOAN", "LY"
+  teachable_grades    String?  // JSON: [10,11,12] — Khối có thể dạy
+  position            String   @default("GV") // GV, HT, PHT, TT, TP
   max_periods_per_week Int      @default(20)
   department          String?
   status              String   @default("Dang_day")

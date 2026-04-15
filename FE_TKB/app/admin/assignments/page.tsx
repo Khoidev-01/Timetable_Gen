@@ -26,6 +26,7 @@ interface Assignment {
   class: { id?: string; name: string };
   subject: { id?: number; name: string; code: string };
   total_periods: number;
+  period_type?: string;
   isNew?: boolean;
   isModified?: boolean;
 }
@@ -73,7 +74,13 @@ export default function AssignmentsPage() {
   const [newYearEnd, setNewYearEnd] = useState('');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
+  // Auto-assign state
+  const [isAutoAssignOpen, setIsAutoAssignOpen] = useState(false);
+  const [isAutoAssigning, setIsAutoAssigning] = useState(false);
+  const [autoAssignResult, setAutoAssignResult] = useState<any>(null);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const autoAssignFileRef = useRef<HTMLInputElement | null>(null);
 
   const fetchYears = async (preferredYearId?: string, preferredSemesterId?: string) => {
     try {
@@ -520,6 +527,15 @@ export default function AssignmentsPage() {
 
         <div className="flex flex-wrap gap-2">
           <button
+            onClick={() => setIsAutoAssignOpen(true)}
+            disabled={!selectedYearId}
+            className="rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-1.5"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+            Phân công tự động
+          </button>
+          <div className="h-8 w-px bg-[var(--border-default)] self-center" />
+          <button
             onClick={handleDownloadTemplate}
             disabled={!selectedYearId}
             className="rounded-lg bg-slate-700 px-4 py-2 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
@@ -661,21 +677,35 @@ export default function AssignmentsPage() {
 
             <div className="space-y-4 p-6">
               {importResult.summary && (
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div className="rounded-lg bg-slate-50 p-4 text-sm">
-                    <div>Môn chuẩn hóa: {importResult.summary.subjects.upserted}</div>
-                    <div>
-                      Giáo viên: +{importResult.summary.teachers.created} / cập nhật{' '}
-                      {importResult.summary.teachers.updated}
+                <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] p-4 text-sm text-[var(--text-primary)]">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-secondary)]">Môn chuẩn hóa:</span>
+                      <span className="font-semibold">{importResult.summary.subjects.upserted}</span>
                     </div>
-                    <div>
-                      Lớp: +{importResult.summary.classes.created} / cập nhật{' '}
-                      {importResult.summary.classes.updated}
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-secondary)]">Tổ hợp thay thế:</span>
+                      <span className="font-semibold">{importResult.summary.combinations.replaced}</span>
                     </div>
-                    <div>Tổ hợp thay thế: {importResult.summary.combinations.replaced}</div>
-                    <div>
-                      Phân công: xóa {importResult.summary.assignments.deleted}, tạo mới{' '}
-                      {importResult.summary.assignments.created}
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-secondary)]">Giáo viên:</span>
+                      <span className="font-semibold text-emerald-400">+{importResult.summary.teachers.created}</span>
+                      <span className="text-[var(--text-secondary)]">/</span>
+                      <span className="font-semibold text-blue-400">↻{importResult.summary.teachers.updated}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-secondary)]">Lớp:</span>
+                      <span className="font-semibold text-emerald-400">+{importResult.summary.classes.created}</span>
+                      <span className="text-[var(--text-secondary)]">/</span>
+                      <span className="font-semibold text-blue-400">↻{importResult.summary.classes.updated}</span>
+                    </div>
+                    <div className="col-span-2 flex justify-between border-t border-[var(--border-default)] pt-2 mt-1">
+                      <span className="text-[var(--text-secondary)]">Phân công:</span>
+                      <span>
+                        <span className="font-semibold text-red-400">xóa {importResult.summary.assignments.deleted}</span>
+                        {' → '}
+                        <span className="font-semibold text-emerald-400">tạo mới {importResult.summary.assignments.created}</span>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -800,6 +830,228 @@ export default function AssignmentsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Hidden file input for auto-assign */}
+      <input
+        ref={autoAssignFileRef}
+        type="file"
+        accept=".xlsx"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file || !selectedYearId) return;
+
+          setIsAutoAssigning(true);
+          try {
+            const token = localStorage.getItem('token');
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch(`${API_URL}/auto-assign/generate/${selectedYearId}`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+              body: formData,
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+              alert(data.message || 'Lỗi phân công tự động');
+              return;
+            }
+            setAutoAssignResult(data);
+          } catch (err) {
+            console.error(err);
+            alert('Lỗi kết nối server');
+          } finally {
+            setIsAutoAssigning(false);
+          }
+        }}
+      />
+
+      {/* Auto-assign modal */}
+      {isAutoAssignOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[var(--bg-surface)] p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <span className="text-2xl">🤖</span> Phân công tự động
+              </h2>
+              <button
+                onClick={() => {
+                  setIsAutoAssignOpen(false);
+                  setAutoAssignResult(null);
+                }}
+                className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                ×
+              </button>
+            </div>
+
+            {!autoAssignResult ? (
+              <div className="space-y-6">
+                {/* Step 1: Download template */}
+                <div className="rounded-xl border border-[var(--border-default)] p-5">
+                  <h3 className="font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">1</span>
+                    Tải mẫu Excel nhập danh sách GV
+                  </h3>
+                  <p className="text-sm text-[var(--text-secondary)] mb-3">
+                    File mẫu gồm: Mã GV, Họ tên, Môn chuyên môn, Khối dạy, Chức vụ, Tiết chuẩn, Giảm trừ, Chủ nhiệm.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      const token = localStorage.getItem('token');
+                      const res = await fetch(`${API_URL}/auto-assign/template`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'mau-nhap-gv-phan-cong.xlsx';
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                  >
+                    📥 Tải mẫu Excel
+                  </button>
+                </div>
+
+                {/* Step 2: Upload and run */}
+                <div className="rounded-xl border border-[var(--border-default)] p-5">
+                  <h3 className="font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-600 text-xs font-bold text-white">2</span>
+                    Upload file và chạy thuật toán
+                  </h3>
+                  <p className="text-sm text-[var(--text-secondary)] mb-3">
+                    Điền danh sách GV vào file mẫu, sau đó upload để hệ thống tự động phân công GV vào từng lớp.
+                  </p>
+                  <button
+                    onClick={() => autoAssignFileRef.current?.click()}
+                    disabled={isAutoAssigning}
+                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60 flex items-center gap-2"
+                  >
+                    {isAutoAssigning ? (
+                      <>
+                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        Đang phân công...
+                      </>
+                    ) : (
+                      <>📤 Upload Excel & Chạy</>
+                    )}
+                  </button>
+                </div>
+
+                {/* Info */}
+                <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800">
+                  <p className="font-semibold mb-1">ℹ️ Quy trình</p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>Hệ thống đọc danh sách GV từ file Excel</li>
+                    <li>Dựa vào CT GDPT 2018 + tổ hợp của từng lớp → tính số tiết cần</li>
+                    <li>Thuật toán Greedy tự chia GV vào lớp sao cho cân bằng</li>
+                    <li>Xuất kết quả → Admin review + sửa tay → Import lại</li>
+                  </ol>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Summary */}
+                <div className="rounded-xl bg-green-50 border border-green-200 p-4">
+                  <h3 className="font-bold text-green-800 mb-2">✅ Kết quả phân công</h3>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-700">{autoAssignResult.summary.assigned}</div>
+                      <div className="text-green-600">Đã phân công</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-600">{autoAssignResult.summary.unassigned}</div>
+                      <div className="text-red-500">Chưa phân công</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-700">{autoAssignResult.summary.totalDemands}</div>
+                      <div className="text-blue-600">Tổng nhu cầu</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Teacher stats */}
+                <div>
+                  <h3 className="font-semibold text-[var(--text-primary)] mb-2">👩‍🏫 Thống kê giảng dạy GV</h3>
+                  <div className="max-h-60 overflow-y-auto rounded-lg border border-[var(--border-default)]">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-[var(--bg-surface-hover)]">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Mã GV</th>
+                          <th className="px-3 py-2 text-left">Họ tên</th>
+                          <th className="px-3 py-2 text-center">Định mức</th>
+                          <th className="px-3 py-2 text-center">Đã giao</th>
+                          <th className="px-3 py-2 text-center">Thừa/Thiếu</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-light)]">
+                        {autoAssignResult.summary.teacherStats.map((t: any) => (
+                          <tr key={t.code} className={t.surplus > 0 ? 'bg-red-50' : t.surplus < -3 ? 'bg-amber-50' : ''}>
+                            <td className="px-3 py-1.5 font-mono text-xs">{t.code}</td>
+                            <td className="px-3 py-1.5">{t.name}</td>
+                            <td className="px-3 py-1.5 text-center">{t.effectiveLoad}</td>
+                            <td className="px-3 py-1.5 text-center font-semibold">{t.assignedPeriods}</td>
+                            <td className={`px-3 py-1.5 text-center font-bold ${t.surplus > 0 ? 'text-red-600' : t.surplus < 0 ? 'text-green-600' : ''}`}>
+                              {t.surplus > 0 ? `+${t.surplus}` : t.surplus}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Warnings */}
+                {autoAssignResult.warnings.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-amber-700 mb-2">⚠️ Cảnh báo ({autoAssignResult.warnings.length})</h3>
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 space-y-1">
+                      {autoAssignResult.warnings.map((w: string, i: number) => (
+                        <div key={i}>• {w}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setAutoAssignResult(null);
+                    }}
+                    className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 font-medium text-[var(--text-secondary)] hover:bg-gray-200"
+                  >
+                    ← Chạy lại
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const token = localStorage.getItem('token');
+                      const res = await fetch(`${API_URL}/auto-assign/export/${selectedYearId}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'phan-cong-tu-dong.xlsx';
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700 flex items-center gap-2"
+                  >
+                    📥 Xuất Excel phân công
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

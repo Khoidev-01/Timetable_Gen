@@ -16,6 +16,7 @@ import { AuthModule } from './auth/auth.module';
 import { ExcelModule } from './excel/excel.module';
 import { ConstraintsModule } from './constraints/constraints.module';
 import { NotificationModule } from './notifications/notification.module';
+import { AutoAssignModule } from './auto-assign/auto-assign.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { NotificationModule } from './notifications/notification.module';
     ExcelModule,
     ConstraintsModule,
     NotificationModule,
+    AutoAssignModule,
   ],
   controllers: [AppController],
   providers: [AppService],

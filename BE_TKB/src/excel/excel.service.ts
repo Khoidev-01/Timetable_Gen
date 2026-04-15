@@ -49,6 +49,7 @@ interface TeacherImportRow {
   baseLoad: number;
   reduction: number;
   effectiveLoad: number;
+  homeroomClass?: string;
   notes?: string;
 }
 
@@ -75,6 +76,17 @@ interface CombinationImportRow {
   special1: string;
   special2: string;
   special3: string;
+  notes?: string;
+}
+
+interface RoomImportRow {
+  rowNumber: number;
+  name: string;
+  type: string;
+  floor: number;
+  capacity: number;
+  session?: string;       // Sáng, Chiều, Cả ngày
+  fixedClass?: string;    // Tên lớp cố định
   notes?: string;
 }
 
@@ -117,6 +129,7 @@ interface PreparedAssignmentRow {
 interface ParsedWorkbook {
   teachers: TeacherImportRow[];
   classes: ClassImportRow[];
+  rooms: RoomImportRow[];
   combinations: CombinationImportRow[];
   assignments: AssignmentImportRow[];
   warnings: WorkbookMessage[];
@@ -131,6 +144,7 @@ interface WorkbookTeacherRow {
   baseLoad: number;
   reduction: number;
   effectiveLoad: number;
+  homeroomClass?: string;
   notes?: string;
 }
 
@@ -284,6 +298,24 @@ export class ExcelService {
       const classSummary = await this.upsertClasses(tx, parsed.classes, teacherMap);
       const classMap = await this.fetchClassMap(tx);
 
+      // Assign homeroom teachers from teacher sheet GVCN column
+      for (const teacher of parsed.teachers) {
+        if (!teacher.homeroomClass) continue;
+        const classEntity = classMap.get(normalizeKey(teacher.homeroomClass));
+        const teacherEntity = teacherMap.get(teacher.code);
+        if (classEntity && teacherEntity) {
+          await tx.class.update({
+            where: { id: classEntity.id },
+            data: { homeroom_teacher_id: teacherEntity.id },
+          });
+        }
+      }
+
+      // Upsert rooms and assign fixed rooms to classes
+      if (parsed.rooms.length > 0) {
+        await this.upsertRooms(tx, parsed.rooms, classMap);
+      }
+
       await tx.curriculumCombination.deleteMany({});
       if (parsed.combinations.length > 0) {
         await tx.curriculumCombination.createMany({
@@ -409,6 +441,10 @@ export class ExcelService {
     const combinations = this.parseCombinationsSheet(combinationsSheet, errors);
     const assignments = this.parseAssignmentsSheet(assignmentsSheet, errors, warnings);
 
+    // Rooms sheet is optional
+    const roomsSheet = this.findWorksheet(workbook, WORKBOOK_SHEET_NAMES.rooms, true);
+    const rooms = roomsSheet ? this.parseRoomsSheet(roomsSheet, errors) : [];
+
     if (errors.length > 0) {
       throw new BadRequestException({
         summary: null,
@@ -420,6 +456,7 @@ export class ExcelService {
     return {
       teachers,
       classes,
+      rooms,
       combinations,
       assignments,
       warnings,
@@ -757,6 +794,114 @@ export class ExcelService {
     return { created, updated };
   }
 
+  private resolveRoomType(typeStr: string): RoomType {
+    const normalized = normalizeKey(typeStr);
+    if (normalized.includes('labvatly') || normalized.includes('lably') || normalized.includes('thinghiemvatly') || normalized.includes('phongtnly'))
+      return RoomType.LAB_PHYSICS;
+    if (normalized.includes('labhoahoc') || normalized.includes('labhoa') || normalized.includes('thinghiemhoahoc') || normalized.includes('phongtnhoa'))
+      return RoomType.LAB_CHEM;
+    if (normalized.includes('labsinhhoc') || normalized.includes('labsinh') || normalized.includes('thinghiemsinhhoc'))
+      return RoomType.LAB_BIO;
+    if (normalized.includes('labtinhoc') || normalized.includes('labtin') || normalized.includes('labmaytinh') || normalized.includes('phongmaytinh'))
+      return RoomType.LAB_IT;
+    if (normalized.includes('san') || normalized.includes('sanbai') || normalized.includes('sanchoi'))
+      return RoomType.YARD;
+    if (normalized.includes('dadung') || normalized.includes('danang') || normalized.includes('hoitruong'))
+      return RoomType.MULTI_PURPOSE;
+    return RoomType.CLASSROOM;
+  }
+
+  private parseRoomsSheet(
+    worksheet: ExcelJS.Worksheet,
+    errors: WorkbookMessage[],
+  ): RoomImportRow[] {
+    const config = this.resolveColumns(
+      worksheet,
+      HEADER_ALIASES.rooms,
+      (columns) => Boolean(columns.name),
+      WORKBOOK_SHEET_NAMES.rooms,
+      errors,
+    );
+    if (!config) return [];
+
+    const rows: RoomImportRow[] = [];
+    for (let rowNumber = config.headerRow + 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+      const row = worksheet.getRow(rowNumber);
+      if (!this.rowHasValue(row, Object.values(config.columns))) continue;
+
+      const name = this.readString(row, config.columns.name);
+      if (!name) continue;
+
+      const typeStr = this.readString(row, config.columns.type) || 'Phòng học';
+      const floor = this.readInteger(row, config.columns.floor) ?? 1;
+      const capacity = this.readInteger(row, config.columns.capacity) ?? 45;
+      const session = this.readString(row, config.columns.session);
+      const fixedClass = this.readString(row, config.columns.fixedClass);
+      const notes = this.readString(row, config.columns.notes);
+
+      rows.push({
+        rowNumber,
+        name,
+        type: typeStr,
+        floor,
+        capacity,
+        session,
+        fixedClass,
+        notes,
+      });
+    }
+    return rows;
+  }
+
+  private async upsertRooms(
+    tx: PrismaTx,
+    rooms: RoomImportRow[],
+    classMap: Map<string, { id: string; name: string }>,
+  ): Promise<{ created: number; updated: number }> {
+    let created = 0;
+    let updated = 0;
+
+    for (const room of rooms) {
+      const roomType = this.resolveRoomType(room.type);
+      const data = {
+        name: room.name,
+        type: roomType,
+        floor: room.floor,
+        capacity: room.capacity,
+      };
+
+      const existing = await tx.room.findFirst({ where: { name: room.name } });
+      let roomId: number;
+
+      if (existing) {
+        await tx.room.update({ where: { id: existing.id }, data });
+        roomId = existing.id;
+        updated += 1;
+      } else {
+        const created_room = await tx.room.create({ data });
+        roomId = created_room.id;
+        created += 1;
+      }
+
+      // Assign fixed room to class if specified
+      if (room.fixedClass) {
+        // fixedClass can be comma-separated: "12A1, 11B1"
+        const classNames = room.fixedClass.split(',').map((s) => s.trim()).filter(Boolean);
+        for (const className of classNames) {
+          const classEntity = classMap.get(normalizeKey(className));
+          if (classEntity) {
+            await tx.class.update({
+              where: { id: classEntity.id },
+              data: { fixed_room_id: roomId },
+            });
+          }
+        }
+      }
+    }
+
+    return { created, updated };
+  }
+
   private async loadWorkbookData(
     hk1Id: string,
     hk2Id: string,
@@ -781,6 +926,12 @@ export class ExcelService {
     ]);
 
     const teacherMajorMap = this.buildTeacherMajorSubjectMap(assignments);
+    const homeroomMap = new Map<string, string>();
+    classes.forEach((cls) => {
+      if (cls.homeroom_teacher_id) {
+        homeroomMap.set(cls.homeroom_teacher_id, cls.name);
+      }
+    });
     const workbookTeachers: WorkbookTeacherRow[] = teachers.map((teacher) => ({
       code: teacher.code,
       fullName: teacher.full_name,
@@ -790,6 +941,7 @@ export class ExcelService {
       baseLoad: teacher.max_periods_per_week + teacher.workload_reduction,
       reduction: teacher.workload_reduction,
       effectiveLoad: teacher.max_periods_per_week,
+      homeroomClass: homeroomMap.get(teacher.id) ?? '',
       notes: teacher.notes ?? '',
     }));
 
@@ -921,12 +1073,41 @@ export class ExcelService {
     this.buildSubjectCatalogSheet(workbook, data.subjects);
     this.buildTeachersSheet(workbook, data.teachers);
     this.buildClassesSheet(workbook, data.classes);
+    this.buildRoomsSheet(workbook);
     this.buildCombinationsSheet(workbook, data.combinations);
     this.buildAssignmentsSheet(workbook, data.assignments);
     this.buildTeacherSummarySheet(workbook, data.teacherSummaries);
 
     const rawBuffer = await workbook.xlsx.writeBuffer();
     return Buffer.isBuffer(rawBuffer) ? rawBuffer : Buffer.from(rawBuffer);
+  }
+
+  private buildRoomsSheet(workbook: ExcelJS.Workbook): void {
+    const worksheet = workbook.addWorksheet(WORKBOOK_SHEET_NAMES.rooms, {
+      views: [{ state: 'frozen', ySplit: 2 }],
+    });
+
+    const headers = ['Tên phòng', 'Loại', 'Tầng', 'Sức chứa', 'Buổi', 'Lớp cố định', 'Ghi chú'];
+    applyTitleRow(worksheet, 1, 'DANH MỤC PHÒNG HỌC', headers.length);
+
+    const headerRow = worksheet.getRow(2);
+    headers.forEach((h, i) => { headerRow.getCell(i + 1).value = h; });
+    applyHeaderRow(headerRow);
+
+    // Sample data
+    const samples: (string | number)[][] = [
+      ['101', 'Phòng học', 1, 45, 'Sáng', '12A1', 'Phòng học chính lớp 12A1'],
+      ['201', 'Phòng học', 2, 45, 'Chiều', '10C1', 'Phòng học chính lớp 10C1'],
+      ['301', 'Lab Vật lý', 3, 40, 'Cả ngày', '', 'Phòng thí nghiệm Vật lý'],
+      ['302', 'Lab Hóa học', 3, 40, 'Cả ngày', '', 'Phòng thí nghiệm Hóa học'],
+    ];
+    samples.forEach((vals, i) => {
+      const r = worksheet.getRow(i + 3);
+      vals.forEach((v, j) => { r.getCell(j + 1).value = v; });
+      applyBodyRow(r);
+    });
+
+    [12, 15, 8, 10, 12, 20, 30].forEach((w, i) => { worksheet.getColumn(i + 1).width = w; });
   }
 
   private buildGuideSheet(workbook: ExcelJS.Workbook): void {
@@ -997,9 +1178,10 @@ export class ExcelService {
       { header: 'Định_mức_tuần', key: 'baseLoad', width: 16 },
       { header: 'Giảm_trừ_tuần', key: 'reduction', width: 16 },
       { header: 'Định_mức_hiệu_lực', key: 'effectiveLoad', width: 18 },
+      { header: 'GVCN', key: 'homeroomClass', width: 14 },
       { header: 'Ghi_chú', key: 'notes', width: 36 },
     ];
-    applyTitleRow(worksheet, 1, 'Danh mục giáo viên', 9);
+    applyTitleRow(worksheet, 1, 'Danh mục giáo viên', 10);
     applyHeaderRow(worksheet.getRow(2));
     teachers.forEach((teacher) => {
       const row = worksheet.addRow(teacher);
@@ -1162,6 +1344,7 @@ export class ExcelService {
         baseLoad: resolvedBase,
         reduction,
         effectiveLoad: resolvedEffective,
+        homeroomClass: this.readString(row, config.columns.homeroomClass) || undefined,
         notes: this.readString(row, config.columns.notes),
       });
     }
@@ -1404,7 +1587,9 @@ export class ExcelService {
     return new Map(classes.map((item) => [normalizeKey(item.name), item]));
   }
 
-  private findWorksheet(workbook: ExcelJS.Workbook, expectedName: string): ExcelJS.Worksheet {
+  private findWorksheet(workbook: ExcelJS.Workbook, expectedName: string): ExcelJS.Worksheet;
+  private findWorksheet(workbook: ExcelJS.Workbook, expectedName: string, optional: true): ExcelJS.Worksheet | null;
+  private findWorksheet(workbook: ExcelJS.Workbook, expectedName: string, optional?: boolean): ExcelJS.Worksheet | null {
     const normalizedExpected = normalizeKey(expectedName);
     for (const worksheet of workbook.worksheets) {
       const normalizedName = normalizeKey(worksheet.name);
@@ -1412,6 +1597,8 @@ export class ExcelService {
       const aliases = SHEET_ALIASES[expectedName] ?? [];
       if (aliases.includes(normalizedName)) return worksheet;
     }
+
+    if (optional) return null;
 
     throw new BadRequestException({
       summary: null,
