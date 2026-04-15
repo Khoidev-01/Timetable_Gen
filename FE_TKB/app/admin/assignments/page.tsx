@@ -149,6 +149,24 @@ export default function AssignmentsPage() {
     return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
   };
 
+  const validateDateInput = (value: string): string => {
+    if (!value || value.length < 10) return '';
+    const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return 'Sai định dạng. Nhập dd/mm/yyyy';
+    const [, dd, mm, yyyy] = match;
+    const day = Number(dd);
+    const month = Number(mm);
+    const year = Number(yyyy);
+    if (month < 1 || month > 12) return `Tháng ${mm} không hợp lệ (01-12)`;
+    if (year < 2000 || year > 2100) return `Năm ${yyyy} không hợp lệ`;
+    const maxDay = new Date(year, month, 0).getDate();
+    if (day < 1 || day > maxDay) return `Ngày ${dd} không hợp lệ (tháng ${mm} có ${maxDay} ngày)`;
+    return '';
+  };
+
+  const startError = validateDateInput(newYearStart);
+  const endError = validateDateInput(newYearEnd);
+
   const handleCreateYear = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -382,9 +400,27 @@ export default function AssignmentsPage() {
         body: formData,
       });
 
-      const payload = await response.json();
+      let payload: any;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = {};
+      }
+
+      const errorsList = payload.errors ?? [];
+      if (!response.ok && errorsList.length === 0) {
+        const msg = payload.message
+          ?? (typeof payload === 'string' ? payload : `Lỗi server (HTTP ${response.status})`);
+        const messages = Array.isArray(msg) ? msg : [msg];
+        messages.forEach((m: string) =>
+          errorsList.push({ sheet: 'SYSTEM', row: 0, column: '', message: m }),
+        );
+      }
+
       setImportResult({
-        ...payload,
+        summary: payload.summary ?? null,
+        warnings: payload.warnings ?? [],
+        errors: errorsList,
         isError: !response.ok,
       });
 
@@ -550,7 +586,18 @@ export default function AssignmentsPage() {
                     {assignment.teacher?.full_name || 'Chưa có giáo viên'}
                   </td>
                   <td className="px-6 py-4">{assignment.class?.name || '---'}</td>
-                  <td className="px-6 py-4">{assignment.subject?.name || '---'}</td>
+                  <td className="px-6 py-4">
+                    {assignment.subject?.name || '---'}
+                    {assignment.period_type === 'PRACTICE' && (
+                      <span className="ml-2 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">TH</span>
+                    )}
+                    {assignment.period_type === 'SPECIAL' && (
+                      <span className="ml-2 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">ĐB</span>
+                    )}
+                    {assignment.period_type === 'THEORY' && (
+                      <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">LT</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <span className="rounded bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
                       {assignment.total_periods}
@@ -634,11 +681,11 @@ export default function AssignmentsPage() {
                 </div>
               )}
 
-              {importResult.warnings.length > 0 && (
+              {(importResult.warnings?.length ?? 0) > 0 && (
                 <div>
                   <h4 className="mb-2 font-semibold text-amber-700">Cảnh báo</h4>
                   <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                    {importResult.warnings.slice(0, 20).map((warning, index) => (
+                    {importResult.warnings!.slice(0, 20).map((warning, index) => (
                       <div key={`${warning.sheet}-${warning.row}-${index}`}>
                         [{warning.sheet} - dòng {warning.row}] {warning.message}
                       </div>
@@ -647,11 +694,11 @@ export default function AssignmentsPage() {
                 </div>
               )}
 
-              {importResult.errors.length > 0 && (
+              {(importResult.errors?.length ?? 0) > 0 && (
                 <div>
                   <h4 className="mb-2 font-semibold text-red-700">Lỗi cần xử lý</h4>
                   <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                    {importResult.errors.slice(0, 20).map((error, index) => (
+                    {importResult.errors!.slice(0, 20).map((error, index) => (
                       <div key={`${error.sheet}-${error.row}-${index}`}>
                         [{error.sheet} - dòng {error.row}] {error.message}
                       </div>
@@ -703,10 +750,16 @@ export default function AssignmentsPage() {
                     inputMode="numeric"
                     placeholder="dd/mm/yyyy"
                     maxLength={10}
-                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-primary)]"
+                    className={`w-full rounded-lg border bg-[var(--bg-surface)] p-2 text-[var(--text-primary)] transition-colors ${
+                      startError ? 'border-red-400 focus:ring-red-400' : 'border-[var(--border-default)] focus:ring-blue-500'
+                    }`}
                     value={newYearStart}
                     onChange={(event) => setNewYearStart(formatDateInput(event.target.value))}
                   />
+                  {startError
+                    ? <p className="mt-1 text-xs text-red-500">⚠ {startError}</p>
+                    : <p className="mt-1 text-xs text-[var(--text-muted)]">VD: 05/09/2025</p>
+                  }
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Ngày kết thúc</label>
@@ -716,12 +769,21 @@ export default function AssignmentsPage() {
                     inputMode="numeric"
                     placeholder="dd/mm/yyyy"
                     maxLength={10}
-                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-primary)]"
+                    className={`w-full rounded-lg border bg-[var(--bg-surface)] p-2 text-[var(--text-primary)] transition-colors ${
+                      endError ? 'border-red-400 focus:ring-red-400' : 'border-[var(--border-default)] focus:ring-blue-500'
+                    }`}
                     value={newYearEnd}
                     onChange={(event) => setNewYearEnd(formatDateInput(event.target.value))}
                   />
+                  {endError
+                    ? <p className="mt-1 text-xs text-red-500">⚠ {endError}</p>
+                    : <p className="mt-1 text-xs text-[var(--text-muted)]">VD: 31/05/2026</p>
+                  }
                 </div>
               </div>
+              <p className="text-xs text-blue-500 italic">
+                📘 Theo GDPT 2018: Năm học bắt đầu 05/09 và kết thúc 31/05 năm sau.
+              </p>
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"

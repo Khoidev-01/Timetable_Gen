@@ -179,7 +179,7 @@ model Class {
 
 model CurriculumCombination {
   id                      String @id @default(uuid())
-  code                    String @unique
+  code                    String
   grade_level             Int
   elective_subject_code_1 String
   elective_subject_code_2 String
@@ -190,6 +190,7 @@ model CurriculumCombination {
   special_topic_code_3    String
   notes                   String?
 
+  @@unique([code, grade_level])
   @@map("curriculum_combinations")
 }
 

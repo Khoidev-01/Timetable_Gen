@@ -155,7 +155,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-96 rounded-xl border border-[var(--border-default)]
+                <div className="absolute right-0 top-full mt-2 w-[28rem] rounded-xl border border-[var(--border-default)]
                   bg-[var(--bg-surface)] shadow-2xl z-50 overflow-hidden">
                   {/* Header */}
                   <div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center justify-between">
@@ -169,7 +169,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </div>
 
                   {/* Category Tabs */}
-                  <div className="flex gap-1 px-3 py-2 border-b border-[var(--border-default)] overflow-x-auto">
+                  <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-[var(--border-default)]">
                     <button
                       onClick={() => setActiveCategory(null)}
                       className={`px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors
