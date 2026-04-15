@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import AssignmentModal from '../../components/admin/AssignmentModal';
@@ -400,8 +400,9 @@ export default function AssignmentsPage() {
 
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <h1 className="text-2xl font-bold text-[var(--text-primary)]">Phân công chuyên môn</h1>
-        <div className="flex gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <label className="text-sm font-medium text-[var(--text-secondary)]">Năm học:</label>
             <select
               className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
               value={selectedYearId}
@@ -417,25 +418,28 @@ export default function AssignmentsPage() {
                 </option>
               ))}
             </select>
-            <button
-              onClick={() => setIsYearModalOpen(true)}
-              className="rounded-lg bg-blue-100 px-3 py-2 font-bold text-blue-600 hover:bg-blue-200"
-              title="Thêm năm học"
-            >
-              +
-            </button>
           </div>
-          <select
-            className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
-            value={selectedSemesterId}
-            onChange={(event) => setSelectedSemesterId(event.target.value)}
+          <div className="flex items-center gap-1.5">
+            <label className="text-sm font-medium text-[var(--text-secondary)]">Học kỳ:</label>
+            <select
+              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+              value={selectedSemesterId}
+              onChange={(event) => setSelectedSemesterId(event.target.value)}
+            >
+              {semesterOptions.map((semester) => (
+                <option key={semester.id} value={semester.id}>
+                  {semester.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => setIsYearModalOpen(true)}
+            className="flex items-center gap-1 rounded-lg bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-200 transition-colors"
+            title="Thêm năm học mới"
           >
-            {semesterOptions.map((semester) => (
-              <option key={semester.id} value={semester.id}>
-                {semester.name}
-              </option>
-            ))}
-          </select>
+            <span className="text-base leading-none">+</span> Thêm năm học
+          </button>
         </div>
       </div>
 
