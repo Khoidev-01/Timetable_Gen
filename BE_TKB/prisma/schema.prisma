@@ -188,9 +188,9 @@ model CurriculumCombination {
   elective_subject_code_2 String
   elective_subject_code_3 String
   elective_subject_code_4 String
-  special_topic_code_1    String
-  special_topic_code_2    String
-  special_topic_code_3    String
+  special_topic_code_1    String?
+  special_topic_code_2    String?
+  special_topic_code_3    String?
   notes                   String?
 
   @@unique([code, grade_level])

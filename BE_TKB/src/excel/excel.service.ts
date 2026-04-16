@@ -19,6 +19,7 @@ import {
   getCellNumber,
   getCellText,
   normalizeKey,
+  resetBodyRowIndex,
 } from './excel.utils';
 
 type PrismaTx = Prisma.TransactionClient;
@@ -50,6 +51,8 @@ interface TeacherImportRow {
   reduction: number;
   effectiveLoad: number;
   homeroomClass?: string;
+  phone?: string;
+  email?: string;
   notes?: string;
 }
 
@@ -73,9 +76,6 @@ interface CombinationImportRow {
   elective2: string;
   elective3: string;
   elective4: string;
-  special1: string;
-  special2: string;
-  special3: string;
   notes?: string;
 }
 
@@ -145,6 +145,8 @@ interface WorkbookTeacherRow {
   reduction: number;
   effectiveLoad: number;
   homeroomClass?: string;
+  phone?: string;
+  email?: string;
   notes?: string;
 }
 
@@ -166,9 +168,6 @@ interface WorkbookCombinationRow {
   elective2: string;
   elective3: string;
   elective4: string;
-  special1: string;
-  special2: string;
-  special3: string;
   notes?: string;
 }
 
@@ -326,9 +325,7 @@ export class ExcelService {
             elective_subject_code_2: item.elective2,
             elective_subject_code_3: item.elective3,
             elective_subject_code_4: item.elective4,
-            special_topic_code_1: item.special1,
-            special_topic_code_2: item.special2,
-            special_topic_code_3: item.special3,
+            // Chuyên đề đã gộp vào môn gốc
             notes: item.notes ?? null,
           })),
         });
@@ -733,6 +730,8 @@ export class ExcelService {
         status: teacher.status,
         workload_reduction: teacher.reduction,
         max_periods_per_week: teacher.effectiveLoad,
+        phone: teacher.phone || null,
+        email: teacher.email || null,
         notes: teacher.notes || null,
       };
 
@@ -942,6 +941,8 @@ export class ExcelService {
       reduction: teacher.workload_reduction,
       effectiveLoad: teacher.max_periods_per_week,
       homeroomClass: homeroomMap.get(teacher.id) ?? '',
+      phone: teacher.phone ?? '',
+      email: teacher.email ?? '',
       notes: teacher.notes ?? '',
     }));
 
@@ -963,22 +964,15 @@ export class ExcelService {
       elective2: item.elective_subject_code_2,
       elective3: item.elective_subject_code_3,
       elective4: item.elective_subject_code_4,
-      special1: item.special_topic_code_1,
-      special2: item.special_topic_code_2,
-      special3: item.special_topic_code_3,
+      // Chuyên đề đã gộp vào môn gốc, không xuất riêng
       notes: item.notes ?? '',
     }));
 
     const groupedAssignments = new Map<string, WorkbookAssignmentRow>();
     assignments.forEach((assignment) => {
-      const exportedSubjectCode =
-        assignment.period_type === PeriodType.SPECIAL && !assignment.subject.is_special
-          ? `CD_${assignment.subject.code}`
-          : assignment.subject.code;
-      const exportedSubjectName =
-        assignment.period_type === PeriodType.SPECIAL && !assignment.subject.is_special
-          ? `Chuyên đề ${assignment.subject.name}`
-          : assignment.subject.name;
+      // Chuyên đề đã gộp vào môn gốc — dùng mã môn gốc trực tiếp
+      const exportedSubjectCode = assignment.subject.code;
+      const exportedSubjectName = assignment.subject.name;
       const key = `${assignment.class_id}:${exportedSubjectCode}`;
 
       const existing = groupedAssignments.get(key) ?? {
@@ -1170,19 +1164,21 @@ export class ExcelService {
       views: [{ state: 'frozen', ySplit: 2 }],
     });
     worksheet.columns = [
-      { header: 'Mã_GV', key: 'code', width: 16 },
-      { header: 'Họ_tên', key: 'fullName', width: 28 },
-      { header: 'Tổ_CM', key: 'department', width: 20 },
-      { header: 'Môn_chuyên_môn_chính', key: 'majorSubject', width: 24 },
-      { header: 'Trạng_thái', key: 'status', width: 18 },
-      { header: 'Định_mức_tuần', key: 'baseLoad', width: 16 },
-      { header: 'Giảm_trừ_tuần', key: 'reduction', width: 16 },
-      { header: 'Định_mức_hiệu_lực', key: 'effectiveLoad', width: 18 },
+      { header: 'Mã GV', key: 'code', width: 16 },
+      { header: 'Họ tên', key: 'fullName', width: 28 },
       { header: 'GVCN', key: 'homeroomClass', width: 14 },
-      { header: 'Ghi_chú', key: 'notes', width: 36 },
+      { header: 'Liên hệ', key: 'phone', width: 18 },
+      { header: 'Tổ CM', key: 'department', width: 20 },
+      { header: 'Môn chuyên môn chính', key: 'majorSubject', width: 24 },
+      { header: 'Trạng thái', key: 'status', width: 18 },
+      { header: 'Định mức tuần', key: 'baseLoad', width: 16 },
+      { header: 'Giảm trừ tuần', key: 'reduction', width: 16 },
+      { header: 'Định mức hiệu lực', key: 'effectiveLoad', width: 18 },
+      { header: 'Ghi chú', key: 'notes', width: 36 },
     ];
-    applyTitleRow(worksheet, 1, 'Danh mục giáo viên', 10);
+    applyTitleRow(worksheet, 1, 'Danh mục giáo viên', 11);
     applyHeaderRow(worksheet.getRow(2));
+    resetBodyRowIndex();
     teachers.forEach((teacher) => {
       const row = worksheet.addRow(teacher);
       applyBodyRow(row);
@@ -1196,15 +1192,16 @@ export class ExcelService {
     worksheet.columns = [
       { header: 'Lớp', key: 'name', width: 16 },
       { header: 'Khối', key: 'gradeLevel', width: 10 },
-      { header: 'Sĩ_số', key: 'studentCount', width: 12 },
-      { header: 'Buổi_học', key: 'sessionLabel', width: 14 },
-      { header: 'Mã_tổ_hợp', key: 'combinationCode', width: 18 },
-      { header: 'GVCN_Mã', key: 'homeroomCode', width: 18 },
-      { header: 'GVCN_Họ_tên', key: 'homeroomName', width: 28 },
-      { header: 'Ghi_chú', key: 'notes', width: 36 },
+      { header: 'Sĩ số', key: 'studentCount', width: 12 },
+      { header: 'Buổi học', key: 'sessionLabel', width: 14 },
+      { header: 'Mã tổ hợp', key: 'combinationCode', width: 18 },
+      { header: 'GVCN Mã', key: 'homeroomCode', width: 18 },
+      { header: 'GVCN Họ tên', key: 'homeroomName', width: 28 },
+      { header: 'Ghi chú', key: 'notes', width: 36 },
     ];
     applyTitleRow(worksheet, 1, 'Danh mục lớp', 8);
     applyHeaderRow(worksheet.getRow(2));
+    resetBodyRowIndex();
     classes.forEach((item) => {
       const row = worksheet.addRow(item);
       applyBodyRow(row);
@@ -1216,19 +1213,17 @@ export class ExcelService {
       views: [{ state: 'frozen', ySplit: 2 }],
     });
     worksheet.columns = [
-      { header: 'Mã_tổ_hợp', key: 'code', width: 18 },
+      { header: 'Mã tổ hợp', key: 'code', width: 18 },
       { header: 'Khối', key: 'gradeLevel', width: 10 },
-      { header: 'Môn_tự_chọn_1', key: 'elective1', width: 18 },
-      { header: 'Môn_tự_chọn_2', key: 'elective2', width: 18 },
-      { header: 'Môn_tự_chọn_3', key: 'elective3', width: 18 },
-      { header: 'Môn_tự_chọn_4', key: 'elective4', width: 18 },
-      { header: 'Chuyên_đề_1', key: 'special1', width: 18 },
-      { header: 'Chuyên_đề_2', key: 'special2', width: 18 },
-      { header: 'Chuyên_đề_3', key: 'special3', width: 18 },
-      { header: 'Ghi_chú', key: 'notes', width: 32 },
+      { header: 'Môn tự chọn 1', key: 'elective1', width: 18 },
+      { header: 'Môn tự chọn 2', key: 'elective2', width: 18 },
+      { header: 'Môn tự chọn 3', key: 'elective3', width: 18 },
+      { header: 'Môn tự chọn 4', key: 'elective4', width: 18 },
+      { header: 'Ghi chú', key: 'notes', width: 32 },
     ];
-    applyTitleRow(worksheet, 1, 'Danh mục tổ hợp môn học', 10);
+    applyTitleRow(worksheet, 1, 'Danh mục tổ hợp môn học', 7);
     applyHeaderRow(worksheet.getRow(2));
+    resetBodyRowIndex();
     combinations.forEach((item) => {
       const row = worksheet.addRow(item);
       applyBodyRow(row);
@@ -1241,25 +1236,26 @@ export class ExcelService {
     });
     worksheet.columns = [
       { header: 'STT', key: 'order', width: 10 },
-      { header: 'Năm_học', key: 'schoolYear', width: 16 },
+      { header: 'Năm học', key: 'schoolYear', width: 16 },
       { header: 'Khối', key: 'gradeLevel', width: 10 },
       { header: 'Lớp', key: 'className', width: 14 },
-      { header: 'Mã_tổ_hợp', key: 'combinationCode', width: 18 },
-      { header: 'Mã_môn', key: 'subjectCode', width: 16 },
-      { header: 'Tên_môn', key: 'subjectName', width: 28 },
-      { header: 'Nhóm_CT', key: 'programGroup', width: 18 },
-      { header: 'Tiết_HK1', key: 'periodsHk1', width: 12 },
-      { header: 'Tiết_HK2', key: 'periodsHk2', width: 12 },
-      { header: 'GV_HK1_Mã', key: 'teacherHk1Code', width: 16 },
-      { header: 'GV_HK1_Họ_tên', key: 'teacherHk1Name', width: 26 },
-      { header: 'GV_HK1_Định_mức', key: 'teacherHk1Load', width: 18 },
-      { header: 'GV_HK2_Mã', key: 'teacherHk2Code', width: 16 },
-      { header: 'GV_HK2_Họ_tên', key: 'teacherHk2Name', width: 26 },
-      { header: 'GV_HK2_Định_mức', key: 'teacherHk2Load', width: 18 },
-      { header: 'Ghi_chú', key: 'notes', width: 28 },
+      { header: 'Mã tổ hợp', key: 'combinationCode', width: 18 },
+      { header: 'Mã môn', key: 'subjectCode', width: 16 },
+      { header: 'Tên môn', key: 'subjectName', width: 28 },
+      { header: 'Nhóm CT', key: 'programGroup', width: 18 },
+      { header: 'Tiết HK1', key: 'periodsHk1', width: 12 },
+      { header: 'Tiết HK2', key: 'periodsHk2', width: 12 },
+      { header: 'GV HK1 Mã', key: 'teacherHk1Code', width: 16 },
+      { header: 'GV HK1 Họ tên', key: 'teacherHk1Name', width: 26 },
+      { header: 'GV HK1 Định mức', key: 'teacherHk1Load', width: 18 },
+      { header: 'GV HK2 Mã', key: 'teacherHk2Code', width: 16 },
+      { header: 'GV HK2 Họ tên', key: 'teacherHk2Name', width: 26 },
+      { header: 'GV HK2 Định mức', key: 'teacherHk2Load', width: 18 },
+      { header: 'Ghi chú', key: 'notes', width: 28 },
     ];
     applyTitleRow(worksheet, 1, 'Bảng phân công giảng dạy theo năm học', 17);
     applyHeaderRow(worksheet.getRow(2));
+    resetBodyRowIndex();
     assignments.forEach((assignment) => {
       const row = worksheet.addRow(assignment);
       applyBodyRow(row);
@@ -1274,23 +1270,24 @@ export class ExcelService {
       views: [{ state: 'frozen', ySplit: 2 }],
     });
     worksheet.columns = [
-      { header: 'Mã_GV', key: 'code', width: 16 },
-      { header: 'Họ_tên', key: 'fullName', width: 28 },
-      { header: 'Tổ_CM', key: 'department', width: 18 },
-      { header: 'Định_mức_tuần', key: 'baseLoad', width: 16 },
-      { header: 'Giảm_trừ_tuần', key: 'reduction', width: 16 },
-      { header: 'Định_mức_hiệu_lực', key: 'effectiveLoad', width: 18 },
-      { header: 'Tổng_tiết_HK1', key: 'totalHk1', width: 16 },
-      { header: 'Tổng_tiết_HK2', key: 'totalHk2', width: 16 },
-      { header: 'Chênh_HK1', key: 'deltaHk1', width: 12 },
-      { header: 'Chênh_HK2', key: 'deltaHk2', width: 12 },
-      { header: 'Tổng_tiết_năm', key: 'totalYear', width: 16 },
-      { header: 'Số_dòng_PC_HK1', key: 'assignmentRowsHk1', width: 16 },
-      { header: 'Số_dòng_PC_HK2', key: 'assignmentRowsHk2', width: 16 },
-      { header: 'Ghi_chú', key: 'notes', width: 28 },
+      { header: 'Mã GV', key: 'code', width: 12 },
+      { header: 'Họ tên', key: 'fullName', width: 24 },
+      { header: 'Tổ CM', key: 'department', width: 16 },
+      { header: 'Định mức tuần', key: 'baseLoad', width: 14 },
+      { header: 'Giảm trừ tuần', key: 'reduction', width: 14 },
+      { header: 'Định mức hiệu lực', key: 'effectiveLoad', width: 16 },
+      { header: 'Tổng tiết HK1', key: 'totalHk1', width: 14 },
+      { header: 'Tổng tiết HK2', key: 'totalHk2', width: 14 },
+      { header: 'Chênh HK1', key: 'deltaHk1', width: 11 },
+      { header: 'Chênh HK2', key: 'deltaHk2', width: 11 },
+      { header: 'Tổng tiết năm', key: 'totalYear', width: 14 },
+      { header: 'Số dòng PC HK1', key: 'assignmentRowsHk1', width: 14 },
+      { header: 'Số dòng PC HK2', key: 'assignmentRowsHk2', width: 14 },
+      { header: 'Ghi chú', key: 'notes', width: 24 },
     ];
     applyTitleRow(worksheet, 1, 'Tổng hợp tải giảng dạy theo giáo viên', 14);
     applyHeaderRow(worksheet.getRow(2));
+    resetBodyRowIndex();
     rows.forEach((item) => {
       const row = worksheet.addRow(item);
       applyBodyRow(row);
@@ -1345,6 +1342,8 @@ export class ExcelService {
         reduction,
         effectiveLoad: resolvedEffective,
         homeroomClass: this.readString(row, config.columns.homeroomClass) || undefined,
+        phone: this.readString(row, config.columns.phone) || undefined,
+        email: this.readString(row, config.columns.email) || undefined,
         notes: this.readString(row, config.columns.notes),
       });
     }
@@ -1438,9 +1437,7 @@ export class ExcelService {
         elective2: this.normalizeSubjectEntry(this.readString(row, config.columns.elective2)),
         elective3: this.normalizeSubjectEntry(this.readString(row, config.columns.elective3)),
         elective4: this.normalizeSubjectEntry(this.readString(row, config.columns.elective4)),
-        special1: this.normalizeSpecialTopicEntry(this.readString(row, config.columns.special1)),
-        special2: this.normalizeSpecialTopicEntry(this.readString(row, config.columns.special2)),
-        special3: this.normalizeSpecialTopicEntry(this.readString(row, config.columns.special3)),
+        // Chuyên đề đã gộp vào môn gốc, không parse
         notes: this.readString(row, config.columns.notes),
       });
     }

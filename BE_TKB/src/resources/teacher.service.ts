@@ -7,7 +7,10 @@ export class TeacherService {
     constructor(private prisma: PrismaService) { }
 
     async findAll() {
-        return this.prisma.teacher.findMany({ include: { constraints: true } });
+        return this.prisma.teacher.findMany({
+            include: { constraints: true, homeroom_classes: { select: { id: true, name: true } } },
+            orderBy: { code: 'asc' },
+        });
     }
 
     async findOne(id: string) {

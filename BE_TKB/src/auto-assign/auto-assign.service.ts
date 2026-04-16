@@ -8,7 +8,7 @@ import {
   getPracticePeriods,
   SUBJECT_CATALOG,
 } from '../excel/excel.constants';
-import { applyHeaderRow, applyBodyRow, applyTitleRow, thinBorder } from '../excel/excel.utils';
+import { applyHeaderRow, applyBodyRow, applyTitleRow, thinBorder, resetBodyRowIndex } from '../excel/excel.utils';
 
 // ──────────────────────────────
 // Types
@@ -107,6 +107,7 @@ export class AutoAssignService {
       ['GV002', 'Trần Thị B', 'VAN', '10,11,12', 'TT', 17, 3, 14, '', 'Tổ trưởng Văn'],
       ['GV003', 'Lê Văn C', 'LY', '10,12', 'GV', 17, 0, 17, '12A1', ''],
     ];
+    resetBodyRowIndex();
     samples.forEach((vals, i) => {
       const r = ws.getRow(i + 3);
       setRowValues(r, vals);
@@ -145,6 +146,7 @@ export class AutoAssignService {
     setRowValues(refHeader, ['Mã môn', 'Tên môn', 'Nhóm']);
     applyHeaderRow(refHeader);
 
+    resetBodyRowIndex();
     SUBJECT_CATALOG.filter(s => !s.isSpecial).forEach((s, i) => {
       const r = refWs.getRow(i + 3);
       setRowValues(r, [s.code, s.name, s.group]);
@@ -231,9 +233,7 @@ export class AutoAssignService {
             combo.elective_subject_code_2,
             combo.elective_subject_code_3,
             combo.elective_subject_code_4,
-            combo.special_topic_code_1,
-            combo.special_topic_code_2,
-            combo.special_topic_code_3,
+            // Chuyên đề đã gộp vào môn gốc, không cần check special_topic
           ];
           if (!comboSubjects.includes(subjectCode)) continue;
         }

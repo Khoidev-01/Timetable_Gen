@@ -36,16 +36,10 @@ export const SUBJECT_CATALOG: SubjectCatalogItem[] = [
   { code: 'SINH', name: 'Sinh học', group: 'Lựa chọn', aliases: ['SH', 'SINHHOC'] },
   { code: 'DIA', name: 'Địa lý', group: 'Lựa chọn', aliases: ['DL', 'DIALI'] },
   { code: 'GDKT', name: 'Giáo dục kinh tế và pháp luật', group: 'Lựa chọn', aliases: ['GDKTPL', 'KTPL'] },
-  { code: 'CN', name: 'Công nghệ', group: 'Lựa chọn', aliases: ['CONGNGHE'] },
+  { code: 'CNCN', name: 'Công nghệ Công nghiệp', group: 'Lựa chọn', aliases: ['CN_CN', 'CONGNGHECONGNGHIEP'] },
+  { code: 'CNNN', name: 'Công nghệ Nông nghiệp', group: 'Lựa chọn', aliases: ['CN_NN', 'CONGNGHONONGNGHIEP'] },
   { code: 'TIN', name: 'Tin học', group: 'Lựa chọn', aliases: ['TH', 'TINHOC'] },
   { code: 'MT', name: 'Mỹ thuật', group: 'Lựa chọn', aliases: ['MYTHUAT', 'AMTHUAT'] },
-  // === Chuyên đề học tập (GDPT 2018 — 3 tiết/tuần mỗi chuyên đề) ===
-  { code: 'CD_LY', name: 'Chuyên đề Vật lý', group: 'Chuyên đề', aliases: ['CDLY', 'CHUYENDEVATLY'] },
-  { code: 'CD_HOA', name: 'Chuyên đề Hóa học', group: 'Chuyên đề', aliases: ['CDHOA', 'CHUYENDEHOAHOC'] },
-  { code: 'CD_SINH', name: 'Chuyên đề Sinh học', group: 'Chuyên đề', aliases: ['CDSINH', 'CHUYENDESINHHOC'] },
-  { code: 'CD_TOAN', name: 'Chuyên đề Toán', group: 'Chuyên đề', aliases: ['CDTOAN', 'CHUYENDETOAN'] },
-  { code: 'CD_VAN', name: 'Chuyên đề Ngữ văn', group: 'Chuyên đề', aliases: ['CDVAN', 'CHUYENDNGUVAN'] },
-  { code: 'CD_ANH', name: 'Chuyên đề Tiếng Anh', group: 'Chuyên đề', aliases: ['CDANH', 'CHUYENDETIENGANH'] },
   {
     code: 'CHAO_CO',
     name: 'Chào cờ',
@@ -102,6 +96,8 @@ export const HEADER_ALIASES = {
     reduction: ['giamtrutuan', 'gimtrtun', 'giamtru'],
     effectiveLoad: ['dinhmuchieuluc', 'nhmchiulc', 'dinhmucthuchien', 'dinhmucthucte'],
     homeroomClass: ['gvcn', 'chunhiem', 'lopchunhiem', 'chunhiemlop'],
+    phone: ['lienhe', 'linhe', 'sodienthoai', 'sdt', 'dienthoai', 'phone'],
+    email: ['email', 'mail', 'thudientu'],
     notes: ['ghichu', 'ghich'],
   },
   classes: {
@@ -189,26 +185,20 @@ export const GDPT2018_CURRICULUM: CurriculumPeriodItem[] = [
   { subjectCode: 'GDDP',  grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
 
   // === Lựa chọn (chỉ áp dụng nếu lớp có tổ hợp chứa môn) ===
-  { subjectCode: 'LY',    grade10: 1, grade11: 1, grade12: 2,
+  // Tiết đã gộp chuyên đề (CD) vào môn gốc: VD LY = 2 lý thuyết + 1 thực hành (đã bao gồm CD)
+  { subjectCode: 'LY',    grade10: 2, grade11: 2, grade12: 3,
     hasPractice: true, practiceGrade10: 1, practiceGrade11: 1, practiceGrade12: 1 },
-  { subjectCode: 'HOA',   grade10: 1, grade11: 1, grade12: 2,
+  { subjectCode: 'HOA',   grade10: 2, grade11: 2, grade12: 3,
     hasPractice: true, practiceGrade10: 1, practiceGrade11: 1, practiceGrade12: 1 },
-  { subjectCode: 'SINH',  grade10: 1, grade11: 1, grade12: 2,
+  { subjectCode: 'SINH',  grade10: 2, grade11: 2, grade12: 3,
     hasPractice: true, practiceGrade10: 1, practiceGrade11: 1, practiceGrade12: 1 },
   { subjectCode: 'DIA',   grade10: 2, grade11: 2, grade12: 2, hasPractice: false },
   { subjectCode: 'GDKT',  grade10: 2, grade11: 2, grade12: 2, hasPractice: false },
-  { subjectCode: 'CN',    grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
+  { subjectCode: 'CNCN',  grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
+  { subjectCode: 'CNNN',  grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
   { subjectCode: 'TIN',   grade10: 1, grade11: 1, grade12: 1,
     hasPractice: true, practiceGrade10: 1, practiceGrade11: 1, practiceGrade12: 1 },
   { subjectCode: 'MT',    grade10: 2, grade11: 2, grade12: 2, hasPractice: false },
-
-  // === Chuyên đề học tập (nằm trong tổ hợp, special_topic_code_1/2/3) ===
-  { subjectCode: 'CD_LY',   grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
-  { subjectCode: 'CD_HOA',  grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
-  { subjectCode: 'CD_SINH', grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
-  { subjectCode: 'CD_TOAN', grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
-  { subjectCode: 'CD_VAN',  grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
-  { subjectCode: 'CD_ANH',  grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
 
   // === Hoạt động tập thể (special, xếp cố định) ===
   { subjectCode: 'CHAO_CO',      grade10: 1, grade11: 1, grade12: 1, hasPractice: false },

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -12,6 +12,7 @@ interface Teacher {
   email?: string;
   phone?: string;
   max_periods_per_week: number;
+  homeroom_classes?: { id: string; name: string }[];
 }
 
 export default function TeachersPage() {
@@ -125,6 +126,7 @@ export default function TeachersPage() {
             <tr>
               <th className="px-6 py-4">Mã GV</th>
               <th className="px-6 py-4">Họ và tên</th>
+              <th className="px-6 py-4">Chủ nhiệm</th>
               <th className="px-6 py-4">Liên hệ</th>
               <th className="px-6 py-4">Số tiết tối đa / tuần</th>
               <th className="px-6 py-4 text-right">Thao tác</th>
@@ -133,13 +135,13 @@ export default function TeachersPage() {
           <tbody className="divide-y divide-[var(--border-light)] text-[var(--text-secondary)]">
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center">
+                <td colSpan={6} className="py-8 text-center">
                   Đang tải dữ liệu...
                 </td>
               </tr>
             ) : teachers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center">
+                <td colSpan={6} className="py-8 text-center">
                   Chưa có giáo viên nào
                 </td>
               </tr>
@@ -149,8 +151,17 @@ export default function TeachersPage() {
                   <td className="px-6 py-4 font-medium text-[var(--text-primary)]">{teacher.code}</td>
                   <td className="px-6 py-4 font-medium">{teacher.full_name}</td>
                   <td className="px-6 py-4 text-sm">
-                    <div className="text-[var(--text-primary)]">{teacher.email || '--'}</div>
-                    <div className="text-[var(--text-muted)]">{teacher.phone || '--'}</div>
+                    {teacher.homeroom_classes && teacher.homeroom_classes.length > 0 ? (
+                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                        {teacher.homeroom_classes.map(c => c.name).join(', ')}
+                      </span>
+                    ) : (
+                      <span className="text-[var(--text-muted)]">—</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <div className="text-[var(--text-primary)]">{teacher.phone || '--'}</div>
+                    <div className="text-[var(--text-muted)]">{teacher.email || '--'}</div>
                   </td>
                   <td className="px-6 py-4">
                     <span className="rounded bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
