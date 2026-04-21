@@ -17,9 +17,9 @@ export class AlgorithmProducer {
         const job = await this.optimizationQueue.add('optimize-schedule', {
             semesterId,
             params: {
-                populationSize: 50,
-                maxGenerations: 100,
-                mutationRate: 0.02
+                populationSize: 100,
+                maxGenerations: 200,
+                mutationRate: 0.05
             }
         });
         return { message: 'Optimization started', jobId: job.id, semesterId };

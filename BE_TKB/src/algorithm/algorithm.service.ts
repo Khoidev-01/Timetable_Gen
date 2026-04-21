@@ -257,8 +257,9 @@ export class AlgorithmService {
             // Goal: Place ALL 'count' periods in ONE session (consecutive)
             for (const block of oppositeBlockSubjects) {
                 const { assign, count } = block;
-                const minP = isMorningMain ? 6 : 1;
-                const maxP = isMorningMain ? 10 : 5;
+                // GDTC/GDQP: Morning (1-3), Afternoon (8-10)
+                const minP = isMorningMain ? 8 : 1;
+                const maxP = isMorningMain ? 10 : 3;
                 const validRange = Array.from({ length: maxP - minP + 1 }, (_, i) => minP + i);
 
                 let placed = false;
@@ -281,6 +282,8 @@ export class AlgorithmService {
                         const canPlace = periodsToCheck.every(p => {
                             // Blocked Rules
                             if (day === 2 && p === 1) return false;
+                            // Thursday: Only periods 1, 2 (Morning) and 6, 7 (Afternoon) allowed
+                            if (day === 5 && (p === 3 || p === 4 || p === 5 || p === 8 || p === 9 || p === 10)) return false;
 
                             // Occupied?
                             if (this.isSlotOccupied(solution.slots, cls.id, day, p)) return false;
@@ -334,6 +337,8 @@ export class AlgorithmService {
 
                     // RULES BLOCK
                     if (day === 2 && period === 1) continue;
+                    // Thursday: Only periods 1, 2 (Morning) and 6, 7 (Afternoon) allowed
+                    if (day === 5 && (period === 3 || period === 4 || period === 5 || period === 8 || period === 9 || period === 10)) continue;
 
                     // Try to assign
                     let placed = false;

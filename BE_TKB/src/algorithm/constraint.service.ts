@@ -208,6 +208,9 @@ export class ConstraintService {
         const classSchedule = this.groupBy(schedule, 'classId');
         violations += this.checkHeavySubjects(classSchedule);
 
+        // Thursday Restriction
+        violations += this.checkThursdayRestriction(schedule);
+
         return violations;
     }
 
@@ -305,13 +308,30 @@ export class ConstraintService {
         for (const s of schedule) {
             const subjCode = this.getSubjectCode(s.subjectId);
             if (subjCode.includes('GDTC') || subjCode.includes('GDQP') || subjCode.includes('QUOC_PHONG')) {
-                // Forbidden periods: 4, 5 (Morning) and 6, 7 (Afternoon)
-                if ([4, 5, 6, 7].includes(s.period)) {
-                    penalty++;
+                // Morning: Must be 1, 2, 3. Afternoon: Must be 8, 9, 10
+                const isMorning = s.period <= 5;
+                if (isMorning) {
+                    if (s.period > 3) penalty++;
+                } else {
+                    if (s.period < 8) penalty++;
                 }
             }
         }
         return penalty;
+    }
+
+    // HC: Thursday Restriction (P3-5 and P8-10 must be empty)
+    public checkThursdayRestriction(schedule: TimeSlot[]): number {
+        let violations = 0;
+        for (const s of schedule) {
+            if (s.day === 5) {
+                // Only periods 1, 2, 6, 7 allowed
+                if ([3, 4, 5, 8, 9, 10].includes(s.period)) {
+                    violations++;
+                }
+            }
+        }
+        return violations;
     }
 
     // SC03: Morning Priority
@@ -440,6 +460,9 @@ export class ConstraintService {
         const hc6 = this.checkHeavySubjects(classSchedule);
         if (hc6) details.push(`Xếp >=2 môn nặng trong cùng 1 buổi: -${hc6 * 100} điểm (${hc6} lỗi)`);
 
+        const hc7 = this.checkThursdayRestriction(schedule);
+        if (hc7) details.push(`Vi phạm lịch nghỉ Thứ 5: -${hc7 * 100} điểm (${hc7} lỗi)`);
+
         const teacherSchedule = this.groupBy(schedule, 'teacherId');
 
         const sc1 = this.checkSpreadSubjects(classSchedule);
@@ -457,7 +480,7 @@ export class ConstraintService {
         const sc7 = this.checkMaxLoad(teacherSchedule);
         if (sc7) details.push(`Giáo viên dạy quá số tiết/buổi: -${sc7 * 10} điểm`);
 
-        const hardViolations = hc1 + hc2 + hc3 + hc4 + hc5 + hc6;
+        const hardViolations = hc1 + hc2 + hc3 + hc4 + hc5 + hc6 + hc7;
         const softPenalty = (sc1 * 10) + (sc3 * 15) + (sc4 * 10) + (sc6 * 5) + (sc7 * 10);
         const score = 1000 - (hardViolations * 100) - softPenalty;
 
