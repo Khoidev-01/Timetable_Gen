@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { AlgorithmService } from '../algorithm/algorithm.service'; // Direct access for now or use Prisma
+import { AlgorithmService } from '../algorithm/algorithm.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConstraintService } from '../algorithm/constraint.service';
 
 @Injectable()
 export class AlgorithmProducer {
     constructor(
         @InjectQueue('optimization') private optimizationQueue: Queue,
-        private prisma: PrismaService
+        private prisma: PrismaService,
+        private constraintService: ConstraintService
     ) { }
 
     async startOptimization(semesterId: string) {
@@ -96,9 +98,25 @@ export class AlgorithmProducer {
             };
         });
 
+        // Calculate fitness details
+        const timeSlots = latestTkb.slots.map(t => ({
+            id: t.id,
+            day: t.day,
+            period: t.period,
+            classId: t.class_id,
+            subjectId: t.subject_id,
+            teacherId: t.teacher_id,
+            roomId: t.room_id || undefined,
+            isLocked: t.is_locked
+        }));
+        
+        await this.constraintService.initialize(semesterId);
+        const fitnessResult = this.constraintService.getFitnessDetails(timeSlots);
+
         return {
             bestSchedule,
             fitness_score: latestTkb.fitness_score,
+            fitnessDetails: fitnessResult.details,
             is_official: latestTkb.is_official,
             generated_at: latestTkb.created_at
         };

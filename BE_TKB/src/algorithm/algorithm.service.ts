@@ -292,17 +292,16 @@ export class AlgorithmService {
                         if (canPlace) {
                             // EXECUTE PLACEMENT
                             periodsToCheck.forEach(p => {
-                                // GDTC/GDQP học tại sân bãi, không dùng phòng học
+                                // GDTC/GDQP học tại sân bãi, không dùng phòng học vật lý (tránh lỗi unique_room_slot)
                                 const subject = data.subjects.find((s: any) => s.id === assign.subject_id);
                                 const isYardSubject = subject && ['GDTC', 'GDQP'].includes(subject.code);
-                                const yardRoom = isYardSubject ? data.rooms.find((r: any) => r.type === 'YARD') : null;
                                 solution.slots.push({
                                     id: crypto.randomUUID(),
                                     day, period: p,
                                     classId: cls.id,
                                     subjectId: assign.subject_id,
                                     teacherId: assign.teacher_id,
-                                    roomId: isYardSubject ? (yardRoom?.id || undefined) : cls.fixed_room_id,
+                                    roomId: isYardSubject ? undefined : cls.fixed_room_id,
                                     isLocked: false
                                 });
                             });
@@ -336,48 +335,53 @@ export class AlgorithmService {
                     if (day === 2 && period === 1) continue;
 
                     // Try to assign
-                    for (let i = 0; i < candidates.length; i++) {
-                        const assign = candidates[i];
-                        
-                        // Check Heavy Subject conflict for this session
-                        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
-                        const subjCode = this.constraintService.getSubjectCode(assign.subject_id);
-                        if (heavyCodes.some(h => subjCode.includes(h))) {
-                            // Verify if another distinct heavy subject is already in this session
-                            const hasOtherHeavy = solution.slots.some((s: any) => {
-                                if (s.classId !== cls.id || s.day !== day) return false;
-                                const isSameSession = isMorningPeriod ? (s.period <= 5) : (s.period > 5);
-                                if (!isSameSession) return false;
-                                
-                                const existingCode = this.constraintService.getSubjectCode(s.subjectId);
-                                if (existingCode === subjCode) return false; // same subject is fine
-                                return heavyCodes.some(h => existingCode.includes(h));
-                            });
-                            if (hasOtherHeavy) continue; // Skip to next candidate if it creates a heavy subject conflict
+                    let placed = false;
+                    for (let pass = 0; pass < 2; pass++) {
+                        for (let i = 0; i < candidates.length; i++) {
+                            const assign = candidates[i];
+
+                            // For General Opposite (fallback), we verify strict separation again
+                            if (!isMainSlot) {
+                                const hasOpposite = solution.slots.some((s: any) =>
+                                    s.classId === cls.id && s.day === day && (isMorningMain ? s.period > 5 : s.period <= 5)
+                                );
+                                if (hasOpposite) continue;
+                            }
+
+                            if (this.constraintService.checkTeacherConflict({ day, period, teacherId: assign.teacher_id } as any, solution.slots)) continue;
+                            
+                            // Check Heavy Subject conflict for this session
+                            const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
+                            const subjCode = this.constraintService.getSubjectCode(assign.subject_id);
+                            if (pass === 0 && heavyCodes.some(h => subjCode.includes(h))) {
+                                // Verify if another distinct heavy subject is already in this session
+                                const hasOtherHeavy = solution.slots.some((s: any) => {
+                                    if (s.classId !== cls.id || s.day !== day) return false;
+                                    const isSameSession = isMorningPeriod ? (s.period <= 5) : (s.period > 5);
+                                    if (!isSameSession) return false;
+                                    
+                                    const existingCode = this.constraintService.getSubjectCode(s.subjectId);
+                                    if (existingCode === subjCode) return false; // same subject is fine
+                                    return heavyCodes.some(h => existingCode.includes(h));
+                                });
+                                if (hasOtherHeavy) continue; // Skip to next candidate if it creates a heavy subject conflict
+                            }
+
+                            const slot = {
+                                id: crypto.randomUUID(),
+                                day, period,
+                                classId: cls.id,
+                                subjectId: assign.subject_id,
+                                teacherId: assign.teacher_id,
+                                roomId: cls.fixed_room_id,
+                                isLocked: false
+                            };
+                            solution.slots.push(slot);
+                            candidates.splice(i, 1);
+                            placed = true;
+                            break;
                         }
-
-                        // For General Opposite (fallback), we verify strict separation again
-                        if (!isMainSlot) {
-                            const hasOpposite = solution.slots.some((s: any) =>
-                                s.classId === cls.id && s.day === day && (isMorningMain ? s.period > 5 : s.period <= 5)
-                            );
-                            if (hasOpposite) continue;
-                        }
-
-                        if (this.constraintService.checkTeacherConflict({ day, period, teacherId: assign.teacher_id } as any, solution.slots)) continue;
-
-                        const slot = {
-                            id: crypto.randomUUID(),
-                            day, period,
-                            classId: cls.id,
-                            subjectId: assign.subject_id,
-                            teacherId: assign.teacher_id,
-                            roomId: cls.fixed_room_id,
-                            isLocked: false
-                        };
-                        solution.slots.push(slot);
-                        candidates.splice(i, 1);
-                        break;
+                        if (placed) break;
                     }
                 }
             }
