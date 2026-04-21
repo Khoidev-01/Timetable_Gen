@@ -168,18 +168,6 @@ export class ConstraintService {
             }
         }
 
-        // THURSDAY FIXED SLOTS (GDDP, HDTN)
-        if (day === 5) {
-            if (session === 'SANG') {
-                if (period === 1) return { isFixed: true, subjectCode: 'GDDP' };
-                if (period === 2) return { isFixed: true, subjectCode: 'HDTN' };
-            }
-            if (session === 'CHIEU') {
-                if (period === 6) return { isFixed: true, subjectCode: 'GDDP' };
-                if (period === 7) return { isFixed: true, subjectCode: 'HDTN' };
-            }
-        }
-
         return { isFixed: false };
     }
 
@@ -213,6 +201,13 @@ export class ConstraintService {
             }
         }
 
+        // GDTC / GDQP period restrictions (Must be P1,2,3 or P8,9,10)
+        violations += this.checkSpecialSubjectTime(schedule);
+
+        // Heavy Subject restrictions (Max 1 distinct heavy subject per session)
+        const classSchedule = this.groupBy(schedule, 'classId');
+        violations += this.checkHeavySubjects(classSchedule);
+
         return violations;
     }
 
@@ -236,7 +231,6 @@ export class ConstraintService {
         const teacherSchedule = this.groupBy(schedule, 'teacherId');
 
         score += this.checkSpreadSubjects(classSchedule) * 10;
-        score += this.checkHeavySubjects(classSchedule) * 20;
         score += this.checkMorningPriority(classSchedule) * 15;
         score += this.checkBlock2(classSchedule) * 10;
         score += this.checkNoHoles(teacherSchedule) * 5;
@@ -276,27 +270,44 @@ export class ConstraintService {
         return penalty;
     }
 
-    // SC02: Avoid Heavy Subjects consecutive
-    private checkHeavySubjects(classSchedule: Map<string, TimeSlot[]>): number {
+    // SC02 -> HC: Avoid multiple Heavy Subjects in the same session
+    public checkHeavySubjects(classSchedule: Map<string, TimeSlot[]>): number {
         let penalty = 0;
-        const heavyCodes = ['TOAN', 'LY', 'HOA', 'VAT_LY', 'HOA_HOC'];
+        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
 
         for (const [_, slots] of classSchedule) {
-            const sortedByDay = new Map<number, TimeSlot[]>();
-            slots.forEach(s => {
-                if (!sortedByDay.has(s.day)) sortedByDay.set(s.day, []);
-                sortedByDay.get(s.day)!.push(s);
-            });
+            const daySessionMap = new Map<string, Set<string>>(); // "day-session" -> Set of subject codes
 
-            for (const [, daySlots] of sortedByDay) {
-                daySlots.sort((a, b) => a.period - b.period);
-                let consec = 0;
+            for (const s of slots) {
+                const subjCode = this.getSubjectCode(s.subjectId);
+                const isHeavy = heavyCodes.some(h => subjCode.includes(h));
+                if (isHeavy) {
+                    const session = s.period <= 5 ? 0 : 1;
+                    const key = `${s.day}-${session}`;
+                    if (!daySessionMap.has(key)) daySessionMap.set(key, new Set());
+                    daySessionMap.get(key)!.add(subjCode);
+                }
+            }
 
-                for (const s of daySlots) {
-                    const subjCode = this.getSubjectCode(s.subjectId);
-                    const isHeavy = heavyCodes.some(h => subjCode.includes(h));
-                    consec = isHeavy ? consec + 1 : 0;
-                    if (consec > 3) penalty++;
+            for (const [, heavySubjects] of daySessionMap) {
+                if (heavySubjects.size > 1) {
+                    // Penalty for every distinct heavy subject beyond the first one
+                    penalty += (heavySubjects.size - 1);
+                }
+            }
+        }
+        return penalty;
+    }
+
+    // HC: Special Subject Time Constraint
+    public checkSpecialSubjectTime(schedule: TimeSlot[]): number {
+        let penalty = 0;
+        for (const s of schedule) {
+            const subjCode = this.getSubjectCode(s.subjectId);
+            if (subjCode.includes('GDTC') || subjCode.includes('GDQP') || subjCode.includes('QUOC_PHONG')) {
+                // Forbidden periods: 4, 5 (Morning) and 6, 7 (Afternoon)
+                if ([4, 5, 6, 7].includes(s.period)) {
+                    penalty++;
                 }
             }
         }
@@ -422,14 +433,17 @@ export class ConstraintService {
         }
         if (hc4) details.push(`Giáo viên dạy khi bận: -${hc4 * 100} điểm (${hc4} lỗi)`);
 
+        const hc5 = this.checkSpecialSubjectTime(schedule);
+        if (hc5) details.push(`Môn GDTC/GDQP học giờ nắng: -${hc5 * 100} điểm (${hc5} lỗi)`);
+
         const classSchedule = this.groupBy(schedule, 'classId');
+        const hc6 = this.checkHeavySubjects(classSchedule);
+        if (hc6) details.push(`Xếp >=2 môn nặng trong cùng 1 buổi: -${hc6 * 100} điểm (${hc6} lỗi)`);
+
         const teacherSchedule = this.groupBy(schedule, 'teacherId');
 
         const sc1 = this.checkSpreadSubjects(classSchedule);
         if (sc1) details.push(`Môn học dồn cục: -${sc1 * 10} điểm`);
-
-        const sc2 = this.checkHeavySubjects(classSchedule);
-        if (sc2) details.push(`Môn nặng học liền nhau: -${sc2 * 20} điểm`);
 
         const sc3 = this.checkMorningPriority(classSchedule);
         if (sc3) details.push(`Môn ưu tiên ở tiết cuối: -${sc3 * 15} điểm`);
@@ -443,8 +457,8 @@ export class ConstraintService {
         const sc7 = this.checkMaxLoad(teacherSchedule);
         if (sc7) details.push(`Giáo viên dạy quá số tiết/buổi: -${sc7 * 10} điểm`);
 
-        const hardViolations = hc1 + hc2 + hc3 + hc4;
-        const softPenalty = (sc1 * 10) + (sc2 * 20) + (sc3 * 15) + (sc4 * 10) + (sc6 * 5) + (sc7 * 10);
+        const hardViolations = hc1 + hc2 + hc3 + hc4 + hc5 + hc6;
+        const softPenalty = (sc1 * 10) + (sc3 * 15) + (sc4 * 10) + (sc6 * 5) + (sc7 * 10);
         const score = 1000 - (hardViolations * 100) - softPenalty;
 
         return { score, details, hardViolations, softPenalty };

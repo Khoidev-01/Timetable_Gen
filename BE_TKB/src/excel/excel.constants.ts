@@ -38,7 +38,7 @@ export const SUBJECT_CATALOG: SubjectCatalogItem[] = [
   { code: 'GDKT', name: 'Giáo dục kinh tế và pháp luật', group: 'Lựa chọn', aliases: ['GDKTPL', 'KTPL'] },
   { code: 'CNCN', name: 'Công nghệ Công nghiệp', group: 'Lựa chọn', aliases: ['CN_CN', 'CONGNGHECONGNGHIEP'] },
   { code: 'CNNN', name: 'Công nghệ Nông nghiệp', group: 'Lựa chọn', aliases: ['CN_NN', 'CONGNGHONONGNGHIEP'] },
-  { code: 'TIN', name: 'Tin học', group: 'Lựa chọn', aliases: ['TH', 'TINHOC'] },
+  { code: 'TIN', name: 'Tin học', group: 'Lựa chọn', aliases: ['TH', 'TINHOC'], isPractice: true },
   { code: 'MT', name: 'Mỹ thuật', group: 'Lựa chọn', aliases: ['MYTHUAT', 'AMTHUAT'] },
   {
     code: 'CHAO_CO',

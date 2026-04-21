@@ -97,6 +97,8 @@ export class GreedySolver {
     ): ScheduleSlot[] | null {
         const isMorning = assign.lop_hoc.buoi_hoc === 'SANG';
         const sessionOffset = isMorning ? 0 : 5;
+        const subjCode = this.constraintService.getSubjectCode(assign.mon_hoc_id);
+        const isSpecialTime = subjCode.includes('GDTC') || subjCode.includes('GDQP') || subjCode.includes('QUOC_PHONG');
 
         const days = [2, 3, 4, 5, 6, 7];
         days.sort(() => Math.random() - 0.5);
@@ -104,7 +106,13 @@ export class GreedySolver {
         for (const d of days) {
             const possibleStarts: number[] = [];
             for (let p = 1; p <= 6 - duration; p++) {
-                if (p <= 5) possibleStarts.push(p);
+                if (p <= 5) {
+                    if (isSpecialTime) {
+                        if (isMorning && p > 3) continue;
+                        if (!isMorning && p < 3) continue;
+                    }
+                    possibleStarts.push(p);
+                }
             }
             possibleStarts.sort(() => Math.random() - 0.5);
 
@@ -138,9 +146,25 @@ export class GreedySolver {
     private placeRandomly(assign: any, duration: number): ScheduleSlot[] {
         const isMorning = assign.lop_hoc.buoi_hoc === 'SANG';
         const sessionOffset = isMorning ? 0 : 5;
+        const subjCode = this.constraintService.getSubjectCode(assign.mon_hoc_id);
+        const isSpecialTime = subjCode.includes('GDTC') || subjCode.includes('GDQP') || subjCode.includes('QUOC_PHONG');
 
         const d = Math.floor(Math.random() * 6) + 2;
-        const relP = Math.floor(Math.random() * (6 - duration)) + 1;
+        
+        const possibleStarts: number[] = [];
+        for (let p = 1; p <= 6 - duration; p++) {
+            if (p <= 5) {
+                if (isSpecialTime) {
+                    if (isMorning && p > 3) continue;
+                    if (!isMorning && p < 3) continue;
+                }
+                possibleStarts.push(p);
+            }
+        }
+        
+        const relP = possibleStarts.length > 0 
+            ? possibleStarts[Math.floor(Math.random() * possibleStarts.length)] 
+            : Math.floor(Math.random() * (6 - duration)) + 1;
 
         const slots: ScheduleSlot[] = [];
         for (let i = 0; i < duration; i++) {

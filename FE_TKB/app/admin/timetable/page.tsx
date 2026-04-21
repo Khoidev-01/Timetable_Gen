@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import TimetableGrid from '../../components/admin/TimetableGrid';
+import MonthlyTimetableGrid from '../../components/admin/MonthlyTimetableGrid';
 import { API_URL } from '@/lib/api';
 
 interface Semester {
@@ -36,6 +37,7 @@ export default function TimetablePage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [viewMode, setViewMode] = useState<'CLASS' | 'TEACHER'>('CLASS');
+  const [displayMode, setDisplayMode] = useState<'WEEK' | 'MONTH'>('WEEK');
   const [selectedEntityId, setSelectedEntityId] = useState('');
   const [classes, setClasses] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -519,19 +521,38 @@ export default function TimetablePage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] p-2">
-              <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-sm">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] p-1">
                 <button
-                  className={`px-4 py-2 text-sm font-medium ${
-                    viewMode === 'CLASS' ? 'bg-blue-600 text-white' : 'text-[var(--text-secondary)]'
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    displayMode === 'WEEK' ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                  onClick={() => setDisplayMode('WEEK')}
+                >
+                  Lịch Tuần
+                </button>
+                <button
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    displayMode === 'MONTH' ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                  onClick={() => setDisplayMode('MONTH')}
+                >
+                  Lịch Tháng
+                </button>
+              </div>
+
+              <div className="flex items-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] p-1">
+                <button
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'CLASS' ? 'bg-blue-600 text-white shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                   onClick={() => setViewMode('CLASS')}
                 >
                   Xem theo lớp
                 </button>
                 <button
-                  className={`px-4 py-2 text-sm font-medium ${
-                    viewMode === 'TEACHER' ? 'bg-blue-600 text-white' : 'text-[var(--text-secondary)]'
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'TEACHER' ? 'bg-blue-600 text-white shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                   onClick={() => setViewMode('TEACHER')}
                 >
@@ -559,13 +580,21 @@ export default function TimetablePage() {
             </div>
           </div>
 
-          <TimetableGrid
-            schedule={result.bestSchedule}
-            viewMode={viewMode}
-            selectedEntityId={selectedEntityId}
-            onSlotMove={handleSlotMove}
-            onToggleLock={handleToggleLock}
-          />
+          {displayMode === 'WEEK' ? (
+            <TimetableGrid
+              schedule={result.bestSchedule}
+              viewMode={viewMode}
+              selectedEntityId={selectedEntityId}
+              onSlotMove={handleSlotMove}
+              onToggleLock={handleToggleLock}
+            />
+          ) : (
+            <MonthlyTimetableGrid
+              schedule={result.bestSchedule}
+              viewMode={viewMode}
+              selectedEntityId={selectedEntityId}
+            />
+          )}
         </div>
       )}
 
