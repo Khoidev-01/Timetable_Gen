@@ -280,7 +280,6 @@ export class AlgorithmService {
                         const canPlace = periodsToCheck.every(p => {
                             // Blocked Rules
                             if (day === 2 && p === 1) return false;
-                            if (day === 5 && ![1, 2, 6, 7].includes(p)) return false;
 
                             // Occupied?
                             if (this.isSlotOccupied(solution.slots, cls.id, day, p)) return false;
@@ -335,11 +334,27 @@ export class AlgorithmService {
 
                     // RULES BLOCK
                     if (day === 2 && period === 1) continue;
-                    if (day === 5 && ![1, 2, 6, 7].includes(period)) continue;
 
                     // Try to assign
                     for (let i = 0; i < candidates.length; i++) {
                         const assign = candidates[i];
+                        
+                        // Check Heavy Subject conflict for this session
+                        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
+                        const subjCode = this.constraintService.getSubjectCode(assign.subject_id);
+                        if (heavyCodes.some(h => subjCode.includes(h))) {
+                            // Verify if another distinct heavy subject is already in this session
+                            const hasOtherHeavy = solution.slots.some((s: any) => {
+                                if (s.classId !== cls.id || s.day !== day) return false;
+                                const isSameSession = isMorningPeriod ? (s.period <= 5) : (s.period > 5);
+                                if (!isSameSession) return false;
+                                
+                                const existingCode = this.constraintService.getSubjectCode(s.subjectId);
+                                if (existingCode === subjCode) return false; // same subject is fine
+                                return heavyCodes.some(h => existingCode.includes(h));
+                            });
+                            if (hasOtherHeavy) continue; // Skip to next candidate if it creates a heavy subject conflict
+                        }
 
                         // For General Opposite (fallback), we verify strict separation again
                         if (!isMainSlot) {
