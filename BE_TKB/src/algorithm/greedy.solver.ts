@@ -90,6 +90,27 @@ export class GreedySolver {
         return false;
     }
 
+    private isHeavySubjectConflict(classId: string, day: number, session: number, subjectId: any, schedule: ScheduleSlot[]): boolean {
+        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
+        const subjCode = this.constraintService.getSubjectCode(Number(subjectId));
+        
+        if (!heavyCodes.some(h => subjCode.includes(h))) return false;
+
+        const minP = session === 0 ? 1 : 6;
+        const maxP = session === 0 ? 5 : 10;
+        
+        for (const s of schedule) {
+            if (s.classId === classId && s.day === day && s.period >= minP && s.period <= maxP) {
+                const existingCode = this.constraintService.getSubjectCode(Number(s.subjectId));
+                // Allow the same subject (e.g. 2 periods of TOAN), but forbid DIFFERENT heavy subjects
+                if (existingCode !== subjCode && heavyCodes.some(h => existingCode.includes(h))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private findValidSlot(
         assign: any,
         duration: number,
@@ -122,6 +143,10 @@ export class GreedySolver {
                 // Check conflicts
                 if (this.isTeacherBusy(assign.giao_vien_id, d, absStartP, duration, currentSchedule)) continue;
                 if (this.isClassBusy(assign.lop_hoc_id, d, absStartP, duration, currentSchedule)) continue;
+                
+                // Heavy subject conflict
+                const sessionNum = isMorning ? 0 : 1;
+                if (this.isHeavySubjectConflict(assign.lop_hoc_id, d, sessionNum, assign.mon_hoc_id, currentSchedule)) continue;
 
                 // Create Slots
                 const candidateSlots: ScheduleSlot[] = [];

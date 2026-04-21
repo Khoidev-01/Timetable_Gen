@@ -550,8 +550,18 @@ export default function TimetablePage() {
             <div>
               <h2 className="text-xl font-bold text-[var(--text-primary)]">Thời khóa biểu hoàn chỉnh</h2>
               <div className="mt-1 text-sm text-[var(--text-muted)]">
-                Fitness: {result.fitness_score ?? '---'}
+                Fitness: <span className={result.fitness_score < 0 ? 'text-red-500 font-bold' : 'text-green-500 font-bold'}>{result.fitness_score ?? '---'}</span>
               </div>
+              {result?.fitnessDetails && result.fitnessDetails.length > 0 && (
+                <div className="mt-2 text-xs text-red-500">
+                  <div className="font-semibold mb-1">Chi tiết lỗi (Cần khắc phục để TKB hợp lệ):</div>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {result.fitnessDetails.map((detail: string, idx: number) => (
+                      <li key={idx}>{detail}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
