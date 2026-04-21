@@ -22,6 +22,6 @@ import { ConstraintService } from './constraint.service';
   ],
   controllers: [AlgorithmController],
   providers: [AlgorithmService, ExportService, ConstraintService],
-  exports: [AlgorithmService]
+  exports: [AlgorithmService, ConstraintService]
 })
 export class AlgorithmModule { }
