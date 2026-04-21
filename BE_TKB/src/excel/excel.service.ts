@@ -642,7 +642,12 @@ export class ExcelService {
         });
       }
 
-      const refinedPeriodType = this.refinePeriodType(resolved.periodType, item.programGroup, item.notes);
+      const refinedPeriodType = this.refinePeriodType(
+        resolved.periodType,
+        item.subjectName,
+        item.programGroup,
+        item.notes,
+      );
 
       const assignmentKey = `${classKey}:${resolved.subjectCode}:${refinedPeriodType}`;
       if (item.periodsHk1 > 0) {
@@ -972,8 +977,12 @@ export class ExcelService {
     assignments.forEach((assignment) => {
       // Chuyên đề đã gộp vào môn gốc — dùng mã môn gốc trực tiếp
       const exportedSubjectCode = assignment.subject.code;
-      const exportedSubjectName = assignment.subject.name;
-      const key = `${assignment.class_id}:${exportedSubjectCode}`;
+      const exportedSubjectName = this.formatExportedSubjectName(
+        assignment.subject.name,
+        assignment.subject.is_special,
+        assignment.period_type,
+      );
+      const key = `${assignment.class_id}:${exportedSubjectCode}:${assignment.period_type}`;
 
       const existing = groupedAssignments.get(key) ?? {
         order: groupedAssignments.size + 1,
@@ -986,7 +995,7 @@ export class ExcelService {
         programGroup: this.resolveProgramGroup(assignment.subject.code, assignment.period_type),
         periodsHk1: 0,
         periodsHk2: 0,
-        notes: assignment.block_config ?? '',
+        notes: this.formatExportedAssignmentNotes(assignment.period_type, assignment.block_config),
       };
 
       if (assignment.semester_id === hk1Id) {
@@ -1719,9 +1728,7 @@ export class ExcelService {
       forcedPeriodType ??
       (subject.is_special
         ? PeriodType.SPECIAL
-        : subject.is_practice
-          ? PeriodType.PRACTICE
-          : PeriodType.THEORY);
+        : PeriodType.THEORY);
 
     return {
       subjectCode,
@@ -1740,6 +1747,37 @@ export class ExcelService {
       return 'Chuyên đề học tập';
     }
     return SUBJECT_CATALOG.find((item) => item.code === subjectCode)?.group ?? 'Khác';
+  }
+
+  private formatExportedSubjectName(
+    subjectName: string,
+    isSpecialSubject: boolean,
+    periodType: PeriodType,
+  ): string {
+    if (periodType === PeriodType.SPECIAL && !isSpecialSubject) {
+      return `ChuyÃªn Ä‘á» ${subjectName}`;
+    }
+
+    if (periodType === PeriodType.PRACTICE) {
+      return `${subjectName} (TH)`;
+    }
+
+    return subjectName;
+  }
+
+  private formatExportedAssignmentNotes(
+    periodType: PeriodType,
+    existingNotes?: string | null,
+  ): string {
+    if ((existingNotes ?? '').trim()) {
+      return existingNotes ?? '';
+    }
+
+    if (periodType === PeriodType.PRACTICE) {
+      return 'Thá»±c hÃ nh - PhÃ²ng lab';
+    }
+
+    return '';
   }
 
   private buildTeacherMajorSubjectMap(
@@ -1870,13 +1908,28 @@ export class ExcelService {
 
   private refinePeriodType(
     basePeriodType: PeriodType,
+    subjectName?: string,
     programGroup?: string,
     notes?: string,
   ): PeriodType {
     if (basePeriodType !== PeriodType.THEORY) return basePeriodType;
-    const pg = normalizeKey(programGroup ?? '');
-    const n = normalizeKey(notes ?? '');
-    if (pg.includes('thuchanh') || n.includes('thuchanh')) {
+
+    const rawHints = [subjectName, programGroup, notes]
+      .map((value) =>
+        (value ?? '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[đĐ]/g, 'd')
+          .toLowerCase(),
+      )
+      .join(' ');
+
+    if (
+      rawHints.includes('thuc hanh') ||
+      rawHints.includes('(th)') ||
+      rawHints.includes(' phong lab') ||
+      rawHints.includes(' lab')
+    ) {
       return PeriodType.PRACTICE;
     }
     return basePeriodType;

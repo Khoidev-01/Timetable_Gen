@@ -14,8 +14,11 @@ export class AlgorithmController {
     ) { }
 
     @Post('start')
-    async startOptimization(@Body() body: { semesterId: string }) {
-        return this.algorithmProducer.startOptimization(body.semesterId);
+    async startOptimization(@Body() body: { semesterId: string; generations?: number; restarts?: number }) {
+        return this.algorithmProducer.startOptimization(body.semesterId, {
+            generations: body.generations,
+            restarts: body.restarts,
+        });
     }
 
     @Get('status/:jobId')

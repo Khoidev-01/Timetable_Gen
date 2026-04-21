@@ -13,11 +13,11 @@ export class AlgorithmProcessor extends WorkerHost {
     }
 
     async process(job: Job<any, any, string>): Promise<any> {
-        const { semesterId } = job.data as any;
+        const { semesterId, options } = job.data as any;
         this.logger.log(`Starting optimization for Semester ${semesterId}`);
 
         try {
-            const result: any = await this.algorithmService.runAlgorithm(semesterId);
+            const result: any = await this.algorithmService.runAlgorithm(semesterId, options);
 
             if (result.success) {
                 this.logger.log(`Optimization Finished. Created Timetable ID: ${result.id}`);

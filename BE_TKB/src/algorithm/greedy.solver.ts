@@ -98,16 +98,25 @@ export class GreedySolver {
 
         const minP = session === 0 ? 1 : 6;
         const maxP = session === 0 ? 5 : 10;
+
+        let sameSubjectCount = 0;
         
         for (const s of schedule) {
             if (s.classId === classId && s.day === day && s.period >= minP && s.period <= maxP) {
                 const existingCode = this.constraintService.getSubjectCode(Number(s.subjectId));
-                // Allow the same subject (e.g. 2 periods of TOAN), but forbid DIFFERENT heavy subjects
+                // Check 1: Different heavy subject in same session
                 if (existingCode !== subjCode && heavyCodes.some(h => existingCode.includes(h))) {
                     return true;
                 }
+                // Count same subject periods
+                if (existingCode === subjCode) {
+                    sameSubjectCount++;
+                }
             }
         }
+        // Check 2: Same heavy subject already has >=2 periods in this session
+        if (sameSubjectCount >= 2) return true;
+
         return false;
     }
 
@@ -148,6 +157,12 @@ export class GreedySolver {
                 const sessionNum = isMorning ? 0 : 1;
                 if (this.isHeavySubjectConflict(assign.lop_hoc_id, d, sessionNum, assign.mon_hoc_id, currentSchedule)) continue;
 
+                // Check consecutive same-subject constraint (max 2 consecutive)
+                const wouldViolateConsecutive = this.wouldCreateConsecutiveViolation(
+                    assign.lop_hoc_id, d, absStartP, duration, assign.mon_hoc_id, currentSchedule
+                );
+                if (wouldViolateConsecutive) continue;
+
                 // Create Slots
                 const candidateSlots: ScheduleSlot[] = [];
                 for (let i = 0; i < duration; i++) {
@@ -166,6 +181,39 @@ export class GreedySolver {
             }
         }
         return null;
+    }
+
+    /**
+     * Check if placing a subject at a given day/startPeriod with given duration
+     * would create more than 2 consecutive same-subject periods.
+     */
+    private wouldCreateConsecutiveViolation(
+        classId: string, day: number, startPeriod: number,
+        duration: number, subjectId: any, schedule: ScheduleSlot[]
+    ): boolean {
+        // Collect existing periods for this class on this day
+        const daySlots = schedule
+            .filter(s => s.classId === classId && s.day === day)
+            .map(s => ({ period: s.period, subjectId: s.subjectId }));
+
+        // Add the new periods we want to place
+        for (let i = 0; i < duration; i++) {
+            daySlots.push({ period: startPeriod + i, subjectId });
+        }
+
+        // Sort by period and check consecutive count
+        daySlots.sort((a, b) => a.period - b.period);
+        let consecutiveCount = 1;
+        for (let i = 1; i < daySlots.length; i++) {
+            if (daySlots[i].subjectId === daySlots[i - 1].subjectId &&
+                daySlots[i].period === daySlots[i - 1].period + 1) {
+                consecutiveCount++;
+                if (consecutiveCount > 2) return true;
+            } else {
+                consecutiveCount = 1;
+            }
+        }
+        return false;
     }
 
     private placeRandomly(assign: any, duration: number): ScheduleSlot[] {

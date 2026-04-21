@@ -4,6 +4,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService, TimeSlot } from './constraint.service';
 
+interface AlgorithmRunOptions {
+    generations: number;
+    restarts: number;
+    initialTemperature: number;
+    coolingRate: number;
+    reheatThreshold: number;
+}
+
 @Injectable()
 export class AlgorithmService {
     private readonly logger = new Logger(AlgorithmService.name);
@@ -13,7 +21,10 @@ export class AlgorithmService {
         private constraintService: ConstraintService
     ) { }
 
-    async runAlgorithm(semesterId: string) {
+    async runAlgorithm(
+        semesterId: string,
+        rawOptions?: Partial<Pick<AlgorithmRunOptions, 'generations' | 'restarts'>>
+    ) {
         const debugLogs: string[] = [];
         const log = (msg: string) => {
             this.logger.log(msg);
@@ -22,14 +33,15 @@ export class AlgorithmService {
 
         try {
             log(`[DEBUG] Starting Algorithm for Semester: ${semesterId}`);
+            const options = this.normalizeRunOptions(rawOptions);
+            log(
+                `[DEBUG] Options: generations=${options.generations}, restarts=${options.restarts}, initialTemperature=${options.initialTemperature}, coolingRate=${options.coolingRate}`
+            );
 
             // 0. Load Cache & Data
             await this.constraintService.initialize(semesterId);
             const data = await this.loadData(semesterId);
             log(`[DEBUG] Data Loaded: ${data.classes.length} Classes, ${data.subjects.length} Subjects.`);
-
-            // 1. Initialize Solution
-            const solution = this.initializeSolution(data);
 
             // 1.1 Load User-Locked Slots from Previous Timetable (If exists)
             const prevTimetable = await this.prisma.generatedTimetable.findFirst({
@@ -38,10 +50,11 @@ export class AlgorithmService {
                 include: { slots: { where: { is_locked: true } } }
             });
 
+            const lockedSlots: TimeSlot[] = [];
             if (prevTimetable && prevTimetable.slots.length > 0) {
                 log(`[INFO] Found ${prevTimetable.slots.length} locked slots from previous run. Preserving...`);
                 prevTimetable.slots.forEach(s => {
-                    solution.slots.push({
+                    lockedSlots.push({
                         id: s.id,
                         day: s.day,
                         period: s.period,
@@ -55,24 +68,44 @@ export class AlgorithmService {
             }
 
             // 2. Phase 1: Fixed Slots (Chào Cờ, SHCN)
-            await this.phase1_FixedSlots(solution, data, log);
+            let bestSolution: any = null;
+            let bestFitnessResult: any = null;
 
-            // 3. Phase 2: Heuristic (Practice / Hard Resources)
-            this.phase2_Heuristic(solution, data);
+            for (let attempt = 1; attempt <= options.restarts; attempt++) {
+                const attemptPrefix = `[ATTEMPT ${attempt}/${options.restarts}]`;
+                log(`${attemptPrefix} Initializing solution...`);
 
-            // 4. Phase 3: Genetic (Main)
-            await this.phase3_Genetic(solution, data);
+                const solution = this.initializeSolution(data);
+                lockedSlots.forEach((slot) => {
+                    solution.slots.push({ ...slot });
+                });
 
-            // 5. Save to Database
-            log(`[DEBUG] Saving ${solution.slots.length} slots to database...`);
+                await this.phase1_FixedSlots(solution, data, (msg) => log(`${attemptPrefix} ${msg}`));
+                this.phase2_Heuristic(solution, data);
+                await this.phase3_Genetic(solution, data, options, (msg) => log(`${attemptPrefix} ${msg}`));
 
-            // Recalculate Final Fitness with Details
-            const fitnessResult = this.constraintService.getFitnessDetails(solution.slots);
-            (solution as any).fitness_score = fitnessResult.score;
+                const fitnessResult = this.constraintService.getFitnessDetails(solution.slots);
+                (solution as any).fitness_score = fitnessResult.score;
+                log(`${attemptPrefix} Finished with fitness ${fitnessResult.score}.`);
 
-            const timetable = await this.saveToDatabase(semesterId, solution, data, log);
+                if (!bestSolution || fitnessResult.score > bestFitnessResult.score) {
+                    bestSolution = {
+                        ...solution,
+                        slots: solution.slots.map((slot: TimeSlot) => ({ ...slot })),
+                    };
+                    bestFitnessResult = fitnessResult;
+                    log(`${attemptPrefix} New best solution.`);
+                }
+            }
 
-            return { ...timetable, debugLogs, fitnessDetails: fitnessResult.details, success: true };
+            if (!bestSolution || !bestFitnessResult) {
+                throw new Error('Algorithm did not produce any solution.');
+            }
+
+            log(`[DEBUG] Saving ${bestSolution.slots.length} slots to database...`);
+            const timetable = await this.saveToDatabase(semesterId, bestSolution, data, log);
+
+            return { ...timetable, debugLogs, fitnessDetails: bestFitnessResult.details, success: true };
 
         } catch (error: any) {
             log(`[ERROR] Algorithm Failed: ${error.message}`);
@@ -101,6 +134,24 @@ export class AlgorithmService {
             teacherBusy: new Set<string>(),
             roomBusy: new Set<string>(),
             classBusy: new Set<string>(),
+        };
+    }
+
+    private normalizeRunOptions(
+        rawOptions?: Partial<Pick<AlgorithmRunOptions, 'generations' | 'restarts'>>
+    ): AlgorithmRunOptions {
+        const normalizeInteger = (value: unknown, fallback: number, min: number, max: number) => {
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed)) return fallback;
+            return Math.min(max, Math.max(min, Math.trunc(parsed)));
+        };
+
+        return {
+            generations: normalizeInteger(rawOptions?.generations, 800, 100, 5000),
+            restarts: normalizeInteger(rawOptions?.restarts, 1, 1, 20),
+            initialTemperature: 100,
+            coolingRate: 0.995,
+            reheatThreshold: 50,
         };
     }
 
@@ -360,17 +411,45 @@ export class AlgorithmService {
                             const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
                             const subjCode = this.constraintService.getSubjectCode(assign.subject_id);
                             if (pass === 0 && heavyCodes.some(h => subjCode.includes(h))) {
-                                // Verify if another distinct heavy subject is already in this session
-                                const hasOtherHeavy = solution.slots.some((s: any) => {
+                                const sessionSlots = solution.slots.filter((s: any) => {
                                     if (s.classId !== cls.id || s.day !== day) return false;
                                     const isSameSession = isMorningPeriod ? (s.period <= 5) : (s.period > 5);
-                                    if (!isSameSession) return false;
-                                    
+                                    return isSameSession;
+                                });
+
+                                // Check 1: Another DIFFERENT heavy subject already in this session
+                                const hasOtherHeavy = sessionSlots.some((s: any) => {
                                     const existingCode = this.constraintService.getSubjectCode(s.subjectId);
-                                    if (existingCode === subjCode) return false; // same subject is fine
+                                    if (existingCode === subjCode) return false;
                                     return heavyCodes.some(h => existingCode.includes(h));
                                 });
-                                if (hasOtherHeavy) continue; // Skip to next candidate if it creates a heavy subject conflict
+                                if (hasOtherHeavy) continue;
+
+                                // Check 2: Same heavy subject already has >=2 periods in this session
+                                const sameSubjectCount = sessionSlots.filter((s: any) =>
+                                    this.constraintService.getSubjectCode(s.subjectId) === subjCode
+                                ).length;
+                                if (sameSubjectCount >= 2) continue;
+
+                                // Check 3: Would create >2 consecutive same-subject periods
+                                const dayClassSlots = solution.slots
+                                    .filter((s: any) => s.classId === cls.id && s.day === day)
+                                    .map((s: any) => ({ period: s.period, subjectId: s.subjectId }));
+                                dayClassSlots.push({ period, subjectId: assign.subject_id });
+                                dayClassSlots.sort((a: any, b: any) => a.period - b.period);
+
+                                let maxConsec = 1;
+                                let curConsec = 1;
+                                for (let k = 1; k < dayClassSlots.length; k++) {
+                                    if (dayClassSlots[k].subjectId === dayClassSlots[k - 1].subjectId &&
+                                        dayClassSlots[k].period === dayClassSlots[k - 1].period + 1) {
+                                        curConsec++;
+                                        maxConsec = Math.max(maxConsec, curConsec);
+                                    } else {
+                                        curConsec = 1;
+                                    }
+                                }
+                                if (maxConsec > 2) continue;
                             }
 
                             const slot = {
@@ -398,25 +477,57 @@ export class AlgorithmService {
         }
     }
 
-    private async phase3_Genetic(solution: any, data: any) {
-        this.logger.log('Phase 3: Genetic Optimization...');
+    private async phase3_Genetic(
+        solution: any,
+        data: any,
+        options: AlgorithmRunOptions,
+        log?: (msg: string) => void
+    ) {
+        const emit = log ?? ((msg: string) => this.logger.log(msg));
+        emit('Phase 3: Genetic Optimization with Simulated Annealing...');
         let currentSlots = [...solution.slots];
         let bestScore = this.calculateFitness(currentSlots);
-        this.logger.log(`Initial Fitness: ${bestScore}`);
+        let bestSlots = currentSlots.map(s => ({ ...s }));
+        emit(`Initial Fitness: ${bestScore}`);
 
-        const GENERATIONS = 50;
+        const GENERATIONS = options.generations;
+        let temperature = options.initialTemperature;
+        const coolingRate = options.coolingRate;
+        let stagnation = 0;
+
         for (let gen = 0; gen < GENERATIONS; gen++) {
             const conflicts = this.getConflicts(currentSlots);
-            if (conflicts.length === 0 && bestScore >= 0) break;
+            if (conflicts.length === 0 && bestScore >= 0) {
+                emit(`[GA] Converged at generation ${gen} with score ${bestScore}`);
+                break;
+            }
 
+            // Choose a problematic slot to fix
             const candidateSlot = conflicts.length > 0
                 ? conflicts[Math.floor(Math.random() * conflicts.length)]
-                : currentSlots[Math.floor(Math.random() * currentSlots.length)];
+                : currentSlots.filter(s => !s.isLocked)[Math.floor(Math.random() * currentSlots.filter(s => !s.isLocked).length)];
 
             if (!candidateSlot || candidateSlot.isLocked) continue;
 
-            const classSlots = currentSlots.filter(s => s.classId === candidateSlot.classId && !s.isLocked);
-            const targetSlot = classSlots[Math.floor(Math.random() * classSlots.length)];
+            // With 30% chance, try cross-class swap for teacher conflicts
+            let targetSlot: any = null;
+            if (Math.random() < 0.3) {
+                // Cross-class swap: find another unlocked slot with same teacher at a different time
+                const crossCandidates = currentSlots.filter(s =>
+                    !s.isLocked &&
+                    s.id !== candidateSlot.id &&
+                    s.classId !== candidateSlot.classId
+                );
+                if (crossCandidates.length > 0) {
+                    targetSlot = crossCandidates[Math.floor(Math.random() * crossCandidates.length)];
+                }
+            }
+
+            if (!targetSlot) {
+                // Same-class swap (original behavior)
+                const classSlots = currentSlots.filter(s => s.classId === candidateSlot.classId && !s.isLocked);
+                targetSlot = classSlots[Math.floor(Math.random() * classSlots.length)];
+            }
 
             if (targetSlot && targetSlot.id !== candidateSlot.id) {
                 const tempDay = candidateSlot.day;
@@ -427,18 +538,43 @@ export class AlgorithmService {
                 targetSlot.period = tempPeriod;
 
                 const newScore = this.calculateFitness(currentSlots);
-                if (newScore > bestScore) {
+
+                // Simulated Annealing: accept worse solutions with decreasing probability
+                const delta = newScore - bestScore;
+                if (delta > 0) {
                     bestScore = newScore;
+                    bestSlots = currentSlots.map(s => ({ ...s }));
+                    stagnation = 0;
+                } else if (Math.random() < Math.exp(delta / temperature)) {
+                    // Accept worse solution to escape local minimum
+                    stagnation++;
                 } else {
+                    // Revert swap
                     targetSlot.period = candidateSlot.period;
                     targetSlot.day = candidateSlot.day;
                     candidateSlot.day = tempDay;
                     candidateSlot.period = tempPeriod;
+                    stagnation++;
                 }
             }
+
+            // Cool down temperature
+            temperature *= coolingRate;
+
+            // If stagnating too long, reheat
+            if (stagnation > options.reheatThreshold) {
+                temperature = Math.max(temperature, 30);
+                stagnation = 0;
+            }
+
+            if (gen % 100 === 0 || gen === GENERATIONS - 1) {
+                emit(`[GA] Gen ${gen}: Score=${bestScore}, Temp=${temperature.toFixed(2)}, Conflicts=${conflicts.length}`);
+            }
         }
+
+        // Restore best found solution
         solution.fitness_score = bestScore;
-        solution.slots = currentSlots;
+        solution.slots = bestSlots;
     }
 
     private calculateFitness(slots: any[]): number {

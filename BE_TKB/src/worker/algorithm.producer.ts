@@ -13,16 +13,15 @@ export class AlgorithmProducer {
         private constraintService: ConstraintService
     ) { }
 
-    async startOptimization(semesterId: string) {
+    async startOptimization(
+        semesterId: string,
+        options?: { generations?: number; restarts?: number }
+    ) {
         const job = await this.optimizationQueue.add('optimize-schedule', {
             semesterId,
-            params: {
-                populationSize: 100,
-                maxGenerations: 200,
-                mutationRate: 0.05
-            }
+            options,
         });
-        return { message: 'Optimization started', jobId: job.id, semesterId };
+        return { message: 'Optimization started', jobId: job.id, semesterId, options };
     }
 
     async getJobStatus(jobId: string) {
@@ -111,11 +110,12 @@ export class AlgorithmProducer {
         }));
         
         await this.constraintService.initialize(semesterId);
-        const fitnessResult = this.constraintService.getFitnessDetails(timeSlots);
+        const fitnessResult = this.constraintService.getFitnessSummary(timeSlots);
 
         return {
             bestSchedule,
-            fitness_score: latestTkb.fitness_score,
+            fitness: fitnessResult,
+            fitness_score: fitnessResult.score,
             fitnessDetails: fitnessResult.details,
             is_official: latestTkb.is_official,
             generated_at: latestTkb.created_at
