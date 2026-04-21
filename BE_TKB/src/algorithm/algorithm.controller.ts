@@ -47,4 +47,9 @@ export class AlgorithmController {
     async toggleLock(@Body() body: { slotId: string }) {
         return this.algorithmService.toggleLock(body.slotId);
     }
+
+    @Post('clear/:semesterId')
+    async clearSchedule(@Param('semesterId') semesterId: string) {
+        return this.algorithmService.clearSchedule(semesterId);
+    }
 }

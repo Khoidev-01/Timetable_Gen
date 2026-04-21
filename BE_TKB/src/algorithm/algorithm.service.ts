@@ -562,4 +562,11 @@ export class AlgorithmService {
         });
         return { success: true, is_locked: updated.is_locked };
     }
+
+    async clearSchedule(semesterId: string) {
+        await this.prisma.generatedTimetable.deleteMany({
+            where: { semester_id: semesterId }
+        });
+        return { success: true };
+    }
 }

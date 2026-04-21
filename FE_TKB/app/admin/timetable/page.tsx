@@ -397,6 +397,31 @@ export default function TimetablePage() {
     }
   };
 
+  const handleClear = async () => {
+    if (!selectedSemesterId) return;
+    if (!confirm('Bạn có chắc chắn muốn xóa toàn bộ thời khóa biểu hiện tại? Thao tác này không thể hoàn tác.')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/algorithm/clear/${selectedSemesterId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        showToast('Không thể xóa thời khóa biểu.', 'error');
+        return;
+      }
+
+      setResult(null);
+      setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Đã xóa thời khóa biểu thành công.`]);
+      showToast('Đã xóa thời khóa biểu.', 'success');
+    } catch (error) {
+      console.error(error);
+      showToast('Lỗi kết nối khi xóa thời khóa biểu.', 'error');
+    }
+  };
+
   const selectedYear = years.find((item) => item.id === selectedYearId);
 
   return (
@@ -484,6 +509,14 @@ export default function TimetablePage() {
               className="flex-1 rounded-lg bg-purple-600 px-4 py-2.5 font-bold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isGenerating ? 'Đang xử lý...' : 'Bắt đầu'}
+            </button>
+            <button
+              onClick={handleClear}
+              disabled={!selectedSemesterId || !result?.bestSchedule}
+              className="rounded-lg bg-red-600 px-4 py-2.5 font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Xóa thời khóa biểu hiện tại"
+            >
+              🗑️ Xóa
             </button>
             <button
               onClick={handleExport}
