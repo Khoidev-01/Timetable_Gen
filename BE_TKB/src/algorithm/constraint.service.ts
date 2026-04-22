@@ -164,8 +164,8 @@ export class ConstraintService {
     }
 
     checkFixedSlot(day: number, period: number, grade: number, session: 'SANG' | 'CHIEU'): { isFixed: boolean, subjectCode?: string } {
-        // CHAO CO: Mon P1 (Morning Only)
-        if (day === 2 && period === 1 && session === 'SANG') {
+        // CHAO CO: Mon P1 (ALL classes, even afternoon — whole-school event)
+        if (day === 2 && period === 1) {
             return { isFixed: true, subjectCode: 'CHAO_CO' };
         }
 
@@ -254,8 +254,8 @@ export class ConstraintService {
         const teacherSchedule = this.groupBy(schedule, 'teacherId');
 
         score += this.checkSpreadSubjects(classSchedule) * 10;
-        score += this.checkMorningPriority(classSchedule) * 15;
-        score += this.checkBlock2(classSchedule) * 10;
+        score += this.checkMorningPriority(classSchedule) * 5;
+        score += this.checkBlock2(classSchedule) * 3;
         score += this.checkNoHoles(teacherSchedule) * 5;
         score += this.checkMaxLoad(teacherSchedule) * 10;
 
@@ -315,10 +315,6 @@ export class ConstraintService {
             }
 
             for (const [, subjectCounts] of daySessionMap) {
-                // Penalty 1: >=2 distinct heavy subjects in the same session
-                if (subjectCounts.size > 1) {
-                    penalty += (subjectCounts.size - 1);
-                }
                 // Penalty 2: Same heavy subject exceeding 2 periods in one session
                 for (const [, count] of subjectCounts) {
                     if (count > 2) {
@@ -533,10 +529,10 @@ export class ConstraintService {
         if (sc1) details.push(`Môn học dồn cục: -${sc1 * 10} điểm`);
 
         const sc3 = this.checkMorningPriority(classSchedule);
-        if (sc3) details.push(`Môn ưu tiên ở tiết cuối: -${sc3 * 15} điểm`);
+        if (sc3) details.push(`Môn ưu tiên ở tiết cuối: -${sc3 * 5} điểm`);
 
         const sc4 = this.checkBlock2(classSchedule);
-        if (sc4) details.push(`Môn 2 tiết bị xé lẻ: -${sc4 * 10} điểm`);
+        if (sc4) details.push(`Môn 2 tiết bị xé lẻ: -${sc4 * 3} điểm`);
 
         const sc6 = this.checkNoHoles(teacherSchedule);
         if (sc6) details.push(`Tiết trống giáo viên: -${sc6 * 5} điểm`);
@@ -545,8 +541,8 @@ export class ConstraintService {
         if (sc7) details.push(`Giáo viên dạy quá số tiết/buổi: -${sc7 * 10} điểm`);
 
         const hardViolations = hc1 + hc2 + hc3 + hc4 + hc5 + hc6 + hc7 + hc8;
-        const softPenalty = (sc1 * 10) + (sc3 * 15) + (sc4 * 10) + (sc6 * 5) + (sc7 * 10);
-        const score = 1000 - (hardViolations * 100) - softPenalty;
+        const softPenalty = (sc1 * 10) + (sc3 * 5) + (sc4 * 3) + (sc6 * 5) + (sc7 * 10);
+        const score = 10000 - (hardViolations * 100) - softPenalty;
 
         return { score, details, hardViolations, softPenalty };
     }
@@ -605,8 +601,8 @@ export class ConstraintService {
         pushDetail(hardDetails, 'same_subject_overload', 'Mon hoc >2 tiet lien tiep', hc8, 100);
 
         pushDetail(softDetails, 'spread_subjects', 'Mon hoc don cuc', sc1, 10);
-        pushDetail(softDetails, 'morning_priority', 'Mon uu tien o tiet cuoi', sc3, 15);
-        pushDetail(softDetails, 'split_blocks', 'Mon 2 tiet bi xe le', sc4, 10);
+        pushDetail(softDetails, 'morning_priority', 'Mon uu tien o tiet cuoi', sc3, 5);
+        pushDetail(softDetails, 'split_blocks', 'Mon 2 tiet bi xe le', sc4, 3);
         pushDetail(softDetails, 'teacher_holes', 'Tiet trong giao vien', sc6, 5);
         pushDetail(softDetails, 'teacher_max_load', 'Giao vien day qua so tiet/buoi', sc7, 10);
 
@@ -641,5 +637,152 @@ export class ConstraintService {
             }
         }
         return v;
+    }
+
+    // ================================================================
+    // INCREMENTAL CONSTRAINT CHECKING (for FET Recursive Swapping)
+    // ================================================================
+
+    public checkPlacementValidity(
+        slot: TimeSlot,
+        schedule: TimeSlot[],
+        excludeIds?: Set<string>
+    ): string[] {
+        const violations: string[] = [];
+        const activeSchedule = excludeIds
+            ? schedule.filter(s => !excludeIds.has(s.id ?? ''))
+            : schedule;
+
+        if (activeSchedule.some(s =>
+            s.teacherId === slot.teacherId &&
+            s.day === slot.day &&
+            s.period === slot.period &&
+            s.classId !== slot.classId
+        )) {
+            violations.push('teacher_conflict');
+        }
+
+        if (activeSchedule.some(s =>
+            s.classId === slot.classId &&
+            s.day === slot.day &&
+            s.period === slot.period
+        )) {
+            violations.push('class_conflict');
+        }
+
+        if (slot.roomId && activeSchedule.some(s =>
+            s.roomId === slot.roomId &&
+            s.day === slot.day &&
+            s.period === slot.period &&
+            s.classId !== slot.classId
+        )) {
+            violations.push('room_conflict');
+        }
+
+        if (this.isTeacherBusy(slot.teacherId, slot.day, slot.period)) {
+            violations.push('teacher_busy');
+        }
+
+        const subjCode = this.getSubjectCode(slot.subjectId);
+        if (subjCode.includes('GDTC') || subjCode.includes('GDQP') || subjCode.includes('QUOC_PHONG')) {
+            const isMorning = slot.period <= 5;
+            if (isMorning && slot.period > 3) violations.push('special_time');
+            if (!isMorning && slot.period < 8) violations.push('special_time');
+        }
+
+        if (slot.day === 5 && [3, 4, 5, 8, 9, 10].includes(slot.period)) {
+            violations.push('thursday_restriction');
+        }
+
+        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
+        if (heavyCodes.some(h => subjCode.includes(h))) {
+            const session = slot.period <= 5 ? 0 : 1;
+            const minP = session === 0 ? 1 : 6;
+            const maxP = session === 0 ? 5 : 10;
+            let sameSubjectCount = 0;
+            for (const s of activeSchedule) {
+                if (s.classId !== slot.classId || s.day !== slot.day) continue;
+                if (s.period < minP || s.period > maxP) continue;
+                const existCode = this.getSubjectCode(s.subjectId);
+                if (existCode === subjCode) sameSubjectCount++;
+            }
+            if (sameSubjectCount >= 2) violations.push('heavy_subject_overload');
+        }
+
+        if (this.wouldViolateConsecutive(slot, activeSchedule)) {
+            violations.push('consecutive_overload');
+        }
+
+        return violations;
+    }
+
+    public isPlacementValid(
+        slot: TimeSlot,
+        schedule: TimeSlot[],
+        excludeIds?: Set<string>
+    ): boolean {
+        return this.checkPlacementValidity(slot, schedule, excludeIds).length === 0;
+    }
+
+    private wouldViolateConsecutive(slot: TimeSlot, schedule: TimeSlot[]): boolean {
+        const daySlots = schedule
+            .filter(s => s.classId === slot.classId && s.day === slot.day)
+            .map(s => ({ period: s.period, subjectId: s.subjectId }));
+        daySlots.push({ period: slot.period, subjectId: slot.subjectId });
+        daySlots.sort((a, b) => a.period - b.period);
+        let consecutive = 1;
+        for (let i = 1; i < daySlots.length; i++) {
+            if (daySlots[i].subjectId === daySlots[i - 1].subjectId &&
+                daySlots[i].period === daySlots[i - 1].period + 1) {
+                consecutive++;
+                if (consecutive > 2) return true;
+            } else {
+                consecutive = 1;
+            }
+        }
+        return false;
+    }
+
+    public findConflictingSlots(slot: TimeSlot, schedule: TimeSlot[]): TimeSlot[] {
+        const conflicts: TimeSlot[] = [];
+        for (const s of schedule) {
+            if (s.id === slot.id) continue;
+            if (s.classId === slot.classId && s.day === slot.day && s.period === slot.period) {
+                conflicts.push(s); continue;
+            }
+            if (s.teacherId === slot.teacherId && s.day === slot.day && s.period === slot.period) {
+                conflicts.push(s); continue;
+            }
+            if (slot.roomId && s.roomId === slot.roomId && s.day === slot.day && s.period === slot.period && s.classId !== slot.classId) {
+                conflicts.push(s);
+            }
+        }
+        return conflicts;
+    }
+
+    public countAvailableSlots(
+        teacherId: string, classId: string, subjectId: number,
+        isMorningClass: boolean, schedule: TimeSlot[]
+    ): number {
+        let count = 0;
+        const subjCode = this.getSubjectCode(subjectId);
+        const isSpecial = subjCode.includes('GDTC') || subjCode.includes('GDQP') || subjCode.includes('QUOC_PHONG');
+        for (let day = 2; day <= 7; day++) {
+            for (let period = 1; period <= 10; period++) {
+                const isMorningPeriod = period <= 5;
+                // Allow both sessions (opposite session will be penalized in scoring)
+                if (day === 5 && [3, 4, 5, 8, 9, 10].includes(period)) continue;
+                if (day === 2 && period === 1) continue;
+                if (isSpecial) {
+                    if (isMorningPeriod && period > 3) continue;
+                    if (!isMorningPeriod && period < 8) continue;
+                }
+                if (this.isTeacherBusy(teacherId, day, period)) continue;
+                if (schedule.some(s => s.teacherId === teacherId && s.day === day && s.period === period)) continue;
+                if (schedule.some(s => s.classId === classId && s.day === day && s.period === period)) continue;
+                count++;
+            }
+        }
+        return count;
     }
 }

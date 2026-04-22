@@ -4,7 +4,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { AlgorithmService } from '../algorithm/algorithm.service';
 
-@Processor('optimization')
+@Processor('optimization', { lockDuration: 120000 })
 export class AlgorithmProcessor extends WorkerHost {
     private readonly logger = new Logger(AlgorithmProcessor.name);
 

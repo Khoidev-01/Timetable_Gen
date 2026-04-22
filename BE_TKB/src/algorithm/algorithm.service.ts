@@ -3,13 +3,14 @@ import * as crypto from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService, TimeSlot } from './constraint.service';
+import { FETEngine, Activity, FETConfig } from './fet-engine';
 
 interface AlgorithmRunOptions {
-    generations: number;
     restarts: number;
-    initialTemperature: number;
-    coolingRate: number;
-    reheatThreshold: number;
+    maxRecursionDepth: number;
+    maxSwapAttempts: number;
+    maxTotalBacktracks: number;
+    polishIterations: number;
 }
 
 @Injectable()
@@ -23,7 +24,7 @@ export class AlgorithmService {
 
     async runAlgorithm(
         semesterId: string,
-        rawOptions?: Partial<Pick<AlgorithmRunOptions, 'generations' | 'restarts'>>
+        rawOptions?: Partial<Pick<AlgorithmRunOptions, 'restarts'>>
     ) {
         const debugLogs: string[] = [];
         const log = (msg: string) => {
@@ -32,18 +33,16 @@ export class AlgorithmService {
         };
 
         try {
-            log(`[DEBUG] Starting Algorithm for Semester: ${semesterId}`);
+            log(`[FET] Starting FET Algorithm for Semester: ${semesterId}`);
             const options = this.normalizeRunOptions(rawOptions);
-            log(
-                `[DEBUG] Options: generations=${options.generations}, restarts=${options.restarts}, initialTemperature=${options.initialTemperature}, coolingRate=${options.coolingRate}`
-            );
+            log(`[FET] Options: restarts=${options.restarts}, depth=${options.maxRecursionDepth}, backtracks=${options.maxTotalBacktracks}`);
 
             // 0. Load Cache & Data
             await this.constraintService.initialize(semesterId);
             const data = await this.loadData(semesterId);
-            log(`[DEBUG] Data Loaded: ${data.classes.length} Classes, ${data.subjects.length} Subjects.`);
+            log(`[FET] Data: ${data.classes.length} Classes, ${data.subjects.length} Subjects, ${data.assignments.length} Assignments.`);
 
-            // 1.1 Load User-Locked Slots from Previous Timetable (If exists)
+            // 1. Load User-Locked Slots
             const prevTimetable = await this.prisma.generatedTimetable.findFirst({
                 where: { semester_id: semesterId },
                 orderBy: { created_at: 'desc' },
@@ -52,7 +51,7 @@ export class AlgorithmService {
 
             const lockedSlots: TimeSlot[] = [];
             if (prevTimetable && prevTimetable.slots.length > 0) {
-                log(`[INFO] Found ${prevTimetable.slots.length} locked slots from previous run. Preserving...`);
+                log(`[FET] Preserving ${prevTimetable.slots.length} locked slots.`);
                 prevTimetable.slots.forEach(s => {
                     lockedSlots.push({
                         id: s.id,
@@ -67,34 +66,61 @@ export class AlgorithmService {
                 });
             }
 
-            // 2. Phase 1: Fixed Slots (Chào Cờ, SHCN)
-            let bestSolution: any = null;
+            // 2. Build activities list from assignments
+            const activities = this.buildActivities(data);
+            log(`[FET] Built ${activities.length} activities to place.`);
+
+            // 3. Multi-restart: run FET engine multiple times, keep best
+            let bestSolution: TimeSlot[] | null = null;
             let bestFitnessResult: any = null;
 
             for (let attempt = 1; attempt <= options.restarts; attempt++) {
-                const attemptPrefix = `[ATTEMPT ${attempt}/${options.restarts}]`;
-                log(`${attemptPrefix} Initializing solution...`);
+                log(`[ATTEMPT ${attempt}/${options.restarts}] Starting FET engine...`);
 
-                const solution = this.initializeSolution(data);
-                lockedSlots.forEach((slot) => {
-                    solution.slots.push({ ...slot });
-                });
+                // Phase 1: Fixed slots
+                const fixedSlots: TimeSlot[] = [...lockedSlots.map(s => ({ ...s }))];
+                await this.phase1_FixedSlots(fixedSlots, data, (msg) => log(`[ATTEMPT ${attempt}] ${msg}`));
 
-                await this.phase1_FixedSlots(solution, data, (msg) => log(`${attemptPrefix} ${msg}`));
-                this.phase2_Heuristic(solution, data);
-                await this.phase3_Genetic(solution, data, options, (msg) => log(`${attemptPrefix} ${msg}`));
+                // Remove activities that are already covered by fixed/locked slots
+                log(`[ATTEMPT ${attempt}] Built ${activities.length} total activities. Fixed slots: ${fixedSlots.length}`);
+                const remainingActivities = this.filterPlacedActivities(activities, fixedSlots, data);
+                log(`[ATTEMPT ${attempt}] ${remainingActivities.length} activities remaining after fixed slots (${activities.length - remainingActivities.length} filtered).`);
 
-                const fitnessResult = this.constraintService.getFitnessDetails(solution.slots);
-                (solution as any).fitness_score = fitnessResult.score;
-                log(`${attemptPrefix} Finished with fitness ${fitnessResult.score}.`);
+                // Phase 2: FET Recursive Swapping Engine
+                const fetConfig: FETConfig = {
+                    maxRecursionDepth: options.maxRecursionDepth,
+                    maxSwapAttempts: options.maxSwapAttempts,
+                    maxTotalBacktracks: options.maxTotalBacktracks,
+                    polishIterations: options.polishIterations,
+                };
+
+                const engine = new FETEngine(
+                    this.constraintService,
+                    fetConfig,
+                    (msg) => log(`[ATTEMPT ${attempt}] ${msg}`)
+                );
+
+                const resultSlots = engine.solve(remainingActivities, fixedSlots);
+
+                // Evaluate
+                const fitnessResult = this.constraintService.getFitnessSummary(resultSlots);
+                log(`[ATTEMPT ${attempt}] Fitness: ${fitnessResult.score} (hard=${fitnessResult.hardViolations}, soft=${fitnessResult.softPenalty})`);
+
+                const impossible = engine.getImpossibleActivities();
+                if (impossible.length > 0) {
+                    log(`[ATTEMPT ${attempt}] ⚠ ${impossible.length} activities could not be placed cleanly.`);
+                }
 
                 if (!bestSolution || fitnessResult.score > bestFitnessResult.score) {
-                    bestSolution = {
-                        ...solution,
-                        slots: solution.slots.map((slot: TimeSlot) => ({ ...slot })),
-                    };
+                    bestSolution = resultSlots;
                     bestFitnessResult = fitnessResult;
-                    log(`${attemptPrefix} New best solution.`);
+                    log(`[ATTEMPT ${attempt}] ★ New best solution!`);
+                }
+
+                // If perfect score, stop early
+                if (fitnessResult.hardViolations === 0) {
+                    log(`[ATTEMPT ${attempt}] ✓ Zero hard violations — stopping early.`);
+                    break;
                 }
             }
 
@@ -102,10 +128,18 @@ export class AlgorithmService {
                 throw new Error('Algorithm did not produce any solution.');
             }
 
-            log(`[DEBUG] Saving ${bestSolution.slots.length} slots to database...`);
-            const timetable = await this.saveToDatabase(semesterId, bestSolution, data, log);
+            log(`[FET] Saving ${bestSolution.length} slots to database...`);
+            const solution = { slots: bestSolution, fitness_score: bestFitnessResult.score };
+            const timetable = await this.saveToDatabase(semesterId, solution, data, log);
 
-            return { ...timetable, debugLogs, fitnessDetails: bestFitnessResult.details, success: true };
+            return {
+                ...timetable,
+                debugLogs,
+                fitnessDetails: bestFitnessResult.details,
+                hardDetails: bestFitnessResult.hardDetails,
+                softDetails: bestFitnessResult.softDetails,
+                success: true
+            };
 
         } catch (error: any) {
             log(`[ERROR] Algorithm Failed: ${error.message}`);
@@ -113,6 +147,10 @@ export class AlgorithmService {
             return { debugLogs, success: false, error: error.message };
         }
     }
+
+    // ================================================================
+    // DATA LOADING
+    // ================================================================
 
     private async loadData(semesterId: string) {
         const [teachers, rooms, assignments, classes, subjects] = await Promise.all([
@@ -128,34 +166,92 @@ export class AlgorithmService {
         return { teachers, rooms, assignments, classes, subjects };
     }
 
-    private initializeSolution(data: any) {
-        return {
-            slots: [] as TimeSlot[],
-            teacherBusy: new Set<string>(),
-            roomBusy: new Set<string>(),
-            classBusy: new Set<string>(),
-        };
+    // ================================================================
+    // BUILD ACTIVITIES FROM ASSIGNMENTS
+    // ================================================================
+
+    private buildActivities(data: any): Activity[] {
+        const activities: Activity[] = [];
+        const { assignments, subjects, classes } = data;
+
+        for (const assign of assignments) {
+            const subject = subjects.find((s: any) => s.id === assign.subject_id);
+            if (!subject) continue;
+
+            // Skip fixed-slot subjects (handled in Phase 1)
+            const fixedCodes = [
+                'CHAO_CO', 'SH_DAU_TUAN', 'SH_CUOI_TUAN',
+                'SHCN', 'SH_CN', 'SINH_HOAT',
+            ];
+            if (fixedCodes.includes(subject.code)) continue;
+
+            const cls = classes.find((c: any) => c.id === assign.class_id);
+            if (!cls) continue;
+
+            const isMorning = cls.main_session === 0;
+            const isSpecial = ['GDTC', 'GDQP'].includes(subject.code);
+            const isYardSubject = isSpecial;
+            const subjCode = subject.code.toUpperCase();
+            // GDTC/GDQP go to the OPPOSITE session of the class
+            const activityIsMorning = isSpecial ? !isMorning : isMorning;
+
+            // Create one Activity per period needed
+            const totalPeriods = assign.total_periods || 1;
+            for (let p = 0; p < totalPeriods; p++) {
+                activities.push({
+                    id: crypto.randomUUID(),
+                    classId: assign.class_id,
+                    subjectId: assign.subject_id,
+                    teacherId: assign.teacher_id,
+                    roomId: isYardSubject ? undefined : (cls.fixed_room_id || undefined),
+                    isMorning: activityIsMorning,
+                    isSpecial,
+                    isYardSubject,
+                    subjectCode: subjCode,
+                    difficulty: 0,
+                });
+            }
+        }
+
+        return activities;
     }
 
-    private normalizeRunOptions(
-        rawOptions?: Partial<Pick<AlgorithmRunOptions, 'generations' | 'restarts'>>
-    ): AlgorithmRunOptions {
-        const normalizeInteger = (value: unknown, fallback: number, min: number, max: number) => {
-            const parsed = Number(value);
-            if (!Number.isFinite(parsed)) return fallback;
-            return Math.min(max, Math.max(min, Math.trunc(parsed)));
-        };
+    /**
+     * Remove activities that are already covered by fixed/locked slots.
+     */
+    private filterPlacedActivities(activities: Activity[], fixedSlots: TimeSlot[], data: any): Activity[] {
+        // Count how many periods each (class, subject) already has in fixed slots
+        const placedCounts = new Map<string, number>();
+        for (const slot of fixedSlots) {
+            const key = `${slot.classId}-${slot.subjectId}`;
+            placedCounts.set(key, (placedCounts.get(key) || 0) + 1);
+        }
 
-        return {
-            generations: normalizeInteger(rawOptions?.generations, 800, 100, 5000),
-            restarts: normalizeInteger(rawOptions?.restarts, 1, 1, 20),
-            initialTemperature: 100,
-            coolingRate: 0.995,
-            reheatThreshold: 50,
-        };
+        // For each (class, subject), skip the already-placed count
+        const remaining: Activity[] = [];
+        const skipCounts = new Map<string, number>();
+
+        for (const act of activities) {
+            const key = `${act.classId}-${act.subjectId}`;
+            const alreadyPlaced = placedCounts.get(key) || 0;
+            const alreadySkipped = skipCounts.get(key) || 0;
+
+            if (alreadySkipped < alreadyPlaced) {
+                skipCounts.set(key, alreadySkipped + 1);
+                continue; // This period is already covered
+            }
+
+            remaining.push(act);
+        }
+
+        return remaining;
     }
 
-    private async phase1_FixedSlots(solution: any, data: any, log: (msg: string) => void) {
+    // ================================================================
+    // PHASE 1: FIXED SLOTS (unchanged from original)
+    // ================================================================
+
+    private async phase1_FixedSlots(solution: TimeSlot[], data: any, log: (msg: string) => void) {
         const { classes, subjects, teachers } = data;
 
         const subjectCodeMap = new Map<string, number>();
@@ -168,10 +264,8 @@ export class AlgorithmService {
             return undefined;
         };
 
-        // Chào cờ: ưu tiên dùng GVCN cho mỗi lớp, fallback sang GV đầu tiên
         const bghTeacher = teachers.find((t: any) => t.code === 'BGH');
         const fallbackTeacherId = bghTeacher ? bghTeacher.id : null;
-
         let fixedCount = 0;
 
         for (const cls of classes) {
@@ -183,10 +277,10 @@ export class AlgorithmService {
             for (let d = 2; d <= 7; d++) {
                 for (let p = 1; p <= 10; p++) {
                     if (isMorning && p > 5) continue;
-                    if (!isMorning && p <= 5) continue;
+                    // Allow Monday P1 for all classes (CHAO_CO)
+                    if (!isMorning && p <= 5 && !(d === 2 && p === 1)) continue;
 
-                    // CHECK IF OCCUPIED (e.g. User Locked)
-                    if (this.isSlotOccupied(solution.slots, cls.id, d, p)) continue;
+                    if (this.isSlotOccupied(solution, cls.id, d, p)) continue;
 
                     const check = this.constraintService.checkFixedSlot(d, p, grade, session);
 
@@ -194,7 +288,6 @@ export class AlgorithmService {
                         let subjId = resolveSubjectId(check.subjectCode);
                         let teacherId = null;
 
-                        // SPECIAL HANDLER: GVCN Teaching Slot
                         if (check.subjectCode === 'GVCN_TEACHING') {
                             const homeroomId = cls.homeroom_teacher_id;
                             if (homeroomId) {
@@ -203,22 +296,19 @@ export class AlgorithmService {
                                     const subj = data.subjects.find((s: any) => s.id === a.subject_id);
                                     return subj && !subj.is_special;
                                 });
-
                                 if (assignment) {
                                     subjId = assignment.subject_id;
                                     teacherId = homeroomId;
                                 } else {
-                                    log(`[WARNING] GVCN (ID: ${homeroomId}) does not teach any Cultural Subject for Class ${cls.name}.`);
+                                    log(`[WARNING] GVCN (ID: ${homeroomId}) does not teach Cultural Subject for Class ${cls.name}.`);
                                 }
                             }
                         }
 
                         if (subjId) {
-                            // Assign Teacher
                             if (['SHCN', 'SH_CN', 'SINH_HOAT', 'SH_DAU_TUAN', 'SH_CUOI_TUAN'].includes(check.subjectCode)) {
                                 teacherId = cls.homeroom_teacher_id;
                             } else if (check.subjectCode === 'CHAO_CO') {
-                                // Chào cờ: dùng GVCN của lớp để tránh conflict khi 1 GV dạy nhiều lớp cùng lúc
                                 teacherId = cls.homeroom_teacher_id || fallbackTeacherId;
                             } else if (['GDDP', 'HDTN'].includes(check.subjectCode)) {
                                 const assignment = data.assignments.find((a: any) =>
@@ -229,15 +319,12 @@ export class AlgorithmService {
 
                             if (!teacherId) teacherId = cls.homeroom_teacher_id || fallbackTeacherId || (teachers[0] ? teachers[0].id : null);
 
-                            // Assign Room
                             let roomId = cls.fixed_room_id;
-                            // If Chào Cờ, force 'undefined' (or logic mapping to YARD)
-                            if (check.subjectCode === 'CHAO_CO') {
-                                roomId = undefined;
-                            }
+                            if (check.subjectCode === 'CHAO_CO') roomId = undefined;
 
                             if (teacherId) {
-                                const slot: TimeSlot = {
+                                solution.push({
+                                    id: crypto.randomUUID(),
                                     day: d,
                                     period: p,
                                     classId: cls.id,
@@ -245,8 +332,7 @@ export class AlgorithmService {
                                     teacherId: teacherId,
                                     roomId: roomId,
                                     isLocked: true
-                                };
-                                solution.slots.push(slot);
+                                });
                                 fixedCount++;
                             }
                         }
@@ -254,391 +340,49 @@ export class AlgorithmService {
                 }
             }
         }
-        log(`[DEBUG] Phase 1: Generated ${fixedCount} fixed slots.`);
+        log(`[FET] Phase 1: Generated ${fixedCount} fixed slots.`);
     }
 
-    private phase2_Heuristic(solution: any, data: any) {
-        this.logger.log('Phase 2: Heuristic Filling with Block Scheduling...');
-        const { classes, assignments } = data;
+    // ================================================================
+    // UTILITY METHODS
+    // ================================================================
 
-        const classAssignments = new Map<string, any[]>();
-        assignments.forEach((agg: any) => {
-            const subject = data.subjects.find((s: any) => s.id === agg.subject_id);
-            if (subject && !['CHAO_CO', 'SH_DAU_TUAN', 'SH_CUOI_TUAN'].includes(subject.code)) {
-                if (!classAssignments.has(agg.class_id)) classAssignments.set(agg.class_id, []);
-                classAssignments.get(agg.class_id)!.push({ ...agg });
-            }
-        });
+    private normalizeRunOptions(
+        rawOptions?: Partial<Pick<AlgorithmRunOptions, 'restarts'>>
+    ): AlgorithmRunOptions {
+        const normalizeInteger = (value: unknown, fallback: number, min: number, max: number) => {
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed)) return fallback;
+            return Math.min(max, Math.max(min, Math.trunc(parsed)));
+        };
 
-        for (const cls of classes) {
-            const clsAssignments = classAssignments.get(cls.id) || [];
-            if (clsAssignments.length === 0) {
-                this.logger.warn(`[WARNING] Class ${cls.name} (ID: ${cls.id}) has 0 heuristic assignments.`);
-                continue;
-            }
-
-            const isMorningMain = cls.main_session === 0;
-            const mainSessionSlots: any[] = [];
-            const oppositeGeneralSlots: any[] = [];
-            const oppositeBlockSubjects: any[] = []; // { assign, count }
-
-            // 1. Classify Assignments
-            for (const assign of clsAssignments) {
-                const subject = data.subjects.find((s: any) => s.id === assign.subject_id);
-                // GDQP, GDTC => Opposite Session
-                const isOpposite = subject && (subject.code === 'GDQP' || subject.code === 'GDTC');
-
-                const alreadyAssigned = solution.slots.filter((s: any) =>
-                    s.classId === cls.id && s.subjectId === assign.subject_id
-                ).length;
-
-                const remainingNeeded = Math.max(0, assign.total_periods - alreadyAssigned);
-                if (remainingNeeded === 0) continue;
-
-                if (isOpposite) {
-                    oppositeBlockSubjects.push({ assign, count: remainingNeeded });
-                } else {
-                    for (let i = 0; i < remainingNeeded; i++) {
-                        mainSessionSlots.push(assign);
-                    }
-                }
-            }
-
-            // 2. Pre-allocate Block Subjects (GDQP, GDTC)
-            // Goal: Place ALL 'count' periods in ONE session (consecutive)
-            for (const block of oppositeBlockSubjects) {
-                const { assign, count } = block;
-                // GDTC/GDQP: Morning (1-3), Afternoon (8-10)
-                const minP = isMorningMain ? 8 : 1;
-                const maxP = isMorningMain ? 10 : 3;
-                const validRange = Array.from({ length: maxP - minP + 1 }, (_, i) => minP + i);
-
-                let placed = false;
-                const days = [2, 3, 4, 5, 6, 7].sort(() => 0.5 - Math.random());
-
-                for (const day of days) {
-                    if (placed) break;
-
-                    // Opposite Separation Check: Is there ANY opposite subject already on this day?
-                    const hasOpposite = solution.slots.some((s: any) =>
-                        s.classId === cls.id && s.day === day && (s.period >= minP && s.period <= maxP)
-                    );
-                    if (hasOpposite) continue; // Try next day
-
-                    // Try to find 'count' consecutive slots
-                    for (let startIdx = 0; startIdx <= validRange.length - count; startIdx++) {
-                        const periodsToCheck = validRange.slice(startIdx, startIdx + count);
-
-                        // Check if ALL periods are free/valid
-                        const canPlace = periodsToCheck.every(p => {
-                            // Blocked Rules
-                            if (day === 2 && p === 1) return false;
-                            // Thursday: Only periods 1, 2 (Morning) and 6, 7 (Afternoon) allowed
-                            if (day === 5 && (p === 3 || p === 4 || p === 5 || p === 8 || p === 9 || p === 10)) return false;
-
-                            // Occupied?
-                            if (this.isSlotOccupied(solution.slots, cls.id, day, p)) return false;
-                            // Teacher Busy?
-                            if (this.constraintService.checkTeacherConflict({ day, period: p, teacherId: assign.teacher_id } as any, solution.slots)) return false;
-
-                            return true;
-                        });
-
-                        if (canPlace) {
-                            // EXECUTE PLACEMENT
-                            periodsToCheck.forEach(p => {
-                                // GDTC/GDQP học tại sân bãi, không dùng phòng học vật lý (tránh lỗi unique_room_slot)
-                                const subject = data.subjects.find((s: any) => s.id === assign.subject_id);
-                                const isYardSubject = subject && ['GDTC', 'GDQP'].includes(subject.code);
-                                solution.slots.push({
-                                    id: crypto.randomUUID(),
-                                    day, period: p,
-                                    classId: cls.id,
-                                    subjectId: assign.subject_id,
-                                    teacherId: assign.teacher_id,
-                                    roomId: isYardSubject ? undefined : cls.fixed_room_id,
-                                    isLocked: false
-                                });
-                            });
-                            placed = true;
-                            break;
-                        }
-                    }
-                }
-                if (!placed) {
-                    this.logger.warn(`[WARNING] Could not place Block Subject ${assign.subject_id} (${count} periods) for Class ${cls.name}`);
-                    // Fallback: Dump into general pool
-                    for (let k = 0; k < count; k++) oppositeGeneralSlots.push(assign);
-                }
-            }
-
-            // 3. Fill Remaining (Main + General Opposite)
-            this.shuffleArray(mainSessionSlots);
-            this.shuffleArray(oppositeGeneralSlots);
-
-            for (let day = 2; day <= 7; day++) {
-                for (let period = 1; period <= 10; period++) {
-                    const isMorningPeriod = period <= 5;
-                    const isMainSlot = (isMorningMain && isMorningPeriod) || (!isMorningMain && !isMorningPeriod);
-
-                    let candidates = isMainSlot ? mainSessionSlots : oppositeGeneralSlots;
-                    if (candidates.length === 0) continue;
-
-                    if (this.isSlotOccupied(solution.slots, cls.id, day, period)) continue;
-
-                    // RULES BLOCK
-                    if (day === 2 && period === 1) continue;
-                    // Thursday: Only periods 1, 2 (Morning) and 6, 7 (Afternoon) allowed
-                    if (day === 5 && (period === 3 || period === 4 || period === 5 || period === 8 || period === 9 || period === 10)) continue;
-
-                    // Try to assign
-                    let placed = false;
-                    for (let pass = 0; pass < 2; pass++) {
-                        for (let i = 0; i < candidates.length; i++) {
-                            const assign = candidates[i];
-
-                            // For General Opposite (fallback), we verify strict separation again
-                            if (!isMainSlot) {
-                                const hasOpposite = solution.slots.some((s: any) =>
-                                    s.classId === cls.id && s.day === day && (isMorningMain ? s.period > 5 : s.period <= 5)
-                                );
-                                if (hasOpposite) continue;
-                            }
-
-                            if (this.constraintService.checkTeacherConflict({ day, period, teacherId: assign.teacher_id } as any, solution.slots)) continue;
-                            
-                            // Check Heavy Subject conflict for this session
-                            const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
-                            const subjCode = this.constraintService.getSubjectCode(assign.subject_id);
-                            if (pass === 0 && heavyCodes.some(h => subjCode.includes(h))) {
-                                const sessionSlots = solution.slots.filter((s: any) => {
-                                    if (s.classId !== cls.id || s.day !== day) return false;
-                                    const isSameSession = isMorningPeriod ? (s.period <= 5) : (s.period > 5);
-                                    return isSameSession;
-                                });
-
-                                // Check 1: Another DIFFERENT heavy subject already in this session
-                                const hasOtherHeavy = sessionSlots.some((s: any) => {
-                                    const existingCode = this.constraintService.getSubjectCode(s.subjectId);
-                                    if (existingCode === subjCode) return false;
-                                    return heavyCodes.some(h => existingCode.includes(h));
-                                });
-                                if (hasOtherHeavy) continue;
-
-                                // Check 2: Same heavy subject already has >=2 periods in this session
-                                const sameSubjectCount = sessionSlots.filter((s: any) =>
-                                    this.constraintService.getSubjectCode(s.subjectId) === subjCode
-                                ).length;
-                                if (sameSubjectCount >= 2) continue;
-
-                                // Check 3: Would create >2 consecutive same-subject periods
-                                const dayClassSlots = solution.slots
-                                    .filter((s: any) => s.classId === cls.id && s.day === day)
-                                    .map((s: any) => ({ period: s.period, subjectId: s.subjectId }));
-                                dayClassSlots.push({ period, subjectId: assign.subject_id });
-                                dayClassSlots.sort((a: any, b: any) => a.period - b.period);
-
-                                let maxConsec = 1;
-                                let curConsec = 1;
-                                for (let k = 1; k < dayClassSlots.length; k++) {
-                                    if (dayClassSlots[k].subjectId === dayClassSlots[k - 1].subjectId &&
-                                        dayClassSlots[k].period === dayClassSlots[k - 1].period + 1) {
-                                        curConsec++;
-                                        maxConsec = Math.max(maxConsec, curConsec);
-                                    } else {
-                                        curConsec = 1;
-                                    }
-                                }
-                                if (maxConsec > 2) continue;
-                            }
-
-                            const slot = {
-                                id: crypto.randomUUID(),
-                                day, period,
-                                classId: cls.id,
-                                subjectId: assign.subject_id,
-                                teacherId: assign.teacher_id,
-                                roomId: cls.fixed_room_id,
-                                isLocked: false
-                            };
-                            solution.slots.push(slot);
-                            candidates.splice(i, 1);
-                            placed = true;
-                            break;
-                        }
-                        if (placed) break;
-                    }
-                }
-            }
-
-            if (mainSessionSlots.length > 0 || oppositeGeneralSlots.length > 0) {
-                this.logger.warn(`[WARNING] Class ${cls.name}: Incomplete Schedule. Remaining: ${mainSessionSlots.length} Main, ${oppositeGeneralSlots.length} Opposite.`);
-            }
-        }
+        return {
+            restarts: normalizeInteger(rawOptions?.restarts, 3, 1, 20),
+            maxRecursionDepth: 14,
+            maxSwapAttempts: 2000,
+            maxTotalBacktracks: 500000,
+            polishIterations: 3000,
+        };
     }
 
-    private async phase3_Genetic(
-        solution: any,
-        data: any,
-        options: AlgorithmRunOptions,
-        log?: (msg: string) => void
-    ) {
-        const emit = log ?? ((msg: string) => this.logger.log(msg));
-        emit('Phase 3: Genetic Optimization with Simulated Annealing...');
-        let currentSlots = [...solution.slots];
-        let bestScore = this.calculateFitness(currentSlots);
-        let bestSlots = currentSlots.map(s => ({ ...s }));
-        emit(`Initial Fitness: ${bestScore}`);
-
-        const GENERATIONS = options.generations;
-        let temperature = options.initialTemperature;
-        const coolingRate = options.coolingRate;
-        let stagnation = 0;
-
-        for (let gen = 0; gen < GENERATIONS; gen++) {
-            const conflicts = this.getConflicts(currentSlots);
-            if (conflicts.length === 0 && bestScore >= 0) {
-                emit(`[GA] Converged at generation ${gen} with score ${bestScore}`);
-                break;
-            }
-
-            // Choose a problematic slot to fix
-            const candidateSlot = conflicts.length > 0
-                ? conflicts[Math.floor(Math.random() * conflicts.length)]
-                : currentSlots.filter(s => !s.isLocked)[Math.floor(Math.random() * currentSlots.filter(s => !s.isLocked).length)];
-
-            if (!candidateSlot || candidateSlot.isLocked) continue;
-
-            // With 30% chance, try cross-class swap for teacher conflicts
-            let targetSlot: any = null;
-            if (Math.random() < 0.3) {
-                // Cross-class swap: find another unlocked slot with same teacher at a different time
-                const crossCandidates = currentSlots.filter(s =>
-                    !s.isLocked &&
-                    s.id !== candidateSlot.id &&
-                    s.classId !== candidateSlot.classId
-                );
-                if (crossCandidates.length > 0) {
-                    targetSlot = crossCandidates[Math.floor(Math.random() * crossCandidates.length)];
-                }
-            }
-
-            if (!targetSlot) {
-                // Same-class swap (original behavior)
-                const classSlots = currentSlots.filter(s => s.classId === candidateSlot.classId && !s.isLocked);
-                targetSlot = classSlots[Math.floor(Math.random() * classSlots.length)];
-            }
-
-            if (targetSlot && targetSlot.id !== candidateSlot.id) {
-                const tempDay = candidateSlot.day;
-                const tempPeriod = candidateSlot.period;
-                candidateSlot.day = targetSlot.day;
-                candidateSlot.period = targetSlot.period;
-                targetSlot.day = tempDay;
-                targetSlot.period = tempPeriod;
-
-                const newScore = this.calculateFitness(currentSlots);
-
-                // Simulated Annealing: accept worse solutions with decreasing probability
-                const delta = newScore - bestScore;
-                if (delta > 0) {
-                    bestScore = newScore;
-                    bestSlots = currentSlots.map(s => ({ ...s }));
-                    stagnation = 0;
-                } else if (Math.random() < Math.exp(delta / temperature)) {
-                    // Accept worse solution to escape local minimum
-                    stagnation++;
-                } else {
-                    // Revert swap
-                    targetSlot.period = candidateSlot.period;
-                    targetSlot.day = candidateSlot.day;
-                    candidateSlot.day = tempDay;
-                    candidateSlot.period = tempPeriod;
-                    stagnation++;
-                }
-            }
-
-            // Cool down temperature
-            temperature *= coolingRate;
-
-            // If stagnating too long, reheat
-            if (stagnation > options.reheatThreshold) {
-                temperature = Math.max(temperature, 30);
-                stagnation = 0;
-            }
-
-            if (gen % 100 === 0 || gen === GENERATIONS - 1) {
-                emit(`[GA] Gen ${gen}: Score=${bestScore}, Temp=${temperature.toFixed(2)}, Conflicts=${conflicts.length}`);
-            }
-        }
-
-        // Restore best found solution
-        solution.fitness_score = bestScore;
-        solution.slots = bestSlots;
-    }
-
-    private calculateFitness(slots: any[]): number {
-        const hardViolations = this.constraintService.checkHardConstraints(slots);
-        const softPenalty = this.constraintService.calculatePenalty(slots);
-        return 1000 - (hardViolations * 100) - softPenalty;
-    }
-
-    private getConflicts(slots: any[]): any[] {
-        const conflictedSlots: any[] = [];
-
-        // Teacher conflicts
-        const teacherMap = new Map<string, any[]>();
-        slots.forEach(s => {
-            const key = `teacher-${s.teacherId}-${s.day}-${s.period}`;
-            if (!teacherMap.has(key)) teacherMap.set(key, []);
-            teacherMap.get(key)!.push(s);
-        });
-        teacherMap.forEach(group => {
-            if (group.length > 1) conflictedSlots.push(...group);
-        });
-
-        // Class conflicts
-        const classMap = new Map<string, any[]>();
-        slots.forEach(s => {
-            const key = `class-${s.classId}-${s.day}-${s.period}`;
-            if (!classMap.has(key)) classMap.set(key, []);
-            classMap.get(key)!.push(s);
-        });
-        classMap.forEach(group => {
-            if (group.length > 1) conflictedSlots.push(...group);
-        });
-
-        // Teacher busy time violations
-        for (const s of slots) {
-            if (this.constraintService.isTeacherBusy(s.teacherId, s.day, s.period)) {
-                conflictedSlots.push(s);
-            }
-        }
-
-        return conflictedSlots;
-    }
-
-    private isSlotOccupied(slots: any[], classId: string, day: number, period: number): boolean {
+    private isSlotOccupied(slots: TimeSlot[], classId: string, day: number, period: number): boolean {
         return slots.some(s => s.classId === classId && s.day === day && s.period === period);
     }
 
-    private shuffleArray(array: any[]) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-    }
+    // ================================================================
+    // DATABASE SAVE
+    // ================================================================
 
     private async saveToDatabase(semesterId: string, solution: any, data: any, log: (msg: string) => void) {
         try {
             const timetable = await this.prisma.generatedTimetable.create({
                 data: {
-                    name: `TKB ${new Date().toLocaleString('vi-VN')}`,
+                    name: `TKB_FET ${new Date().toLocaleString('vi-VN')}`,
                     semester_id: semesterId,
                     fitness_score: solution.fitness_score,
                 }
             });
-            log(`[DEBUG] Header Created: ${timetable.id}`);
+            log(`[FET] Header Created: ${timetable.id}`);
 
             const slotsToCreate = solution.slots.map((s: TimeSlot) => ({
                 timetable_id: timetable.id,
@@ -656,17 +400,21 @@ export class AlgorithmService {
                     data: slotsToCreate,
                     skipDuplicates: true
                 });
-                log(`[DEBUG] Inserted ${batch.count} slots.`);
+                log(`[FET] Inserted ${batch.count} slots.`);
             } else {
-                log('[DEBUG] No slots to insert!');
+                log('[FET] No slots to insert!');
             }
 
             return { success: true, id: timetable.id };
         } catch (e) {
-            log(`[DEBUG] Save Failed: ${e}`);
+            log(`[FET] Save Failed: ${e}`);
             throw e;
         }
     }
+
+    // ================================================================
+    // MANUAL OPERATIONS (moveSlot, toggleLock, clearSchedule)
+    // ================================================================
 
     async moveSlot(data: { slotId: string, newDay: number, newPeriod: number }) {
         const { slotId, newDay, newPeriod } = data;
@@ -688,17 +436,14 @@ export class AlgorithmService {
         if (targetSlot) {
             // SWAP with sequential transaction to avoid unique constraint violations
             await this.prisma.$transaction(async (tx) => {
-                // 1. Move Source to temp position
                 await tx.timetableSlot.update({
                     where: { id: sourceSlot.id },
                     data: { day: 0, period: 0 }
                 });
-                // 2. Move Target to Source's original position
                 await tx.timetableSlot.update({
                     where: { id: targetSlot.id },
                     data: { day: sourceSlot.day, period: sourceSlot.period, is_locked: true }
                 });
-                // 3. Move Source to Target's original position
                 await tx.timetableSlot.update({
                     where: { id: sourceSlot.id },
                     data: { day: newDay, period: newPeriod, is_locked: true }
@@ -713,6 +458,7 @@ export class AlgorithmService {
 
         return { success: true };
     }
+
     async toggleLock(slotId: string) {
         const slot = await this.prisma.timetableSlot.findUnique({ where: { id: slotId } });
         if (!slot) throw new Error('Slot not found');
