@@ -77,14 +77,17 @@ export class AlgorithmService {
             for (let attempt = 1; attempt <= options.restarts; attempt++) {
                 log(`[ATTEMPT ${attempt}/${options.restarts}] Starting FET engine...`);
 
-                // Phase 1: Fixed slots
+                // Phase 1: Fixed slots (Anchoring specific activities)
+                const currentActivities = this.buildActivities(data);
                 const fixedSlots: TimeSlot[] = [...lockedSlots.map(s => ({ ...s }))];
-                await this.phase1_FixedSlots(fixedSlots, data, (msg) => log(`[ATTEMPT ${attempt}] ${msg}`));
+                
+                // Map to track which activities are anchored
+                const anchoredIds = new Set<string>();
+                await this.phase1_FixedSlots(fixedSlots, currentActivities, anchoredIds, data, (msg) => log(`[ATTEMPT ${attempt}] ${msg}`));
 
-                // Remove activities that are already covered by fixed/locked slots
-                log(`[ATTEMPT ${attempt}] Built ${activities.length} total activities. Fixed slots: ${fixedSlots.length}`);
-                const remainingActivities = this.filterPlacedActivities(activities, fixedSlots, data);
-                log(`[ATTEMPT ${attempt}] ${remainingActivities.length} activities remaining after fixed slots (${activities.length - remainingActivities.length} filtered).`);
+                // Remaining activities are those not anchored in Phase 1
+                const remainingActivities = currentActivities.filter(a => !anchoredIds.has(a.id));
+                log(`[ATTEMPT ${attempt}] Total activities: ${currentActivities.length}. Anchored: ${anchoredIds.size}. Remaining: ${remainingActivities.length}`);
 
                 // Phase 2: FET Recursive Swapping Engine
                 const fetConfig: FETConfig = {
@@ -178,22 +181,28 @@ export class AlgorithmService {
             const subject = subjects.find((s: any) => s.id === assign.subject_id);
             if (!subject) continue;
 
-            // Skip fixed-slot subjects (handled in Phase 1)
+            /* 
+            Skip fixed-slot subjects (handled in Phase 1)
             const fixedCodes = [
                 'CHAO_CO', 'SH_DAU_TUAN', 'SH_CUOI_TUAN',
                 'SHCN', 'SH_CN', 'SINH_HOAT',
             ];
             if (fixedCodes.includes(subject.code)) continue;
+            */
 
             const cls = classes.find((c: any) => c.id === assign.class_id);
             if (!cls) continue;
 
             const isMorning = cls.main_session === 0;
-            const isSpecial = ['GDTC', 'GDQP'].includes(subject.code);
-            const isYardSubject = isSpecial;
+            const isOppositeSubj = ['GDTC', 'GDQP'].includes(subject.code.toUpperCase());
+            const isHDTN = ['HDTN', 'HĐTN'].includes(subject.code.toUpperCase());
+            
+            const isSpecial = isOppositeSubj; // Only Physical Ed / Defense are special (block placement)
+            const isYardSubject = isOppositeSubj;
             const subjCode = subject.code.toUpperCase();
-            // GDTC/GDQP go to the OPPOSITE session of the class
-            const activityIsMorning = isSpecial ? !isMorning : isMorning;
+            
+            // GDTC/GDQP go to the OPPOSITE session, HDTN and others go to main session
+            const activityIsMorning = isOppositeSubj ? !isMorning : isMorning;
 
             // Create one Activity per period needed
             const totalPeriods = assign.total_periods || 1;
@@ -216,43 +225,14 @@ export class AlgorithmService {
         return activities;
     }
 
-    /**
-     * Remove activities that are already covered by fixed/locked slots.
-     */
-    private filterPlacedActivities(activities: Activity[], fixedSlots: TimeSlot[], data: any): Activity[] {
-        // Count how many periods each (class, subject) already has in fixed slots
-        const placedCounts = new Map<string, number>();
-        for (const slot of fixedSlots) {
-            const key = `${slot.classId}-${slot.subjectId}`;
-            placedCounts.set(key, (placedCounts.get(key) || 0) + 1);
-        }
-
-        // For each (class, subject), skip the already-placed count
-        const remaining: Activity[] = [];
-        const skipCounts = new Map<string, number>();
-
-        for (const act of activities) {
-            const key = `${act.classId}-${act.subjectId}`;
-            const alreadyPlaced = placedCounts.get(key) || 0;
-            const alreadySkipped = skipCounts.get(key) || 0;
-
-            if (alreadySkipped < alreadyPlaced) {
-                skipCounts.set(key, alreadySkipped + 1);
-                continue; // This period is already covered
-            }
-
-            remaining.push(act);
-        }
-
-        return remaining;
-    }
-
-    // ================================================================
-    // PHASE 1: FIXED SLOTS (unchanged from original)
-    // ================================================================
-
-    private async phase1_FixedSlots(solution: TimeSlot[], data: any, log: (msg: string) => void) {
-        const { classes, subjects, teachers } = data;
+    private async phase1_FixedSlots(
+        solution: TimeSlot[],
+        activities: Activity[],
+        anchoredIds: Set<string>,
+        data: any,
+        log: (msg: string) => void
+    ) {
+        const { classes, subjects } = data;
 
         const subjectCodeMap = new Map<string, number>();
         subjects.forEach((s: any) => subjectCodeMap.set(s.code, s.id));
@@ -264,8 +244,6 @@ export class AlgorithmService {
             return undefined;
         };
 
-        const bghTeacher = teachers.find((t: any) => t.code === 'BGH');
-        const fallbackTeacherId = bghTeacher ? bghTeacher.id : null;
         let fixedCount = 0;
 
         for (const cls of classes) {
@@ -276,71 +254,46 @@ export class AlgorithmService {
 
             for (let d = 2; d <= 7; d++) {
                 for (let p = 1; p <= 10; p++) {
-                    if (isMorning && p > 5) continue;
-                    // Allow Monday P1 for all classes (CHAO_CO)
-                    if (!isMorning && p <= 5 && !(d === 2 && p === 1)) continue;
-
-                    if (this.isSlotOccupied(solution, cls.id, d, p)) continue;
-
                     const check = this.constraintService.checkFixedSlot(d, p, grade, session);
+                    if (!check.isFixed || !check.subjectCode) continue;
 
-                    if (check.isFixed && check.subjectCode) {
-                        let subjId = resolveSubjectId(check.subjectCode);
-                        let teacherId = null;
+                    // Find activity for this fixed slot
+                    let activity;
+                    if (check.subjectCode === 'GVCN_ANCHOR') {
+                        // Find any activity taught by the homeroom teacher of this class
+                        activity = activities.find(a => 
+                            a.classId === cls.id && 
+                            a.teacherId === cls.homeroom_teacher_id && 
+                            !anchoredIds.has(a.id)
+                        );
+                    } else {
+                        const targetSubjId = resolveSubjectId(check.subjectCode);
+                        if (!targetSubjId) continue;
+                        activity = activities.find(a => 
+                            a.classId === cls.id && 
+                            a.subjectId === targetSubjId && 
+                            !anchoredIds.has(a.id)
+                        );
+                    }
 
-                        if (check.subjectCode === 'GVCN_TEACHING') {
-                            const homeroomId = cls.homeroom_teacher_id;
-                            if (homeroomId) {
-                                const assignment = data.assignments.find((a: any) => {
-                                    if (a.class_id !== cls.id || a.teacher_id !== homeroomId) return false;
-                                    const subj = data.subjects.find((s: any) => s.id === a.subject_id);
-                                    return subj && !subj.is_special;
-                                });
-                                if (assignment) {
-                                    subjId = assignment.subject_id;
-                                    teacherId = homeroomId;
-                                } else {
-                                    log(`[WARNING] GVCN (ID: ${homeroomId}) does not teach Cultural Subject for Class ${cls.name}.`);
-                                }
-                            }
-                        }
-
-                        if (subjId) {
-                            if (['SHCN', 'SH_CN', 'SINH_HOAT', 'SH_DAU_TUAN', 'SH_CUOI_TUAN'].includes(check.subjectCode)) {
-                                teacherId = cls.homeroom_teacher_id;
-                            } else if (check.subjectCode === 'CHAO_CO') {
-                                teacherId = cls.homeroom_teacher_id || fallbackTeacherId;
-                            } else if (['GDDP', 'HDTN'].includes(check.subjectCode)) {
-                                const assignment = data.assignments.find((a: any) =>
-                                    a.class_id === cls.id && a.subject_id === subjId
-                                );
-                                if (assignment) teacherId = assignment.teacher_id;
-                            }
-
-                            if (!teacherId) teacherId = cls.homeroom_teacher_id || fallbackTeacherId || (teachers[0] ? teachers[0].id : null);
-
-                            let roomId = cls.fixed_room_id;
-                            if (check.subjectCode === 'CHAO_CO') roomId = undefined;
-
-                            if (teacherId) {
-                                solution.push({
-                                    id: crypto.randomUUID(),
-                                    day: d,
-                                    period: p,
-                                    classId: cls.id,
-                                    subjectId: subjId,
-                                    teacherId: teacherId,
-                                    roomId: roomId,
-                                    isLocked: true
-                                });
-                                fixedCount++;
-                            }
-                        }
+                    if (activity) {
+                        solution.push({
+                            id: activity.id,
+                            day: d,
+                            period: p,
+                            classId: activity.classId,
+                            subjectId: activity.subjectId,
+                            teacherId: activity.teacherId,
+                            roomId: (activity.subjectCode === 'CHAO_CO' || activity.subjectCode === 'GDTC' || activity.subjectCode === 'GDQP') ? undefined : (cls.fixed_room_id || undefined),
+                            isLocked: true,
+                        });
+                        anchoredIds.add(activity.id);
+                        fixedCount++;
                     }
                 }
             }
         }
-        log(`[FET] Phase 1: Generated ${fixedCount} fixed slots.`);
+        log(`[FET] Phase 1: Anchored ${fixedCount} fixed activities.`);
     }
 
     // ================================================================
@@ -357,11 +310,11 @@ export class AlgorithmService {
         };
 
         return {
-            restarts: normalizeInteger(rawOptions?.restarts, 3, 1, 20),
-            maxRecursionDepth: 14,
-            maxSwapAttempts: 2000,
-            maxTotalBacktracks: 500000,
-            polishIterations: 3000,
+            restarts: normalizeInteger(rawOptions?.restarts, 5, 1, 20),
+            maxRecursionDepth: 30,
+            maxSwapAttempts: 10000,
+            maxTotalBacktracks: 5000000,
+            polishIterations: 8000,
         };
     }
 

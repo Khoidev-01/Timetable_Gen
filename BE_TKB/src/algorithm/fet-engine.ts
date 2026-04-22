@@ -33,10 +33,10 @@ export interface FETConfig {
 }
 
 const DEFAULT_CONFIG: FETConfig = {
-    maxRecursionDepth: 14,
-    maxSwapAttempts: 2000,
-    maxTotalBacktracks: 500000,
-    polishIterations: 3000,
+    maxRecursionDepth: 20,       // Increased from 14
+    maxSwapAttempts: 3000,       // Increased from 2000
+    maxTotalBacktracks: 2000000, // Increased from 500,000
+    polishIterations: 5000,      // Increased for better quality
 };
 
 export class FETEngine {
@@ -92,13 +92,16 @@ export class FETEngine {
 
         for (let i = 0; i < normalActivities.length; i++) {
             const activity = normalActivities[i];
-            const success = this.placeActivity(activity);
+            
+            // Try swapping strategy for everyone to ensure best results
+            const success = this.placeActivityWithSwappingOnly(activity);
 
             if (success) {
                 placed++;
             } else {
                 failed++;
                 this.impossibleActivities.push(activity);
+                this.log(`[FET] FAILED: ${activity.subjectCode} for class ${this.constraintService.getClassName(activity.classId)}`);
                 // Force-place to avoid losing the activity entirely
                 this.forcePlaceFallback(activity);
             }
@@ -127,6 +130,11 @@ export class FETEngine {
         return this.impossibleActivities;
     }
 
+    private isClassGrade12(classId: string): boolean {
+        const className = this.constraintService.getClassName(classId);
+        return className.startsWith('12');
+    }
+
     // ================================================================
     // PERFORMANCE INDEX
     // ================================================================
@@ -138,6 +146,32 @@ export class FETEngine {
             if (!this.timeIndex.has(key)) this.timeIndex.set(key, []);
             this.timeIndex.get(key)!.push(s);
         }
+    }
+
+    private forcePlaceFallback(activity: Activity): boolean {
+        // Find ANY non-locked slot for this class that is still available in the 1-10 range
+        for (let day = 2; day <= 7; day++) {
+            for (let period = 1; period <= 10; period++) {
+                // Check if this class already has something at this time
+                const existing = this.schedule.find(s => s.day === day && s.period === period && s.classId === activity.classId);
+                if (!existing) {
+                    const slot: TimeSlot = {
+                        id: activity.id,
+                        day,
+                        period,
+                        classId: activity.classId,
+                        subjectId: activity.subjectId,
+                        teacherId: activity.teacherId,
+                        roomId: activity.isYardSubject ? undefined : (activity.roomId || undefined),
+                        isLocked: false,
+                    };
+                    this.schedule.push(slot);
+                    this.addToIndex(slot);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private addToIndex(slot: TimeSlot) {
@@ -185,12 +219,32 @@ export class FETEngine {
     }
 
     private resortByDifficulty(activities: Activity[]) {
+        // Calculate teacher load map for heuristic
+        const teacherAssignedCount = new Map<string, number>();
+        for (const s of this.schedule) {
+            teacherAssignedCount.set(s.teacherId, (teacherAssignedCount.get(s.teacherId) || 0) + 1);
+        }
+
         for (const act of activities) {
-            act.difficulty = this.constraintService.countAvailableSlots(
+            const availableSlots = this.constraintService.countAvailableSlots(
                 act.teacherId, act.classId, act.subjectId, act.isMorning, this.schedule
             );
+            
+            // Heuristic: harder = fewer available slots + higher teacher load
+            // Teacher pressure = (total periods assigned to this teacher in current run)
+            const teacherPressure = teacherAssignedCount.get(act.teacherId) || 0;
+            
+            // We want lower difficulty score for harder tasks
+            // Subtracting teacherPressure makes activities with busy teachers "harder"
+            act.difficulty = availableSlots - (teacherPressure * 0.1);
         }
+
         activities.sort((a, b) => {
+            // Priority 1: Grade 12 (highly constrained)
+            const isA12 = this.isClassGrade12(a.classId);
+            const isB12 = this.isClassGrade12(b.classId);
+            if (isA12 !== isB12) return isA12 ? -1 : 1;
+
             if (a.difficulty !== b.difficulty) return a.difficulty - b.difficulty;
             if (a.isSpecial !== b.isSpecial) return a.isSpecial ? -1 : 1;
             return 0;
@@ -200,6 +254,37 @@ export class FETEngine {
     // ================================================================
     // STEP 1.5: Block Scheduling for GDTC/GDQP
     // ================================================================
+
+    private tryPlaceBlockAt(acts: Activity[], day: number, periods: number[]): boolean {
+        const sample = acts[0];
+        const canPlace = periods.every(p => {
+            if (this.constraintService.isTeacherBusy(sample.teacherId, day, p)) return false;
+            const conflicts = this.findConflictsAtTime({
+                id: 'test', day, period: p,
+                classId: sample.classId, subjectId: sample.subjectId,
+                teacherId: sample.teacherId
+            });
+            return conflicts.every(c => !c.isLocked);
+        });
+
+        if (!canPlace) return false;
+
+        const snapshot = this.schedule.map(s => ({ ...s }));
+        for (let i = 0; i < acts.length; i++) {
+            const slot: TimeSlot = {
+                id: acts[i].id, day, period: periods[i],
+                classId: sample.classId, subjectId: sample.subjectId,
+                teacherId: sample.teacherId,
+                roomId: undefined, isLocked: false,
+            };
+            if (!this.tryPlaceWithSwapping(slot, 0, new Set())) {
+                this.schedule = snapshot;
+                this.rebuildTimeIndex();
+                return false;
+            }
+        }
+        return true;
+    }
 
     private placeBlockActivities(blockActivities: Activity[]) {
         if (blockActivities.length === 0) return;
@@ -213,71 +298,98 @@ export class FETEngine {
             groups.get(key)!.push(act);
         }
 
+        // Track which days each teacher has already been assigned GDTC
+        // to avoid same-teacher conflicts on same day
+        const teacherDayUsed = new Map<string, Set<number>>();
+
+        // Sort groups: fewest available slots first (hardest to place first)
+        const sortedGroups = [...groups.values()].sort((a, b) => {
+            const aActs = a.length;
+            const bActs = b.length;
+            // Classes with more periods per group are harder
+            if (aActs !== bActs) return bActs - aActs;
+            // Sort by teacher load (teachers with more classes go first)
+            const aTeacherClasses = blockActivities.filter(x => x.teacherId === a[0].teacherId).length;
+            const bTeacherClasses = blockActivities.filter(x => x.teacherId === b[0].teacherId).length;
+            return bTeacherClasses - aTeacherClasses;
+        });
+
         let placedBlocks = 0;
         let failedBlocks = 0;
 
-        for (const [, acts] of groups) {
+        for (const acts of sortedGroups) {
             const count = acts.length;
             const sample = acts[0];
-            // GDTC/GDQP: opposite session, periods 1-3 (morning) or 8-10 (afternoon)
-            const minP = sample.isMorning ? 8 : 1;
-            const maxP = sample.isMorning ? 10 : 3;
+            // Special subjects (GDTC/GDQP/HDTN): primary window is 1-4 or 7-10 (loosened)
+            const isMorningSession = sample.isMorning;
+            const primaryMin = isMorningSession ? 1 : 6;
+            const primaryMax = isMorningSession ? 5 : 10;
+
+            if (!teacherDayUsed.has(sample.teacherId)) {
+                teacherDayUsed.set(sample.teacherId, new Set());
+            }
+            const usedDays = teacherDayUsed.get(sample.teacherId)!;
 
             let placed = false;
-            const days = [2, 3, 4, 5, 6, 7].sort(() => 0.5 - Math.random());
 
-            for (const day of days) {
+            // Priority: days not yet used by this teacher for GDTC
+            const allDays = [2, 3, 4, 6, 7]; // exclude Thursday=5
+            const preferredDays = allDays.filter(d => !usedDays.has(d));
+            const fallbackDays = allDays.filter(d => usedDays.has(d));
+            const tryDays = [
+                ...preferredDays.sort(() => 0.5 - Math.random()),
+                ...fallbackDays.sort(() => 0.5 - Math.random()),
+            ];
+
+            for (const day of tryDays) {
                 if (placed) break;
-                // Thursday restriction
-                if (day === 5) continue;
 
-                // Check if any opposite-session slot already used on this day for this class
-                const hasExisting = this.schedule.some(s =>
-                    s.classId === sample.classId && s.day === day &&
-                    s.period >= minP && s.period <= maxP
-                );
-                if (hasExisting) continue;
+                const primaryRange = Array.from({ length: primaryMax - primaryMin + 1 }, (_, i) => primaryMin + i);
+                const extendedRange = [...primaryRange];
 
-                // Find consecutive slots
-                const validRange = Array.from({ length: maxP - minP + 1 }, (_, i) => minP + i);
-                for (let startIdx = 0; startIdx <= validRange.length - count; startIdx++) {
-                    const periods = validRange.slice(startIdx, startIdx + count);
-
-                    const canPlace = periods.every(p => {
-                        if (this.constraintService.isTeacherBusy(sample.teacherId, day, p)) return false;
-                        const conflicts = this.findConflictsAtTime({
-                            id: 'test', day, period: p,
-                            classId: sample.classId, subjectId: sample.subjectId,
-                            teacherId: sample.teacherId
-                        });
-                        return conflicts.length === 0;
-                    });
-
-                    if (canPlace) {
-                        for (let i = 0; i < count; i++) {
-                            const slot: TimeSlot = {
-                                id: acts[i].id,
-                                day,
-                                period: periods[i],
-                                classId: sample.classId,
-                                subjectId: sample.subjectId,
-                                teacherId: sample.teacherId,
-                                roomId: undefined, // yard subject
-                                isLocked: false,
-                            };
-                            this.schedule.push(slot);
-                            this.addToIndex(slot);
+                // 1. Try consecutive in PRIMARY range
+                if (count >= 2) {
+                    for (let startIdx = 0; startIdx <= primaryRange.length - count; startIdx++) {
+                        const periods = primaryRange.slice(startIdx, startIdx + count);
+                        if (this.tryPlaceBlockAt(acts, day, periods)) {
+                            usedDays.add(day);
+                            placed = true;
+                            placedBlocks += count;
+                            break;
                         }
-                        placed = true;
-                        placedBlocks += count;
-                        break;
+                    }
+                }
+
+                // 2. Try consecutive in EXTENDED range
+                if (!placed && count >= 2) {
+                    for (let startIdx = 0; startIdx <= extendedRange.length - count; startIdx++) {
+                        const periods = extendedRange.slice(startIdx, startIdx + count);
+                        if (periods[periods.length - 1] - periods[0] !== count - 1) continue;
+                        if (this.tryPlaceBlockAt(acts, day, periods)) {
+                            usedDays.add(day);
+                            placed = true;
+                            placedBlocks += count;
+                            break;
+                        }
+                    }
+                }
+
+                // 3. Try single period
+                if (!placed && count === 1) {
+                    for (const p of extendedRange.sort(() => 0.5 - Math.random())) {
+                        if (this.tryPlaceBlockAt(acts, day, [p])) {
+                            usedDays.add(day);
+                            placed = true;
+                            placedBlocks++;
+                            break;
+                        }
                     }
                 }
             }
 
             if (!placed) {
                 failedBlocks += count;
-                // Fallback: place individually
+                // Fallback: use recursive swapping
                 for (const act of acts) {
                     if (!this.placeActivity(act)) {
                         this.impossibleActivities.push(act);
@@ -293,6 +405,30 @@ export class FETEngine {
     // ================================================================
     // STEP 2: Recursive Swapping (FET Core)
     // ================================================================
+
+    private placeActivityWithSwappingOnly(activity: Activity): boolean {
+        const candidates = this.getCandidateSlots(activity);
+        const tabuSet = new Set<string>();
+        for (const candidate of candidates) {
+            if (this.totalSwapCalls >= this.config.maxTotalBacktracks) break;
+
+            const slot: TimeSlot = {
+                id: activity.id,
+                day: candidate.day,
+                period: candidate.period,
+                classId: activity.classId,
+                subjectId: activity.subjectId,
+                teacherId: activity.teacherId,
+                roomId: activity.isYardSubject ? undefined : (activity.roomId || undefined),
+                isLocked: false,
+            };
+
+            if (this.tryPlaceWithSwapping(slot, 0, tabuSet)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /**
      * Try to place an activity into the timetable.
@@ -478,14 +614,20 @@ export class FETEngine {
         // Phase 3a: Repair hard violations
         this.repairHardViolations();
 
-        // Phase 3b: Block pairing — pair same-subject slots into adjacent periods
+        // Phase 3b: Block pairing (multi-pass)
         this.repairBlockPairs();
 
         // Phase 3c: Teacher gap compaction
         this.repairTeacherGaps();
 
-        // Phase 3d: General greedy polish
+        // Phase 3d: Morning priority swap
+        this.repairMorningPriority();
+
+        // Phase 3e: General greedy polish (incremental)
         this.generalPolish();
+
+        // Phase 3f: Coverage repair — retry placing any missing activities
+        this.repairCoverage();
     }
 
     /**
@@ -506,19 +648,72 @@ export class FETEngine {
 
             let improved = false;
 
+            // Determine if offender is GDTC/GDQP
+            const offenderCode = this.constraintService.getSubjectCode(offender.subjectId);
+            const isOffenderSpecial = offenderCode.includes('GDTC') || offenderCode.includes('GDQP') || offenderCode.includes('QUOC_PHONG');
+
             // Try same-class swaps first, then same-teacher cross-class swaps
             const sameClass = unlocked.filter(s => s.classId === offender.classId && s.id !== offender.id);
             const crossClass = unlocked.filter(s =>
                 s.teacherId === offender.teacherId && s.classId !== offender.classId && s.id !== offender.id
             );
-            const candidates = [...sameClass, ...crossClass].sort(() => Math.random() - 0.5);
+            let candidates = [...sameClass, ...crossClass].sort(() => Math.random() - 0.5);
+
+            // GDTC fix: only swap to GDTC-valid periods (P1-3 morning, P8-10 afternoon)
+            if (isOffenderSpecial) {
+                candidates = candidates.filter(c => {
+                    const p = c.period;
+                    if (p <= 5) return p <= 3;   // Morning: only P1-3
+                    return p >= 8;                // Afternoon: only P8-10
+                });
+            }
+
+            // GDTC fix: first try direct relocation to an empty valid slot
+            if (isOffenderSpecial && !improved) {
+                const clsIsMorning = this.schedule.some(s =>
+                    s.classId === offender.classId && s.period <= 5 && !s.isLocked && s.id !== offender.id
+                );
+                // Hard repair also follows loosened constraints: 1-4 or 7-10
+                const validMin = clsIsMorning ? 7 : 1;
+                const validMax = clsIsMorning ? 10 : 4;
+
+                for (let day = 2; day <= 7 && !improved; day++) {
+                    if (day === 5) continue;
+                    for (let period = validMin; period <= validMax && !improved; period++) {
+                        const origDay = offender.day, origPeriod = offender.period;
+                        offender.day = day; offender.period = period;
+
+                        if (!this.isStructurallyValid(offender)) {
+                            offender.day = origDay; offender.period = origPeriod;
+                            continue;
+                        }
+
+                        const newHard = this.constraintService.checkHardConstraints(this.schedule);
+                        if (newHard < hardCount) {
+                            hardCount = newHard;
+                            this.rebuildTimeIndex();
+                            improved = true;
+                        } else {
+                            offender.day = origDay; offender.period = origPeriod;
+                        }
+                    }
+                }
+            }
 
             for (const target of candidates) {
+                if (improved) break;
                 const origDay1 = offender.day, origPeriod1 = offender.period;
                 const origDay2 = target.day, origPeriod2 = target.period;
 
                 offender.day = origDay2; offender.period = origPeriod2;
                 target.day = origDay1; target.period = origPeriod1;
+
+                // Check structural validity of both slots after swap
+                if (!this.isStructurallyValid(offender) || !this.isStructurallyValid(target)) {
+                    offender.day = origDay1; offender.period = origPeriod1;
+                    target.day = origDay2; target.period = origPeriod2;
+                    continue;
+                }
 
                 const newHard = this.constraintService.checkHardConstraints(this.schedule);
                 if (newHard < hardCount) {
@@ -572,7 +767,7 @@ export class FETEngine {
                     const c = this.constraintService.getSubjectCode(s.subjectId);
                     return heavyCodes.some(h => c.includes(h));
                 }).length;
-                if (heavyCount >= 2) return slot;
+                if (heavyCount >= 3) return slot;
             }
 
             // Consecutive same subject > 2
@@ -600,70 +795,76 @@ export class FETEngine {
     private repairBlockPairs() {
         const blockSubjects = ['TOAN', 'VAN', 'NGU_VAN', 'TIN', 'LY', 'HOA', 'SINH'];
         const hardBaseline = this.constraintService.checkHardConstraints(this.schedule);
-        let pairsFixed = 0;
+        let totalPairsFixed = 0;
 
-        const classMap = new Map<string, TimeSlot[]>();
-        for (const s of this.schedule) {
-            if (s.isLocked) continue;
-            if (!classMap.has(s.classId)) classMap.set(s.classId, []);
-            classMap.get(s.classId)!.push(s);
-        }
+        for (let pass = 0; pass < 3; pass++) {
+            let pairsFixed = 0;
 
-        for (const [_, classSlots] of classMap) {
-            const subjectMap = new Map<number, TimeSlot[]>();
-            for (const s of classSlots) {
-                if (!subjectMap.has(s.subjectId)) subjectMap.set(s.subjectId, []);
-                subjectMap.get(s.subjectId)!.push(s);
+            const classMap = new Map<string, TimeSlot[]>();
+            for (const s of this.schedule) {
+                if (s.isLocked) continue;
+                if (!classMap.has(s.classId)) classMap.set(s.classId, []);
+                classMap.get(s.classId)!.push(s);
             }
 
-            for (const [subjId, subjSlots] of subjectMap) {
-                const code = this.constraintService.getSubjectCode(subjId);
-                if (!blockSubjects.some(b => code.includes(b))) continue;
-                if (subjSlots.length < 2) continue;
+            for (const [_, classSlots] of classMap) {
+                const subjectMap = new Map<number, TimeSlot[]>();
+                for (const s of classSlots) {
+                    if (!subjectMap.has(s.subjectId)) subjectMap.set(s.subjectId, []);
+                    subjectMap.get(s.subjectId)!.push(s);
+                }
 
-                for (const slot of subjSlots) {
-                    const hasAdjacentPartner = subjSlots.some(other =>
-                        other.id !== slot.id && other.day === slot.day &&
-                        Math.abs(other.period - slot.period) === 1
-                    );
-                    if (hasAdjacentPartner) continue;
+                for (const [subjId, subjSlots] of subjectMap) {
+                    const code = this.constraintService.getSubjectCode(subjId);
+                    if (!blockSubjects.some(b => code.includes(b))) continue;
+                    if (subjSlots.length < 2) continue;
 
-                    let paired = false;
-                    for (const partner of subjSlots) {
-                        if (partner.id === slot.id || paired) continue;
-                        for (const targetPeriod of [partner.period + 1, partner.period - 1]) {
-                            if (targetPeriod < 1 || targetPeriod > 10) continue;
-                            if (partner.day === 5 && [3, 4, 5, 8, 9, 10].includes(targetPeriod)) continue;
-                            if (partner.day === 2 && targetPeriod === 1) continue;
-                            if ((partner.period <= 5) !== (targetPeriod <= 5)) continue;
+                    for (const slot of subjSlots) {
+                        const hasAdjacentPartner = subjSlots.some(other =>
+                            other.id !== slot.id && other.day === slot.day &&
+                            Math.abs(other.period - slot.period) === 1
+                        );
+                        if (hasAdjacentPartner) continue;
 
-                            const occupant = classSlots.find(s =>
-                                s.day === partner.day && s.period === targetPeriod && !s.isLocked
-                            );
-                            if (!occupant || occupant.id === slot.id) continue;
+                        let paired = false;
+                        for (const partner of subjSlots) {
+                            if (partner.id === slot.id || paired) continue;
+                            for (const targetPeriod of [partner.period + 1, partner.period - 1]) {
+                                if (targetPeriod < 1 || targetPeriod > 10) continue;
+                                if (partner.day === 5 && [3, 4, 5, 8, 9, 10].includes(targetPeriod)) continue;
+                                if (partner.day === 2 && targetPeriod === 1) continue;
+                                if ((partner.period <= 5) !== (targetPeriod <= 5)) continue;
 
-                            const origDay1 = slot.day, origPeriod1 = slot.period;
-                            const origDay2 = occupant.day, origPeriod2 = occupant.period;
+                                const occupant = classSlots.find(s =>
+                                    s.day === partner.day && s.period === targetPeriod && !s.isLocked
+                                );
+                                if (!occupant || occupant.id === slot.id) continue;
 
-                            slot.day = origDay2; slot.period = origPeriod2;
-                            occupant.day = origDay1; occupant.period = origPeriod1;
+                                const origDay1 = slot.day, origPeriod1 = slot.period;
+                                const origDay2 = occupant.day, origPeriod2 = occupant.period;
 
-                            const newHard = this.constraintService.checkHardConstraints(this.schedule);
-                            if (newHard <= hardBaseline) {
-                                pairsFixed++;
-                                paired = true;
-                                break;
+                                slot.day = origDay2; slot.period = origPeriod2;
+                                occupant.day = origDay1; occupant.period = origPeriod1;
+
+                                const newHard = this.constraintService.checkHardConstraints(this.schedule);
+                                if (newHard <= hardBaseline) {
+                                    pairsFixed++;
+                                    paired = true;
+                                    break;
+                                }
+
+                                slot.day = origDay1; slot.period = origPeriod1;
+                                occupant.day = origDay2; occupant.period = origPeriod2;
                             }
-
-                            slot.day = origDay1; slot.period = origPeriod1;
-                            occupant.day = origDay2; occupant.period = origPeriod2;
                         }
                     }
                 }
             }
+            totalPairsFixed += pairsFixed;
+            if (pairsFixed === 0) break;
         }
         this.rebuildTimeIndex();
-        this.log(`[FET] Block pairing done. Pairs fixed: ${pairsFixed}`);
+        this.log(`[FET] Block pairing done. Total pairs fixed: ${totalPairsFixed}`);
     }
 
     /**
@@ -731,6 +932,51 @@ export class FETEngine {
     }
 
     /**
+     * Phase 3d: Move Toán/Văn/Anh from period 4-5 to period 1-3 where possible.
+     */
+    private repairMorningPriority() {
+        const priorityCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
+        const hardBaseline = this.constraintService.checkHardConstraints(this.schedule);
+        let fixed = 0;
+
+        const unlocked = this.schedule.filter(s => !s.isLocked);
+
+        for (const slot of unlocked) {
+            const code = this.constraintService.getSubjectCode(slot.subjectId);
+            if (!priorityCodes.some(p => code.includes(p))) continue;
+            // Only fix if currently in period 4-5 (penalized)
+            if (slot.period < 4 || slot.period > 5) continue;
+
+            // Find a non-priority subject in period 1-3 same class
+            const earlySlots = unlocked.filter(s =>
+                s.classId === slot.classId && s.period >= 1 && s.period <= 3 && s.day === slot.day
+            );
+
+            for (const target of earlySlots) {
+                const tCode = this.constraintService.getSubjectCode(target.subjectId);
+                if (priorityCodes.some(p => tCode.includes(p))) continue; // Don't swap with another priority
+
+                const origDay1 = slot.day, origPeriod1 = slot.period;
+                const origDay2 = target.day, origPeriod2 = target.period;
+
+                slot.day = origDay2; slot.period = origPeriod2;
+                target.day = origDay1; target.period = origPeriod1;
+
+                const newHard = this.constraintService.checkHardConstraints(this.schedule);
+                if (newHard <= hardBaseline) {
+                    fixed++;
+                    break;
+                }
+
+                slot.day = origDay1; slot.period = origPeriod1;
+                target.day = origDay2; target.period = origPeriod2;
+            }
+        }
+        this.rebuildTimeIndex();
+        this.log(`[FET] Morning priority repair done. Fixed: ${fixed}`);
+    }
+
+    /**
      * Phase 3d: General greedy polish — random swaps that improve soft penalty.
      */
     private generalPolish() {
@@ -738,51 +984,39 @@ export class FETEngine {
         const startPenalty = this.constraintService.calculatePenalty(this.schedule);
         let currentPenalty = startPenalty;
 
-        const totalIter = this.config.polishIterations;
+        // Pre-compute unlocked list once (swaps don't add/remove slots)
+        const unlocked = this.schedule.filter(s => !s.isLocked);
+        if (unlocked.length === 0) return;
+
+        // Build class and teacher indexes for fast lookup
+        const classIndex = new Map<string, TimeSlot[]>();
+        const teacherIndex = new Map<string, TimeSlot[]>();
+        for (const s of unlocked) {
+            if (!classIndex.has(s.classId)) classIndex.set(s.classId, []);
+            classIndex.get(s.classId)!.push(s);
+            if (!teacherIndex.has(s.teacherId)) teacherIndex.set(s.teacherId, []);
+            teacherIndex.get(s.teacherId)!.push(s);
+        }
+
+        const totalIter = 10000;
 
         for (let iter = 0; iter < totalIter; iter++) {
-            const unlocked = this.schedule.filter(s => !s.isLocked);
-            if (unlocked.length === 0) break;
-
             const slot = unlocked[Math.floor(Math.random() * unlocked.length)];
             let target: TimeSlot | undefined;
             const r = Math.random();
 
             if (r < 0.30) {
-                const sameTeacher = unlocked.filter(s =>
-                    s.teacherId === slot.teacherId && s.id !== slot.id && s.classId !== slot.classId
-                );
-                if (sameTeacher.length > 0)
-                    target = sameTeacher[Math.floor(Math.random() * sameTeacher.length)];
-            } else if (r < 0.40) {
-                const emptySlots = this.findEmptySlots(slot);
-                if (emptySlots.length > 0) {
-                    const dest = emptySlots[Math.floor(Math.random() * emptySlots.length)];
-                    const origDay = slot.day, origPeriod = slot.period;
-                    slot.day = dest.day; slot.period = dest.period;
-
-                    const newHard = this.constraintService.checkHardConstraints(this.schedule);
-                    if (newHard > hardBaseline) {
-                        slot.day = origDay; slot.period = origPeriod;
-                        continue;
-                    }
-
-                    const newPenalty = this.constraintService.calculatePenalty(this.schedule);
-                    if (newPenalty < currentPenalty) {
-                        currentPenalty = newPenalty;
-                    } else {
-                        slot.day = origDay; slot.period = origPeriod;
-                    }
-                    continue;
-                }
+                const sameTeacher = teacherIndex.get(slot.teacherId) || [];
+                const candidates = sameTeacher.filter(s => s.id !== slot.id && s.classId !== slot.classId);
+                if (candidates.length > 0)
+                    target = candidates[Math.floor(Math.random() * candidates.length)];
             }
 
             if (!target) {
-                const sameClass = unlocked.filter(s =>
-                    s.classId === slot.classId && s.id !== slot.id
-                );
-                if (sameClass.length === 0) continue;
-                target = sameClass[Math.floor(Math.random() * sameClass.length)];
+                const sameClass = classIndex.get(slot.classId) || [];
+                const candidates = sameClass.filter(s => s.id !== slot.id);
+                if (candidates.length === 0) continue;
+                target = candidates[Math.floor(Math.random() * candidates.length)];
             }
 
             const origDay1 = slot.day, origPeriod1 = slot.period;
@@ -791,8 +1025,8 @@ export class FETEngine {
             slot.day = origDay2; slot.period = origPeriod2;
             target.day = origDay1; target.period = origPeriod1;
 
-            const newHardViolations = this.constraintService.checkHardConstraints(this.schedule);
-            if (newHardViolations > hardBaseline) {
+            const newHard = this.constraintService.checkHardConstraints(this.schedule);
+            if (newHard > hardBaseline) {
                 slot.day = origDay1; slot.period = origPeriod1;
                 target.day = origDay2; target.period = origPeriod2;
                 continue;
@@ -809,6 +1043,52 @@ export class FETEngine {
 
         this.rebuildTimeIndex();
         this.log(`[FET] Polish done. Soft penalty: ${startPenalty} → ${currentPenalty}`);
+    }
+
+    /**
+     * Phase 3f: Try to move force-placed slots to better positions.
+     * Force-placed slots may have hard violations — try to relocate them.
+     */
+    private repairCoverage() {
+        if (this.impossibleActivities.length === 0) return;
+        this.rebuildTimeIndex();
+        const hardBefore = this.constraintService.checkHardConstraints(this.schedule);
+
+        let recovered = 0;
+
+        for (const activity of this.impossibleActivities) {
+            // Find the force-placed slot for this activity
+            const forcedSlot = this.schedule.find(s => s.id === activity.id);
+            if (!forcedSlot) continue;
+
+            // Try to move it to a clean empty slot
+            const emptySlots = this.findEmptySlots(forcedSlot);
+
+            for (const empty of emptySlots) {
+                const origDay = forcedSlot.day, origPeriod = forcedSlot.period;
+
+                forcedSlot.day = empty.day;
+                forcedSlot.period = empty.period;
+
+                if (!this.isStructurallyValid(forcedSlot)) {
+                    forcedSlot.day = origDay; forcedSlot.period = origPeriod;
+                    continue;
+                }
+
+                const newHard = this.constraintService.checkHardConstraints(this.schedule);
+                if (newHard < hardBefore) {
+                    this.rebuildTimeIndex();
+                    recovered++;
+                    break;
+                }
+
+                forcedSlot.day = origDay; forcedSlot.period = origPeriod;
+            }
+        }
+
+        this.rebuildTimeIndex();
+        const hardAfter = this.constraintService.checkHardConstraints(this.schedule);
+        this.log(`[FET] Coverage repair done. Relocated: ${recovered}. Hard: ${hardBefore} → ${hardAfter}`);
     }
 
     /**
@@ -845,17 +1125,10 @@ export class FETEngine {
             for (let period = 1; period <= 10; period++) {
                 const isMorningPeriod = period <= 5;
 
-                // Thursday restriction
-                if (day === 5 && [3, 4, 5, 8, 9, 10].includes(period)) continue;
-
-                // Monday P1 reserved for Chào Cờ
-                if (day === 2 && period === 1) continue;
-
-                // Special subject time: GDTC/GDQP must be P1-3 (morning) or P8-10 (afternoon)
-                if (isSpecial) {
-                    if (isMorningPeriod && period > 3) continue;
-                    if (!isMorningPeriod && period < 8) continue;
-                }
+                /* Thursday restriction: P5 and P10 reserved */
+                if (day === 5 && [5, 10].includes(period)) continue;
+                if (day === 2 && period === 1) continue; // Keep Chào Cờ reserved
+                /* Special subject time restriction removed for capacity */
 
                 // Session penalty: opposite session slots get a high penalty so they're
                 // used only when main session is full
@@ -891,48 +1164,16 @@ export class FETEngine {
         // Teacher busy
         if (this.constraintService.isTeacherBusy(slot.teacherId, slot.day, slot.period)) return false;
         // Thursday
-        if (slot.day === 5 && [3, 4, 5, 8, 9, 10].includes(slot.period)) return false;
+        // if (slot.day === 5 && [3, 4, 5, 8, 9, 10].includes(slot.period)) return false;
         // Monday P1
         if (slot.day === 2 && slot.period === 1) return false;
         // Special subject time
         const code = this.constraintService.getSubjectCode(slot.subjectId);
+        if (!code) return true;
         if (code.includes('GDTC') || code.includes('GDQP') || code.includes('QUOC_PHONG')) {
             if (slot.period <= 5 && slot.period > 3) return false;
             if (slot.period > 5 && slot.period < 8) return false;
         }
         return true;
-    }
-
-    /**
-     * Last resort: force-place an activity into the least-conflicting slot.
-     */
-    private forcePlaceFallback(activity: Activity) {
-        const candidates = this.getCandidateSlots(activity);
-
-        // Only place if no class AND no teacher conflict (clean placement)
-        for (const cand of candidates) {
-            const key = `${cand.day}-${cand.period}`;
-            const existing = this.timeIndex.get(key) || [];
-            if (existing.some(s => s.classId === activity.classId)) continue;
-            if (existing.some(s => s.teacherId === activity.teacherId)) continue;
-
-            const slot: TimeSlot = {
-                id: activity.id,
-                day: cand.day,
-                period: cand.period,
-                classId: activity.classId,
-                subjectId: activity.subjectId,
-                teacherId: activity.teacherId,
-                roomId: activity.isYardSubject ? undefined : activity.roomId,
-                isLocked: false,
-            };
-            this.schedule.push(slot);
-            this.addToIndex(slot);
-            this.log(`[FET] FORCED: ${activity.subjectCode} for class ${activity.classId} at day=${cand.day} period=${cand.period}`);
-            return;
-        }
-
-        // No slot available at all — class is completely full
-        this.log(`[FET] DROPPED: ${activity.subjectCode} for class ${activity.classId} — no available slot`);
     }
 }
