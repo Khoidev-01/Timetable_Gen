@@ -56,12 +56,29 @@ export class AlgorithmService {
 
             // 2. Phase 1: Fixed Slots (Chào Cờ, SHCN)
             await this.phase1_FixedSlots(solution, data, log);
+            const phase1Slots = solution.slots.map(s => ({ ...s })); // Save Phase 1 result
 
-            // 3. Phase 2: Heuristic (Practice / Hard Resources)
-            this.phase2_Heuristic(solution, data);
+            // 3. Multi-restart: Run Phase 2+3 multiple times, keep best
+            const NUM_RESTARTS = 1;
+            let bestSolution = { slots: [] as any[], fitness_score: -Infinity };
 
-            // 4. Phase 3: Genetic (Main)
-            await this.phase3_Genetic(solution, data);
+            for (let attempt = 0; attempt < NUM_RESTARTS; attempt++) {
+                log(`[INFO] Attempt ${attempt + 1}/${NUM_RESTARTS}...`);
+                const attemptSolution = { slots: phase1Slots.map(s => ({ ...s })), fitness_score: 0 };
+
+                this.phase2_Heuristic(attemptSolution, data);
+                await this.phase3_Genetic(attemptSolution, data);
+
+                log(`[INFO] Attempt ${attempt + 1} Fitness: ${attemptSolution.fitness_score}`);
+
+                if (attemptSolution.fitness_score > bestSolution.fitness_score) {
+                    bestSolution = attemptSolution;
+                    log(`[INFO] ★ New best! Fitness: ${bestSolution.fitness_score}`);
+                }
+            }
+
+            solution.slots = bestSolution.slots;
+            (solution as any).fitness_score = bestSolution.fitness_score;
 
             // 5. Save to Database
             log(`[DEBUG] Saving ${solution.slots.length} slots to database...`);
@@ -207,279 +224,697 @@ export class AlgorithmService {
     }
 
     private phase2_Heuristic(solution: any, data: any) {
-        this.logger.log('Phase 2: Heuristic Filling with Block Scheduling...');
+        this.logger.log('Phase 2: Smart Pair-Based Scheduling...');
+        const startP2 = Date.now();
         const { classes, assignments } = data;
+
+        // ── O(1) Index structures ──
+        const classOccupied = new Set<string>();
+        const teacherOccupied = new Set<string>();
+        const classDaySessionHeavy = new Map<string, Set<string>>();
+        // Track which subjects already placed on which days per class (for spread)
+        const classSubjectDays = new Map<string, Set<number>>(); // "classId-subjectId" → Set<day>
+        // Track teacher slot count per day-session (for SC7 overload check)
+        const teacherDaySessionCount = new Map<string, number>(); // "teacherId-day-session" → count
+
+        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
+        const blockCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
+        const priorityCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
+
+        // Build index from existing slots (Phase 1 locked slots)
+        for (const s of solution.slots) {
+            classOccupied.add(`${s.classId}-${s.day}-${s.period}`);
+            teacherOccupied.add(`${s.teacherId}-${s.day}-${s.period}`);
+            const code = this.constraintService.getSubjectCode(s.subjectId);
+            if (heavyCodes.some(h => code.includes(h))) {
+                const sess = s.period <= 5 ? 0 : 1;
+                const hk = `${s.classId}-${s.day}-${sess}`;
+                if (!classDaySessionHeavy.has(hk)) classDaySessionHeavy.set(hk, new Set());
+                classDaySessionHeavy.get(hk)!.add(code);
+            }
+            const csKey = `${s.classId}-${s.subjectId}`;
+            if (!classSubjectDays.has(csKey)) classSubjectDays.set(csKey, new Set());
+            classSubjectDays.get(csKey)!.add(s.day);
+            const tdsKey = `${s.teacherId}-${s.day}-${s.period <= 5 ? 0 : 1}`;
+            teacherDaySessionCount.set(tdsKey, (teacherDaySessionCount.get(tdsKey) || 0) + 1);
+        }
+
+        const addSlot = (slot: any) => {
+            solution.slots.push(slot);
+            classOccupied.add(`${slot.classId}-${slot.day}-${slot.period}`);
+            teacherOccupied.add(`${slot.teacherId}-${slot.day}-${slot.period}`);
+            const code = this.constraintService.getSubjectCode(slot.subjectId);
+            if (heavyCodes.some(h => code.includes(h))) {
+                const sess = slot.period <= 5 ? 0 : 1;
+                const hk = `${slot.classId}-${slot.day}-${sess}`;
+                if (!classDaySessionHeavy.has(hk)) classDaySessionHeavy.set(hk, new Set());
+                classDaySessionHeavy.get(hk)!.add(code);
+            }
+            const csKey = `${slot.classId}-${slot.subjectId}`;
+            if (!classSubjectDays.has(csKey)) classSubjectDays.set(csKey, new Set());
+            classSubjectDays.get(csKey)!.add(slot.day);
+            const tdsKey = `${slot.teacherId}-${slot.day}-${slot.period <= 5 ? 0 : 1}`;
+            teacherDaySessionCount.set(tdsKey, (teacherDaySessionCount.get(tdsKey) || 0) + 1);
+        };
+
+        const subjectById = new Map<number, any>();
+        data.subjects.forEach((s: any) => subjectById.set(s.id, s));
 
         const classAssignments = new Map<string, any[]>();
         assignments.forEach((agg: any) => {
-            const subject = data.subjects.find((s: any) => s.id === agg.subject_id);
+            const subject = subjectById.get(agg.subject_id);
             if (subject && !['CHAO_CO', 'SH_DAU_TUAN', 'SH_CUOI_TUAN'].includes(subject.code)) {
                 if (!classAssignments.has(agg.class_id)) classAssignments.set(agg.class_id, []);
                 classAssignments.get(agg.class_id)!.push({ ...agg });
             }
         });
 
+        // Helper: check if a slot can be placed
+        const canPlaceAt = (cls: any, assign: any, day: number, period: number): boolean => {
+            if (classOccupied.has(`${cls.id}-${day}-${period}`)) return false;
+            if (day === 2 && period === 1) return false;
+            if (day === 5 && [5,10].includes(period)) return false; // Thu: 4 periods/session, block P5 & P10
+            if (teacherOccupied.has(`${assign.teacher_id}-${day}-${period}`)) return false;
+            if (this.constraintService.isTeacherBusy(assign.teacher_id, day, period)) return false;
+            // Teacher overload check: max 5 per session
+            const sess = period <= 5 ? 0 : 1;
+            const tdsKey = `${assign.teacher_id}-${day}-${sess}`;
+            if ((teacherDaySessionCount.get(tdsKey) || 0) >= 5) return false;
+            return true;
+        };
+
+        // Helper: check heavy subject conflict
+        const hasHeavyConflict = (classId: string, day: number, period: number, subjCode: string): boolean => {
+            if (!heavyCodes.some(h => subjCode.includes(h))) return false;
+            const sess = period <= 5 ? 0 : 1;
+            const hk = `${classId}-${day}-${sess}`;
+            const existing = classDaySessionHeavy.get(hk);
+            if (!existing || existing.size === 0) return false;
+            for (const ec of existing) { if (ec !== subjCode) return true; }
+            return false;
+        };
+
         for (const cls of classes) {
             const clsAssignments = classAssignments.get(cls.id) || [];
-            if (clsAssignments.length === 0) {
-                this.logger.warn(`[WARNING] Class ${cls.name} (ID: ${cls.id}) has 0 heuristic assignments.`);
-                continue;
-            }
+            if (clsAssignments.length === 0) continue;
 
             const isMorningMain = cls.main_session === 0;
-            const mainSessionSlots: any[] = [];
-            const oppositeGeneralSlots: any[] = [];
-            const oppositeBlockSubjects: any[] = []; // { assign, count }
+            const oppositeBlockSubjects: any[] = [];
 
-            // 1. Classify Assignments
+            // ── Step 1: Classify into pairs and singles ──
+            type PlacementUnit = { assign: any, size: 1 | 2, code: string, isPriority: boolean, isBlock: boolean };
+            const pairs: PlacementUnit[] = [];
+            const singles: PlacementUnit[] = [];
+            const oppositeSlots: any[] = [];
+
             for (const assign of clsAssignments) {
-                const subject = data.subjects.find((s: any) => s.id === assign.subject_id);
-                // GDQP, GDTC => Opposite Session
-                const isOpposite = subject && (subject.code === 'GDQP' || subject.code === 'GDTC');
+                const subject = subjectById.get(assign.subject_id);
+                if (!subject) continue;
+                const isOpposite = ['GDQP', 'GDTC', 'HDTN', 'GDDP'].includes(subject.code);
 
-                const alreadyAssigned = solution.slots.filter((s: any) =>
-                    s.classId === cls.id && s.subjectId === assign.subject_id
-                ).length;
-
-                const remainingNeeded = Math.max(0, assign.total_periods - alreadyAssigned);
-                if (remainingNeeded === 0) continue;
+                let alreadyAssigned = 0;
+                for (const s of solution.slots) {
+                    if (s.classId === cls.id && s.subjectId === assign.subject_id) alreadyAssigned++;
+                }
+                const remaining = Math.max(0, assign.total_periods - alreadyAssigned);
+                if (remaining === 0) continue;
 
                 if (isOpposite) {
-                    oppositeBlockSubjects.push({ assign, count: remainingNeeded });
-                } else {
-                    for (let i = 0; i < remainingNeeded; i++) {
-                        mainSessionSlots.push(assign);
-                    }
+                    oppositeBlockSubjects.push({ assign, count: remaining });
+                    continue;
+                }
+
+                const code = subject.code.toUpperCase();
+                const isPriority = priorityCodes.some(p => code.includes(p));
+                const isBlock = blockCodes.some(b => code.includes(b));
+
+                // Group into pairs: for subjects with 2+ periods, create as many pairs as possible
+                let r = remaining;
+                while (r >= 2 && isBlock) {
+                    pairs.push({ assign, size: 2, code, isPriority, isBlock });
+                    r -= 2;
+                }
+                while (r > 0) {
+                    singles.push({ assign, size: 1, code, isPriority, isBlock });
+                    r--;
                 }
             }
 
-            // 2. Pre-allocate Block Subjects (GDQP, GDTC)
-            // Goal: Place ALL 'count' periods in ONE session (consecutive)
-            for (const block of oppositeBlockSubjects) {
+            // Sort pairs: priority subjects first, then heavy subjects
+            pairs.sort((a, b) => {
+                if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
+                return 0;
+            });
+            singles.sort((a, b) => {
+                if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
+                return 0;
+            });
+
+            // ── Step 2a: Place GDTC/GDQP blocks in opposite session (cool periods) ──
+            const gdtcGdqpBlocks = oppositeBlockSubjects.filter(b => {
+                const s = subjectById.get(b.assign.subject_id);
+                return s && ['GDTC', 'GDQP'].includes(s.code);
+            });
+            const activitySubjects = oppositeBlockSubjects.filter(b => {
+                const s = subjectById.get(b.assign.subject_id);
+                return s && ['HDTN', 'GDDP'].includes(s.code);
+            });
+
+            for (const block of gdtcGdqpBlocks) {
                 const { assign, count } = block;
-                // GDTC/GDQP: Morning (1-3), Afternoon (8-10)
                 const minP = isMorningMain ? 8 : 1;
                 const maxP = isMorningMain ? 10 : 3;
                 const validRange = Array.from({ length: maxP - minP + 1 }, (_, i) => minP + i);
-
                 let placed = false;
                 const days = [2, 3, 4, 5, 6, 7].sort(() => 0.5 - Math.random());
 
                 for (const day of days) {
                     if (placed) break;
-
-                    // Opposite Separation Check: Is there ANY opposite subject already on this day?
-                    const hasOpposite = solution.slots.some((s: any) =>
-                        s.classId === cls.id && s.day === day && (s.period >= minP && s.period <= maxP)
-                    );
-                    if (hasOpposite) continue; // Try next day
-
-                    // Try to find 'count' consecutive slots
                     for (let startIdx = 0; startIdx <= validRange.length - count; startIdx++) {
-                        const periodsToCheck = validRange.slice(startIdx, startIdx + count);
-
-                        // Check if ALL periods are free/valid
-                        const canPlace = periodsToCheck.every(p => {
-                            // Blocked Rules
-                            if (day === 2 && p === 1) return false;
-                            // Thursday: Only periods 1, 2 (Morning) and 6, 7 (Afternoon) allowed
-                            if (day === 5 && (p === 3 || p === 4 || p === 5 || p === 8 || p === 9 || p === 10)) return false;
-
-                            // Occupied?
-                            if (this.isSlotOccupied(solution.slots, cls.id, day, p)) return false;
-                            // Teacher Busy?
-                            if (this.constraintService.checkTeacherConflict({ day, period: p, teacherId: assign.teacher_id } as any, solution.slots)) return false;
-
-                            return true;
-                        });
-
-                        if (canPlace) {
-                            // EXECUTE PLACEMENT
-                            periodsToCheck.forEach(p => {
-                                // GDTC/GDQP học tại sân bãi, không dùng phòng học vật lý (tránh lỗi unique_room_slot)
-                                const subject = data.subjects.find((s: any) => s.id === assign.subject_id);
-                                const isYardSubject = subject && ['GDTC', 'GDQP'].includes(subject.code);
-                                solution.slots.push({
-                                    id: crypto.randomUUID(),
-                                    day, period: p,
-                                    classId: cls.id,
-                                    subjectId: assign.subject_id,
-                                    teacherId: assign.teacher_id,
-                                    roomId: isYardSubject ? undefined : cls.fixed_room_id,
-                                    isLocked: false
-                                });
+                        const periods = validRange.slice(startIdx, startIdx + count);
+                        const ok = periods.every(p => canPlaceAt(cls, assign, day, p));
+                        if (ok) {
+                            periods.forEach(p => {
+                                addSlot({ id: crypto.randomUUID(), day, period: p, classId: cls.id,
+                                    subjectId: assign.subject_id, teacherId: assign.teacher_id,
+                                    roomId: undefined, isLocked: false });
                             });
-                            placed = true;
-                            break;
+                            placed = true; break;
                         }
                     }
                 }
                 if (!placed) {
-                    this.logger.warn(`[WARNING] Could not place Block Subject ${assign.subject_id} (${count} periods) for Class ${cls.name}`);
-                    // Fallback: Dump into general pool
-                    for (let k = 0; k < count; k++) oppositeGeneralSlots.push(assign);
+                    for (let k = 0; k < count; k++) oppositeSlots.push(assign);
                 }
             }
 
-            // 3. Fill Remaining (Main + General Opposite)
-            this.shuffleArray(mainSessionSlots);
-            this.shuffleArray(oppositeGeneralSlots);
+            // ── Step 2b: Place HDTN/GDDP in opposite session (individual periods) ──
+            for (const block of activitySubjects) {
+                const { assign, count } = block;
+                const oppStart = isMorningMain ? 6 : 1;
+                const oppEnd = isMorningMain ? 10 : 5;
+                let placedCount = 0;
+                const days = [2, 3, 4, 5, 6, 7];
+                this.shuffleArray(days);
 
-            for (let day = 2; day <= 7; day++) {
-                for (let period = 1; period <= 10; period++) {
-                    const isMorningPeriod = period <= 5;
-                    const isMainSlot = (isMorningMain && isMorningPeriod) || (!isMorningMain && !isMorningPeriod);
-
-                    let candidates = isMainSlot ? mainSessionSlots : oppositeGeneralSlots;
-                    if (candidates.length === 0) continue;
-
-                    if (this.isSlotOccupied(solution.slots, cls.id, day, period)) continue;
-
-                    // RULES BLOCK
-                    if (day === 2 && period === 1) continue;
-                    // Thursday: Only periods 1, 2 (Morning) and 6, 7 (Afternoon) allowed
-                    if (day === 5 && (period === 3 || period === 4 || period === 5 || period === 8 || period === 9 || period === 10)) continue;
-
-                    // Try to assign
-                    let placed = false;
-                    for (let pass = 0; pass < 2; pass++) {
-                        for (let i = 0; i < candidates.length; i++) {
-                            const assign = candidates[i];
-
-                            // For General Opposite (fallback), we verify strict separation again
-                            if (!isMainSlot) {
-                                const hasOpposite = solution.slots.some((s: any) =>
-                                    s.classId === cls.id && s.day === day && (isMorningMain ? s.period > 5 : s.period <= 5)
-                                );
-                                if (hasOpposite) continue;
-                            }
-
-                            if (this.constraintService.checkTeacherConflict({ day, period, teacherId: assign.teacher_id } as any, solution.slots)) continue;
-                            
-                            // Check Heavy Subject conflict for this session
-                            const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
-                            const subjCode = this.constraintService.getSubjectCode(assign.subject_id);
-                            if (pass === 0 && heavyCodes.some(h => subjCode.includes(h))) {
-                                // Verify if another distinct heavy subject is already in this session
-                                const hasOtherHeavy = solution.slots.some((s: any) => {
-                                    if (s.classId !== cls.id || s.day !== day) return false;
-                                    const isSameSession = isMorningPeriod ? (s.period <= 5) : (s.period > 5);
-                                    if (!isSameSession) return false;
-                                    
-                                    const existingCode = this.constraintService.getSubjectCode(s.subjectId);
-                                    if (existingCode === subjCode) return false; // same subject is fine
-                                    return heavyCodes.some(h => existingCode.includes(h));
-                                });
-                                if (hasOtherHeavy) continue; // Skip to next candidate if it creates a heavy subject conflict
-                            }
-
-                            const slot = {
-                                id: crypto.randomUUID(),
-                                day, period,
-                                classId: cls.id,
-                                subjectId: assign.subject_id,
-                                teacherId: assign.teacher_id,
-                                roomId: cls.fixed_room_id,
-                                isLocked: false
-                            };
-                            solution.slots.push(slot);
-                            candidates.splice(i, 1);
-                            placed = true;
-                            break;
+                for (const day of days) {
+                    if (placedCount >= count) break;
+                    for (let p = oppStart; p <= oppEnd; p++) {
+                        if (placedCount >= count) break;
+                        if (canPlaceAt(cls, assign, day, p)) {
+                            addSlot({ id: crypto.randomUUID(), day, period: p, classId: cls.id,
+                                subjectId: assign.subject_id, teacherId: assign.teacher_id,
+                                roomId: cls.fixed_room_id, isLocked: false });
+                            placedCount++;
                         }
-                        if (placed) break;
                     }
                 }
+                for (let k = placedCount; k < count; k++) {
+                    oppositeSlots.push(assign);
+                }
             }
 
-            if (mainSessionSlots.length > 0 || oppositeGeneralSlots.length > 0) {
-                this.logger.warn(`[WARNING] Class ${cls.name}: Incomplete Schedule. Remaining: ${mainSessionSlots.length} Main, ${oppositeGeneralSlots.length} Opposite.`);
+            // ── Step 3: Place PAIRS on consecutive periods (fixes SC4) ──
+            // Available days sorted to spread subjects across different days (fixes SC1)
+            const mainPeriodStart = isMorningMain ? 1 : 6;
+            const mainPeriodEnd = isMorningMain ? 5 : 10;
+
+            for (const unit of pairs) {
+                const { assign, code } = unit;
+                let placed = false;
+
+                // Get days sorted: prefer days where this subject hasn't been placed yet (SC1 spread)
+                const csKey = `${cls.id}-${assign.subject_id}`;
+                const usedDays = classSubjectDays.get(csKey) || new Set();
+                const allDays = [2, 3, 4, 5, 6, 7];
+                const freshDays = allDays.filter(d => !usedDays.has(d));
+                const staledays = allDays.filter(d => usedDays.has(d));
+                this.shuffleArray(freshDays);
+                this.shuffleArray(staledays);
+                const sortedDays = [...freshDays, ...staledays];
+
+                // Prefer early periods for priority subjects (SC3)
+                const periodsToTry: number[][] = [];
+                for (let p = mainPeriodStart; p < mainPeriodEnd; p++) {
+                    periodsToTry.push([p, p + 1]);
+                }
+                if (unit.isPriority) {
+                    // Already sorted early first — good
+                } else {
+                    // Non-priority: try middle/late first to leave early slots for priority
+                    periodsToTry.reverse();
+                }
+
+                for (const day of sortedDays) {
+                    if (placed) break;
+                    for (const [p1, p2] of periodsToTry) {
+                        if (!canPlaceAt(cls, assign, day, p1)) continue;
+                        if (!canPlaceAt(cls, assign, day, p2)) continue;
+                        if (hasHeavyConflict(cls.id, day, p1, code)) continue;
+
+                        addSlot({ id: crypto.randomUUID(), day, period: p1, classId: cls.id,
+                            subjectId: assign.subject_id, teacherId: assign.teacher_id,
+                            roomId: cls.fixed_room_id, isLocked: false });
+                        addSlot({ id: crypto.randomUUID(), day, period: p2, classId: cls.id,
+                            subjectId: assign.subject_id, teacherId: assign.teacher_id,
+                            roomId: cls.fixed_room_id, isLocked: false });
+                        placed = true; break;
+                    }
+                }
+
+                if (!placed) {
+                    // Fallback: split pair into 2 singles
+                    singles.push({ assign, size: 1, code, isPriority: unit.isPriority, isBlock: unit.isBlock });
+                    singles.push({ assign, size: 1, code, isPriority: unit.isPriority, isBlock: unit.isBlock });
+                }
+            }
+
+            // ── Step 4: Place SINGLES (priority first, spread across days) ──
+            for (const unit of [...singles]) {
+                const { assign, code } = unit;
+                let placed = false;
+
+                // Count how many same-subject slots exist per day for this class
+                const csKey = `${cls.id}-${assign.subject_id}`;
+                const daySlotCount = new Map<number, number>();
+                for (const s of solution.slots) {
+                    if (s.classId === cls.id && s.subjectId === assign.subject_id) {
+                        daySlotCount.set(s.day, (daySlotCount.get(s.day) || 0) + 1);
+                    }
+                }
+
+                // Sort days: prefer days with 0 slots, then 1 slot, avoid days with 2+ (SC1)
+                const allDays = [2, 3, 4, 5, 6, 7];
+                allDays.sort((a, b) => {
+                    const ca = daySlotCount.get(a) || 0;
+                    const cb = daySlotCount.get(b) || 0;
+                    if (ca !== cb) return ca - cb; // Fewer slots first
+                    return Math.random() - 0.5; // Randomize within same count
+                });
+
+                for (const day of allDays) {
+                    if (placed) break;
+                    // Period order: priority gets early, non-priority gets late
+                    const periods: number[] = [];
+                    for (let p = mainPeriodStart; p <= mainPeriodEnd; p++) periods.push(p);
+                    if (!unit.isPriority) periods.reverse();
+
+                    for (const period of periods) {
+                        if (!canPlaceAt(cls, assign, day, period)) continue;
+                        if (hasHeavyConflict(cls.id, day, period, code)) continue;
+
+                        addSlot({ id: crypto.randomUUID(), day, period, classId: cls.id,
+                            subjectId: assign.subject_id, teacherId: assign.teacher_id,
+                            roomId: cls.fixed_room_id, isLocked: false });
+                        placed = true; break;
+                    }
+                }
+
+                if (!placed) {
+                    this.logger.warn(`[WARNING] Class ${cls.name}: Could not place ${code} in main session`);
+                }
+            }
+
+            // ── Step 5: Place remaining GDQP/GDTC opposite slots only ──
+            for (const assign of oppositeSlots) {
+                let placed = false;
+                const oppStart = isMorningMain ? 8 : 1;
+                const oppEnd = isMorningMain ? 10 : 3;
+                for (let day = 2; day <= 7 && !placed; day++) {
+                    for (let p = oppStart; p <= oppEnd && !placed; p++) {
+                        if (canPlaceAt(cls, assign, day, p)) {
+                            const subject = subjectById.get(assign.subject_id);
+                            const isYard = subject && ['GDTC', 'GDQP'].includes(subject.code);
+                            addSlot({ id: crypto.randomUUID(), day, period: p, classId: cls.id,
+                                subjectId: assign.subject_id, teacherId: assign.teacher_id,
+                                roomId: isYard ? undefined : cls.fixed_room_id, isLocked: false });
+                            placed = true;
+                        }
+                    }
+                }
+                if (!placed) {
+                    this.logger.warn(`[WARNING] Class ${cls.name}: Could not place ${this.constraintService.getSubjectCode(assign.subject_id)}`);
+                }
             }
         }
+        this.logger.log(`Phase 2 done in ${Date.now() - startP2}ms. Total slots: ${solution.slots.length}`);
     }
 
     private async phase3_Genetic(solution: any, data: any) {
-        this.logger.log('Phase 3: Genetic Optimization...');
-        let currentSlots = [...solution.slots];
-        let bestScore = this.calculateFitness(currentSlots);
-        this.logger.log(`Initial Fitness: ${bestScore}`);
+        this.logger.log('Phase 3: Full Constraint Optimization...');
+        const startTime = Date.now();
+        const slots = solution.slots;
+        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
+        const blockCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
 
-        const GENERATIONS = 50;
-        for (let gen = 0; gen < GENERATIONS; gen++) {
-            const conflicts = this.getConflicts(currentSlots);
-            if (conflicts.length === 0 && bestScore >= 0) break;
+        // Build class session map: classId → 0 (morning) or 1 (afternoon)
+        const classMainSession = new Map<string, number>();
+        for (const cls of data.classes) {
+            classMainSession.set(cls.id, cls.main_session);
+        }
 
-            const candidateSlot = conflicts.length > 0
-                ? conflicts[Math.floor(Math.random() * conflicts.length)]
-                : currentSlots[Math.floor(Math.random() * currentSlots.length)];
+        // ── Build O(1) indexes ──
+        const teacherAt = new Map<string, Set<number>>();
+        const classAt = new Map<string, Set<number>>();
+        const classSlotsIdx = new Map<string, number[]>();
+        const teacherSlotsIdx = new Map<string, number[]>(); // teacherId → [indices]
 
-            if (!candidateSlot || candidateSlot.isLocked) continue;
+        const tKey = (tid: string, d: number, p: number) => `${tid}-${d}-${p}`;
+        const cKey = (cid: string, d: number, p: number) => `${cid}-${d}-${p}`;
 
-            const classSlots = currentSlots.filter(s => s.classId === candidateSlot.classId && !s.isLocked);
-            const targetSlot = classSlots[Math.floor(Math.random() * classSlots.length)];
+        const addIdx = (s: any, i: number) => {
+            const tk = tKey(s.teacherId, s.day, s.period);
+            if (!teacherAt.has(tk)) teacherAt.set(tk, new Set());
+            teacherAt.get(tk)!.add(i);
+            const ck = cKey(s.classId, s.day, s.period);
+            if (!classAt.has(ck)) classAt.set(ck, new Set());
+            classAt.get(ck)!.add(i);
+        };
+        const rmIdx = (s: any, i: number) => {
+            teacherAt.get(tKey(s.teacherId, s.day, s.period))?.delete(i);
+            classAt.get(cKey(s.classId, s.day, s.period))?.delete(i);
+        };
 
-            if (targetSlot && targetSlot.id !== candidateSlot.id) {
-                const tempDay = candidateSlot.day;
-                const tempPeriod = candidateSlot.period;
-                candidateSlot.day = targetSlot.day;
-                candidateSlot.period = targetSlot.period;
-                targetSlot.day = tempDay;
-                targetSlot.period = tempPeriod;
+        for (let i = 0; i < slots.length; i++) {
+            addIdx(slots[i], i);
+            if (!classSlotsIdx.has(slots[i].classId)) classSlotsIdx.set(slots[i].classId, []);
+            classSlotsIdx.get(slots[i].classId)!.push(i);
+            if (!teacherSlotsIdx.has(slots[i].teacherId)) teacherSlotsIdx.set(slots[i].teacherId, []);
+            teacherSlotsIdx.get(slots[i].teacherId)!.push(i);
+        }
 
-                const newScore = this.calculateFitness(currentSlots);
-                if (newScore > bestScore) {
-                    bestScore = newScore;
-                } else {
-                    targetSlot.period = candidateSlot.period;
-                    targetSlot.day = candidateSlot.day;
-                    candidateSlot.day = tempDay;
-                    candidateSlot.period = tempPeriod;
+        // ── Full slot cost function (HC + all SC) ──
+        const slotCost = (idx: number): number => {
+            const s = slots[idx];
+            let cost = 0;
+            const code = this.constraintService.getSubjectCode(s.subjectId);
+
+            // === HARD CONSTRAINTS (high weight) ===
+            // HC: Teacher conflict
+            const ts = teacherAt.get(tKey(s.teacherId, s.day, s.period));
+            if (ts && ts.size > 1) cost += 200;
+            // HC: Class conflict
+            const cs = classAt.get(cKey(s.classId, s.day, s.period));
+            if (cs && cs.size > 1) cost += 200;
+            // HC: Teacher busy
+            if (this.constraintService.isTeacherBusy(s.teacherId, s.day, s.period)) cost += 200;
+            // HC: Thursday restriction (4 periods/session, block P5 & P10)
+            if (s.day === 5 && [5,10].includes(s.period)) cost += 200;
+            // HC: GDTC/GDQP time
+            if (code.includes('GDTC') || code.includes('GDQP') || code.includes('QUOC_PHONG')) {
+                if (s.period <= 5 ? s.period > 3 : s.period < 8) cost += 150;
+            }
+            // HC: Non-academic subjects can be in opposite session; academic subjects must be in main session
+            const oppositeAllowed = ['GDTC', 'GDQP', 'HDTN', 'GDDP', 'CHAO_CO', 'SH_CUOI', 'SHCN'];
+            const isOppositeAllowed = oppositeAllowed.some(oc => code.includes(oc));
+            if (!isOppositeAllowed) {
+                const mainSess = classMainSession.get(s.classId) ?? 0; // 0=morning, 1=afternoon
+                const slotSess = s.period <= 5 ? 0 : 1;
+                if (slotSess !== mainSess) cost += 500; // HARD: wrong session
+            }
+            // HC6: Heavy subject in same session — HARD constraint weight
+            if (heavyCodes.some(h => code.includes(h))) {
+                const sess6 = s.period <= 5 ? 0 : 1;
+                const classSlots = classSlotsIdx.get(s.classId) || [];
+                for (const j of classSlots) {
+                    if (j === idx) continue;
+                    const o = slots[j];
+                    if (o.day !== s.day) continue;
+                    if ((o.period <= 5 ? 0 : 1) !== sess6) continue;
+                    const oc = this.constraintService.getSubjectCode(o.subjectId);
+                    if (oc !== code && heavyCodes.some(h => oc.includes(h))) { cost += 500; break; }
+                }
+            }
+
+
+
+            // SC4: Block 2 — same subject should have consecutive partner on same day
+            if (blockCodes.some(b => code.includes(b))) {
+                const classSlots = classSlotsIdx.get(s.classId) || [];
+                let hasAdjacentPair = false;
+                for (const j of classSlots) {
+                    if (j === idx) continue;
+                    const o = slots[j];
+                    if (o.subjectId !== s.subjectId) continue;
+                    if (o.day === s.day && Math.abs(o.period - s.period) === 1) {
+                        hasAdjacentPair = true;
+                        break;
+                    }
+                }
+                if (!hasAdjacentPair) {
+                    // Check if this subject has multiple periods total
+                    let totalPeriods = 0;
+                    for (const j of classSlots) {
+                        if (slots[j].subjectId === s.subjectId) totalPeriods++;
+                    }
+                    if (totalPeriods > 1) cost += 30;
+                }
+            }
+
+            // SC1: Subject spread — penalty if same subject on same day (non-paired)
+            const classSlots2 = classSlotsIdx.get(s.classId) || [];
+            let sameDaySameSubj = 0;
+            for (const j of classSlots2) {
+                if (j === idx) continue;
+                const o = slots[j];
+                if (o.subjectId === s.subjectId && o.day === s.day) sameDaySameSubj++;
+            }
+            // Only penalize if 3+ periods of same subject on same day (pairs of 2 are OK)
+            if (sameDaySameSubj >= 2) cost += 10;
+
+            // SC7: Teacher overload — count teacher slots in this day-session
+            const teacherSlots = teacherSlotsIdx.get(s.teacherId) || [];
+            const sess = s.period <= 5 ? 0 : 1;
+            let teacherSessionCount = 0;
+            for (const j of teacherSlots) {
+                const o = slots[j];
+                if (o.day === s.day && (o.period <= 5 ? 0 : 1) === sess) teacherSessionCount++;
+            }
+            if (teacherSessionCount > 4) cost += 10;
+
+            // SC6: Teacher gaps — check gap before/after this slot for this teacher
+            let hasGap = false;
+            const tSlots = teacherSlotsIdx.get(s.teacherId) || [];
+            const sameDaySameSession: number[] = [];
+            for (const j of tSlots) {
+                const o = slots[j];
+                if (o.day === s.day && (o.period <= 5 ? 0 : 1) === sess) sameDaySameSession.push(o.period);
+            }
+            if (sameDaySameSession.length >= 2) {
+                sameDaySameSession.sort((a, b) => a - b);
+                for (let k = 0; k < sameDaySameSession.length - 1; k++) {
+                    if (sameDaySameSession[k + 1] - sameDaySameSession[k] > 1) { hasGap = true; break; }
+                }
+            }
+            if (hasGap) cost += 5;
+
+            return cost;
+        };
+
+        // ── Swap helper ──
+        const doSwap = (i: number, j: number) => {
+            rmIdx(slots[i], i); rmIdx(slots[j], j);
+            const td = slots[i].day, tp = slots[i].period;
+            slots[i].day = slots[j].day; slots[i].period = slots[j].period;
+            slots[j].day = td; slots[j].period = tp;
+            addIdx(slots[i], i); addIdx(slots[j], j);
+        };
+
+        // ── Main loop: Targeted Repair with Simulated Annealing ──
+        const MAX_ROUNDS = 60;
+        let totalImproved = 0;
+        const tabu = new Set<string>();
+        let staleCount = 0;
+        let temperature = 50; // SA temperature: start high, decrease
+        const coolingRate = 0.92;
+
+        for (let round = 0; round < MAX_ROUNDS; round++) {
+            const violations: {idx: number, cost: number}[] = [];
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i].isLocked) continue;
+                const c = slotCost(i);
+                if (c > 0) violations.push({idx: i, cost: c});
+            }
+            if (violations.length === 0) { this.logger.log(`Round ${round}: No violations!`); break; }
+
+            violations.sort((a, b) => b.cost - a.cost);
+
+            let roundImproved = 0;
+            const toFix = Math.min(violations.length, 3000);
+
+            for (let vi = 0; vi < toFix; vi++) {
+                const {idx: badIdx} = violations[vi];
+                if (slots[badIdx].isLocked) continue;
+                const currentCost = slotCost(badIdx);
+                if (currentCost === 0) continue;
+
+                // Strategy 1: Swap within same class
+                const classIdxs = classSlotsIdx.get(slots[badIdx].classId) || [];
+                let bestDelta = 0, bestJ = -1;
+
+                for (const j of classIdxs) {
+                    if (j === badIdx || slots[j].isLocked) continue;
+                    const tabuKey = `${Math.min(badIdx,j)}-${Math.max(badIdx,j)}`;
+                    if (tabu.has(tabuKey)) continue;
+
+                    const oldCost = currentCost + slotCost(j);
+                    doSwap(badIdx, j);
+                    const newCost = slotCost(badIdx) + slotCost(j);
+                    doSwap(badIdx, j);
+
+                    const delta = newCost - oldCost;
+                    if (delta < bestDelta) { bestDelta = delta; bestJ = j; }
+                }
+
+                // Strategy 2: For teacher/session conflicts (HC) — try cross-class swap
+                if (bestDelta >= 0 && currentCost >= 100) {
+                    const teacherIdxs = teacherSlotsIdx.get(slots[badIdx].teacherId) || [];
+                    for (const j of teacherIdxs) {
+                        if (j === badIdx || slots[j].isLocked) continue;
+                        if (slots[j].classId === slots[badIdx].classId) continue;
+                        const tabuKey = `${Math.min(badIdx,j)}-${Math.max(badIdx,j)}`;
+                        if (tabu.has(tabuKey)) continue;
+
+                        const oldCost2 = currentCost + slotCost(j);
+                        doSwap(badIdx, j);
+                        const newCost2 = slotCost(badIdx) + slotCost(j);
+                        doSwap(badIdx, j);
+
+                        const delta2 = newCost2 - oldCost2;
+                        if (delta2 < bestDelta) { bestDelta = delta2; bestJ = j; }
+                    }
+                }
+
+                // Simulated Annealing: Accept slightly worse moves with probability
+                if (bestJ < 0 && temperature > 1) {
+                    // Try a random swap within same class
+                    const unlocked = classIdxs.filter(j => j !== badIdx && !slots[j].isLocked);
+                    if (unlocked.length > 0) {
+                        const randJ = unlocked[Math.floor(Math.random() * unlocked.length)];
+                        const oldCostR = currentCost + slotCost(randJ);
+                        doSwap(badIdx, randJ);
+                        const newCostR = slotCost(badIdx) + slotCost(randJ);
+                        doSwap(badIdx, randJ);
+                        const deltaR = newCostR - oldCostR;
+                        // Accept worse move with probability exp(-delta/temperature)
+                        if (deltaR <= 0 || Math.random() < Math.exp(-deltaR / temperature)) {
+                            bestDelta = deltaR; bestJ = randJ;
+                        }
+                    }
+                }
+
+                if (bestJ >= 0) {
+                    const tabuKey = `${Math.min(badIdx,bestJ)}-${Math.max(badIdx,bestJ)}`;
+                    tabu.add(tabuKey);
+                    if (tabu.size > 5000) { const first = tabu.values().next().value; if (first) tabu.delete(first); }
+                    doSwap(badIdx, bestJ);
+                    roundImproved++;
+                }
+            }
+
+            temperature *= coolingRate;
+            totalImproved += roundImproved;
+
+            if (round % 10 === 0 || roundImproved === 0) {
+                const remainCost = violations.reduce((sum, v) => sum + slotCost(v.idx), 0);
+                this.logger.log(`  Round ${round+1}/${MAX_ROUNDS}: V=${violations.length}, Fixed=${roundImproved}, Cost=${remainCost}, T=${temperature.toFixed(1)}`);
+            }
+
+            if (roundImproved === 0) {
+                staleCount++;
+                if (staleCount >= 5) break;
+            } else {
+                staleCount = 0;
+            }
+        }
+
+        // ── Phase 3b: Dedicated SC4 pair-merge pass ──
+        this.logger.log('Phase 3b: SC4 Pair-Merge Repair...');
+        let sc4Fixed = 0;
+        const blockCodes2 = blockCodes;
+        for (const [classId, classIdxList] of classSlotsIdx) {
+            // Group slots by subjectId
+            const bySubject = new Map<number, number[]>();
+            for (const idx of classIdxList) {
+                const s = slots[idx];
+                if (s.isLocked) continue;
+                const code = this.constraintService.getSubjectCode(s.subjectId);
+                if (!blockCodes2.some(b => code.includes(b))) continue;
+                if (!bySubject.has(s.subjectId)) bySubject.set(s.subjectId, []);
+                bySubject.get(s.subjectId)!.push(idx);
+            }
+
+            for (const [subjId, subjIdxs] of bySubject) {
+                if (subjIdxs.length < 2) continue;
+                
+                // Check if any pair exists
+                let hasPair = false;
+                for (let a = 0; a < subjIdxs.length && !hasPair; a++) {
+                    for (let b = a + 1; b < subjIdxs.length && !hasPair; b++) {
+                        const sa = slots[subjIdxs[a]], sb = slots[subjIdxs[b]];
+                        if (sa.day === sb.day && Math.abs(sa.period - sb.period) === 1) hasPair = true;
+                    }
+                }
+                if (hasPair) continue; // Already has a pair
+
+                // Try to merge two periods to be consecutive
+                for (let a = 0; a < subjIdxs.length && !hasPair; a++) {
+                    const idxA = subjIdxs[a];
+                    const sa = slots[idxA];
+                    
+                    // Find a free adjacent period on sa's day
+                    for (const adjP of [sa.period + 1, sa.period - 1]) {
+                        if (hasPair) break;
+                        if (adjP < 1 || adjP > 10) continue;
+                        // Check same session
+                        if ((sa.period <= 5) !== (adjP <= 5)) continue;
+                        
+                        // Find another slot of same subject on different day
+                        for (let b = 0; b < subjIdxs.length; b++) {
+                            if (b === a) continue;
+                            const idxB = subjIdxs[b];
+                            const sb = slots[idxB];
+                            if (sb.day === sa.day) continue; // Already same day
+                            
+                            // Find a swap target at (sa.day, adjP) in this class
+                            const targetIdx = classIdxList.find(j => {
+                                const sj = slots[j];
+                                return j !== idxA && j !== idxB && !sj.isLocked &&
+                                    sj.day === sa.day && sj.period === adjP;
+                            });
+                            
+                            if (targetIdx === undefined) continue;
+                            
+                            // Try swapping idxB with targetIdx
+                            const oldCost = slotCost(idxA) + slotCost(idxB) + slotCost(targetIdx);
+                            doSwap(idxB, targetIdx);
+                            const newCost = slotCost(idxA) + slotCost(idxB) + slotCost(targetIdx);
+                            
+                            if (newCost < oldCost) {
+                                // Keep the swap
+                                sc4Fixed++;
+                                hasPair = true;
+                            } else {
+                                doSwap(idxB, targetIdx); // Undo
+                            }
+                        }
+                    }
                 }
             }
         }
-        solution.fitness_score = bestScore;
-        solution.slots = currentSlots;
+        if (sc4Fixed > 0) this.logger.log(`  SC4 Pair-Merge: Fixed ${sc4Fixed} pairs`);
+
+        const finalScore = this.calculateFitness(slots);
+        const elapsed = Date.now() - startTime;
+        this.logger.log(`Phase 3 Complete: Fitness=${finalScore}, TotalFixed=${totalImproved}+${sc4Fixed}, Time=${elapsed}ms`);
+        solution.fitness_score = finalScore;
+        solution.slots = slots;
     }
 
     private calculateFitness(slots: any[]): number {
         const hardViolations = this.constraintService.checkHardConstraints(slots);
         const softPenalty = this.constraintService.calculatePenalty(slots);
         return 1000 - (hardViolations * 100) - softPenalty;
-    }
-
-    private getConflicts(slots: any[]): any[] {
-        const conflictedSlots: any[] = [];
-
-        // Teacher conflicts
-        const teacherMap = new Map<string, any[]>();
-        slots.forEach(s => {
-            const key = `teacher-${s.teacherId}-${s.day}-${s.period}`;
-            if (!teacherMap.has(key)) teacherMap.set(key, []);
-            teacherMap.get(key)!.push(s);
-        });
-        teacherMap.forEach(group => {
-            if (group.length > 1) conflictedSlots.push(...group);
-        });
-
-        // Class conflicts
-        const classMap = new Map<string, any[]>();
-        slots.forEach(s => {
-            const key = `class-${s.classId}-${s.day}-${s.period}`;
-            if (!classMap.has(key)) classMap.set(key, []);
-            classMap.get(key)!.push(s);
-        });
-        classMap.forEach(group => {
-            if (group.length > 1) conflictedSlots.push(...group);
-        });
-
-        // Teacher busy time violations
-        for (const s of slots) {
-            if (this.constraintService.isTeacherBusy(s.teacherId, s.day, s.period)) {
-                conflictedSlots.push(s);
-            }
-        }
-
-        return conflictedSlots;
     }
 
     private isSlotOccupied(slots: any[], classId: string, day: number, period: number): boolean {

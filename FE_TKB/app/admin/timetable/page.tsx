@@ -258,7 +258,16 @@ export default function TimetablePage() {
 
       const payload = await response.json();
       setLogs((previous) => [...previous, `Đã tạo job ${payload.jobId}.`]);
-      pollResult(payload.jobId);
+      
+      if (payload.directResult) {
+        // Direct mode (no Redis) — algorithm already completed
+        setLogs((previous) => [...previous, 'Thuật toán hoàn tất (direct mode), đang nạp lại dữ liệu...']);
+        await checkExistingResult(selectedSemesterId);
+        setIsGenerating(false);
+        showToast('Đã tạo thời khóa biểu thành công.', 'success');
+      } else {
+        pollResult(payload.jobId);
+      }
     } catch (error) {
       console.error(error);
       setIsGenerating(false);
@@ -547,20 +556,74 @@ export default function TimetablePage() {
       {result?.bestSchedule && (
         <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-sm">
           <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-            <div>
+            <div className="flex-1">
               <h2 className="text-xl font-bold text-[var(--text-primary)]">Thời khóa biểu hoàn chỉnh</h2>
-              <div className="mt-1 text-sm text-[var(--text-muted)]">
-                Fitness: <span className={result.fitness_score < 0 ? 'text-red-500 font-bold' : 'text-green-500 font-bold'}>{result.fitness_score ?? '---'}</span>
+              <div className="mt-1 flex items-center gap-3 text-sm">
+                <span className="text-[var(--text-muted)]">Fitness:</span>
+                <span className={`font-bold text-lg ${result.fitness_score < 0 ? 'text-red-500' : result.fitness_score > 500 ? 'text-green-500' : 'text-yellow-500'}`}>
+                  {result.fitness_score ?? '---'}
+                </span>
+                {result.hardViolations !== undefined && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${result.hardViolations > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    HC: {result.hardViolations} lỗi
+                  </span>
+                )}
+                {result.softPenalty !== undefined && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                    SC: -{result.softPenalty} điểm
+                  </span>
+                )}
               </div>
+
+              {/* Summary */}
               {result?.fitnessDetails && result.fitnessDetails.length > 0 && (
-                <div className="mt-2 text-xs text-red-500">
-                  <div className="font-semibold mb-1">Chi tiết lỗi (Cần khắc phục để TKB hợp lệ):</div>
-                  <ul className="list-disc pl-4 space-y-0.5">
+                <details className="mt-3 rounded-lg border border-red-200 bg-red-50/50">
+                  <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100/50">
+                    📋 Tổng hợp vi phạm ({result.fitnessDetails.length} loại) — Bấm để mở
+                  </summary>
+                  <ul className="px-4 pb-3 text-xs space-y-1">
                     {result.fitnessDetails.map((detail: string, idx: number) => (
-                      <li key={idx}>{detail}</li>
+                      <li key={idx} className={detail.startsWith('⛔') ? 'text-red-600 font-medium' : 'text-yellow-700'}>{detail}</li>
                     ))}
                   </ul>
-                </div>
+                </details>
+              )}
+
+              {/* Detailed Violations */}
+              {result?.fitnessViolations && result.fitnessViolations.length > 0 && (
+                <details className="mt-2 rounded-lg border border-gray-300 bg-gray-50/50">
+                  <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100/50">
+                    🔍 Chi tiết từng vi phạm ({result.fitnessViolations.length} mục) — Bấm để mở
+                  </summary>
+                  <div className="max-h-64 overflow-y-auto px-3 pb-3">
+                    {/* HARD violations */}
+                    {result.fitnessViolations.filter((v: any) => v.type === 'HARD').length > 0 && (
+                      <div className="mb-2">
+                        <div className="text-xs font-bold text-red-600 mb-1 sticky top-0 bg-gray-50 py-1">
+                          ⛔ Ràng buộc CỨNG ({result.fitnessViolations.filter((v: any) => v.type === 'HARD').length})
+                        </div>
+                        {result.fitnessViolations.filter((v: any) => v.type === 'HARD').map((v: any, idx: number) => (
+                          <div key={`h-${idx}`} className="text-xs text-red-600 py-0.5 border-b border-red-100 last:border-0">
+                            <span className="text-[10px] text-red-400 mr-1">[{v.rule}]</span> {v.msg}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* SOFT violations */}
+                    {result.fitnessViolations.filter((v: any) => v.type === 'SOFT').length > 0 && (
+                      <div>
+                        <div className="text-xs font-bold text-yellow-600 mb-1 sticky top-0 bg-gray-50 py-1">
+                          ⚠️ Ràng buộc MỀM ({result.fitnessViolations.filter((v: any) => v.type === 'SOFT').length})
+                        </div>
+                        {result.fitnessViolations.filter((v: any) => v.type === 'SOFT').map((v: any, idx: number) => (
+                          <div key={`s-${idx}`} className="text-xs text-yellow-700 py-0.5 border-b border-yellow-100 last:border-0">
+                            <span className="text-[10px] text-yellow-500 mr-1">[{v.rule}]</span> {v.msg}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </details>
               )}
             </div>
 

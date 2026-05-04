@@ -27,6 +27,8 @@ export class ConstraintService {
     public teacherMapByName: Map<string, any> = new Map();
     // Teacher constraints cache: Map<teacherId, Array<{day, period, session, type}>>
     private teacherConstraints: Map<string, any[]> = new Map();
+    // Class session cache: classId → main_session (0=morning, 1=afternoon)
+    public classSessionMap: Map<string, number> = new Map();
 
     async initialize(semesterId: string) {
         this.logger.log('Initializing Constraint Service...');
@@ -48,8 +50,18 @@ export class ConstraintService {
             this.teacherConstraints.set(t.id, t.constraints || []);
         });
 
+        // Build subject code lookup: subjectId -> code
+        this.subjectCodeMap.clear();
+        subjects.forEach(s => this.subjectCodeMap.set(s.id, s.code));
+
         this.logger.log(`Loaded ${rooms.length} rooms, ${subjects.length} subjects, ${teachers.length} teachers.`);
+
+        // Cache class sessions
+        const classes = await this.prisma.class.findMany();
+        classes.forEach(c => this.classSessionMap.set(c.id, c.main_session));
+        this.logger.log(`Loaded ${classes.length} class sessions.`);
     }
+
 
     // --- HARD CONSTRAINTS (HC) ---
 
@@ -211,6 +223,9 @@ export class ConstraintService {
         // Thursday Restriction
         violations += this.checkThursdayRestriction(schedule);
 
+        // Session Restriction: non-GDQP/GDTC must be in main session
+        violations += this.checkSessionRestriction(schedule);
+
         return violations;
     }
 
@@ -234,7 +249,6 @@ export class ConstraintService {
         const teacherSchedule = this.groupBy(schedule, 'teacherId');
 
         score += this.checkSpreadSubjects(classSchedule) * 10;
-        score += this.checkMorningPriority(classSchedule) * 15;
         score += this.checkBlock2(classSchedule) * 10;
         score += this.checkNoHoles(teacherSchedule) * 5;
         score += this.checkMaxLoad(teacherSchedule) * 10;
@@ -320,16 +334,34 @@ export class ConstraintService {
         return penalty;
     }
 
-    // HC: Thursday Restriction (P3-5 and P8-10 must be empty)
+    // HC: Thursday Restriction — 4 periods per session (P5 and P10 blocked for bán trú)
     public checkThursdayRestriction(schedule: TimeSlot[]): number {
         let violations = 0;
         for (const s of schedule) {
             if (s.day === 5) {
-                // Only periods 1, 2, 6, 7 allowed
-                if ([3, 4, 5, 8, 9, 10].includes(s.period)) {
+                // Periods 1-4 (morning) and 6-9 (afternoon) allowed; P5 and P10 blocked
+                if ([5, 10].includes(s.period)) {
                     violations++;
                 }
             }
+        }
+        return violations;
+    }
+
+    // HC: Session Restriction — academic subjects must be in main session
+    public checkSessionRestriction(schedule: TimeSlot[]): number {
+        let violations = 0;
+        // These subjects are allowed in opposite session
+        const oppositeAllowed = ['GDTC', 'GDQP', 'HDTN', 'GDDP'];
+        for (const s of schedule) {
+            const code = this.getSubjectCode(s.subjectId);
+            if (oppositeAllowed.some(oc => code.includes(oc))) continue;
+            // Skip special subjects (CHAO_CO, SH_CUOI_TUAN)
+            if (code.includes('CHAO_CO') || code.includes('SH_CUOI') || code.includes('SHCN')) continue;
+            const mainSess = this.classSessionMap.get(s.classId);
+            if (mainSess === undefined) continue;
+            const slotSess = s.period <= 5 ? 0 : 1;
+            if (slotSess !== mainSess) violations++;
         }
         return violations;
     }
@@ -355,7 +387,7 @@ export class ConstraintService {
     // SC04: Block 2 check
     private checkBlock2(classSchedule: Map<string, TimeSlot[]>): number {
         let penalty = 0;
-        const blocks = ['TOAN', 'VAN', 'NGU_VAN', 'TIN', 'LY', 'HOA', 'SINH'];
+        const blocks = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
 
         for (const [_, slots] of classSchedule) {
             const subjectMap = new Map<number, TimeSlot[]>();
@@ -429,84 +461,300 @@ export class ConstraintService {
         return penalty;
     }
 
+    // Cached map for O(1) subject code lookup
+    private subjectCodeMap = new Map<number, string>();
+
     public getSubjectCode(id: number): string {
+        if (this.subjectCodeMap.has(id)) return this.subjectCodeMap.get(id)!;
         const subj = this.subjects.find(s => s.id === id);
-        return subj ? subj.code.toUpperCase() : '';
+        const code = subj ? subj.code.toUpperCase() : '';
+        this.subjectCodeMap.set(id, code);
+        return code;
     }
 
-    public getFitnessDetails(schedule: TimeSlot[]): any {
+    private getClassName(classId: string): string {
+        // Try to find class name from schedule context or return shortened ID
+        return classId.substring(0, 8);
+    }
+
+    private getTeacherName(teacherId: string): string {
+        const t = this.teacherMap.get(teacherId);
+        return t ? (t.full_name || t.code || teacherId.substring(0, 8)) : teacherId.substring(0, 8);
+    }
+
+    private getSubjectName(subjectId: number): string {
+        const s = this.subjects.find(x => x.id === subjectId);
+        return s ? s.name : `MH#${subjectId}`;
+    }
+
+    private dayName(day: number): string {
+        const names: Record<number, string> = { 2: 'T2', 3: 'T3', 4: 'T4', 5: 'T5', 6: 'T6', 7: 'T7' };
+        return names[day] || `Ngày ${day}`;
+    }
+
+    public getFitnessDetails(schedule: TimeSlot[], classMap?: Map<string, string>): any {
         const details: string[] = [];
+        const violations: any[] = [];
 
-        const hc1 = this.checkTeacherConflictDetails(schedule);
-        if (hc1) details.push(`Giáo viên trùng giờ: -${hc1 * 100} điểm (${hc1} lỗi)`);
+        const clsName = (id: string) => classMap?.get(id) || this.getClassName(id);
 
-        const hc2 = this.checkClassConflictDetails(schedule);
-        if (hc2) details.push(`Lớp học trùng giờ: -${hc2 * 100} điểm (${hc2} lỗi)`);
+        // ===== HARD CONSTRAINTS =====
 
-        const hc3 = this.checkRoomConflictDetails(schedule);
-        if (hc3) details.push(`Phòng học trùng giờ: -${hc3 * 100} điểm (${hc3} lỗi)`);
+        // HC1: Teacher Conflicts
+        const teacherGroups = this.groupBy(schedule, 'teacherId');
+        let hc1 = 0;
+        for (const [teacherId, slots] of teacherGroups) {
+            const timeMap = new Map<string, TimeSlot[]>();
+            for (const s of slots) {
+                const key = `${s.day}-${s.period}`;
+                if (!timeMap.has(key)) timeMap.set(key, []);
+                timeMap.get(key)!.push(s);
+            }
+            for (const [key, conflicting] of timeMap) {
+                if (conflicting.length > 1) {
+                    hc1 += conflicting.length - 1;
+                    const classes = conflicting.map(c => clsName(c.classId)).join(', ');
+                    const [d, p] = key.split('-');
+                    violations.push({
+                        type: 'HARD', rule: 'HC1_GV_TRÙNG_GIỜ',
+                        msg: `⛔ GV "${this.getTeacherName(teacherId)}" dạy ${conflicting.length} lớp [${classes}] cùng lúc tại ${this.dayName(+d)} tiết ${p}`
+                    });
+                }
+            }
+        }
+        if (hc1) details.push(`⛔ [HC1] Giáo viên trùng giờ: -${hc1 * 100} điểm (${hc1} lỗi)`);
 
-        // Count teacher busy violations
+        // HC2: Class Conflicts
+        const classGroups = this.groupBy(schedule, 'classId');
+        let hc2 = 0;
+        for (const [classId, slots] of classGroups) {
+            const timeMap = new Map<string, TimeSlot[]>();
+            for (const s of slots) {
+                const key = `${s.day}-${s.period}`;
+                if (!timeMap.has(key)) timeMap.set(key, []);
+                timeMap.get(key)!.push(s);
+            }
+            for (const [key, conflicting] of timeMap) {
+                if (conflicting.length > 1) {
+                    hc2 += conflicting.length - 1;
+                    const subjects = conflicting.map(c => this.getSubjectCode(c.subjectId)).join(', ');
+                    const [d, p] = key.split('-');
+                    violations.push({
+                        type: 'HARD', rule: 'HC2_LỚP_TRÙNG_GIỜ',
+                        msg: `⛔ Lớp "${clsName(classId)}" học ${conflicting.length} môn [${subjects}] cùng lúc tại ${this.dayName(+d)} tiết ${p}`
+                    });
+                }
+            }
+        }
+        if (hc2) details.push(`⛔ [HC2] Lớp học trùng giờ: -${hc2 * 100} điểm (${hc2} lỗi)`);
+
+        // HC3: Room Conflicts
+        const roomGroups = this.groupBy(schedule, 'roomId');
+        let hc3 = 0;
+        for (const [roomId, slots] of roomGroups) {
+            if (!roomId || roomId === 'undefined' || roomId === 'null' || roomId === 'none') continue;
+            const timeMap = new Map<string, TimeSlot[]>();
+            for (const s of slots) {
+                const key = `${s.day}-${s.period}`;
+                if (!timeMap.has(key)) timeMap.set(key, []);
+                timeMap.get(key)!.push(s);
+            }
+            for (const [key, conflicting] of timeMap) {
+                if (conflicting.length > 1) {
+                    hc3 += conflicting.length - 1;
+                    const classes = conflicting.map(c => clsName(c.classId)).join(', ');
+                    const [d, p] = key.split('-');
+                    violations.push({
+                        type: 'HARD', rule: 'HC3_PHÒNG_TRÙNG',
+                        msg: `⛔ Phòng #${roomId}: ${conflicting.length} lớp [${classes}] tại ${this.dayName(+d)} tiết ${p}`
+                    });
+                }
+            }
+        }
+        if (hc3) details.push(`⛔ [HC3] Phòng học trùng giờ: -${hc3 * 100} điểm (${hc3} lỗi)`);
+
+        // HC4: Teacher busy
         let hc4 = 0;
         for (const slot of schedule) {
-            if (this.isTeacherBusy(slot.teacherId, slot.day, slot.period)) hc4++;
+            if (this.isTeacherBusy(slot.teacherId, slot.day, slot.period)) {
+                hc4++;
+                violations.push({
+                    type: 'HARD', rule: 'HC4_GV_BẬN',
+                    msg: `⛔ GV "${this.getTeacherName(slot.teacherId)}" bận nhưng vẫn bị xếp dạy ${this.getSubjectCode(slot.subjectId)} lớp "${clsName(slot.classId)}" tại ${this.dayName(slot.day)} tiết ${slot.period}`
+                });
+            }
         }
-        if (hc4) details.push(`Giáo viên dạy khi bận: -${hc4 * 100} điểm (${hc4} lỗi)`);
+        if (hc4) details.push(`⛔ [HC4] Giáo viên dạy khi bận: -${hc4 * 100} điểm (${hc4} lỗi)`);
 
-        const hc5 = this.checkSpecialSubjectTime(schedule);
-        if (hc5) details.push(`Môn GDTC/GDQP học giờ nắng: -${hc5 * 100} điểm (${hc5} lỗi)`);
+        // HC5: GDTC/GDQP time
+        let hc5 = 0;
+        for (const s of schedule) {
+            const subjCode = this.getSubjectCode(s.subjectId);
+            if (subjCode.includes('GDTC') || subjCode.includes('GDQP') || subjCode.includes('QUOC_PHONG')) {
+                const isMorning = s.period <= 5;
+                const bad = isMorning ? s.period > 3 : s.period < 8;
+                if (bad) {
+                    hc5++;
+                    violations.push({
+                        type: 'HARD', rule: 'HC5_GDTC_GIỜ_NẮNG',
+                        msg: `⛔ ${subjCode} lớp "${clsName(s.classId)}" xếp vào ${this.dayName(s.day)} tiết ${s.period} (giờ nắng!). Sáng chỉ được T1-3, Chiều chỉ được T8-10`
+                    });
+                }
+            }
+        }
+        if (hc5) details.push(`⛔ [HC5] Môn GDTC/GDQP học giờ nắng: -${hc5 * 100} điểm (${hc5} lỗi)`);
 
+        // HC6: Heavy subjects
         const classSchedule = this.groupBy(schedule, 'classId');
-        const hc6 = this.checkHeavySubjects(classSchedule);
-        if (hc6) details.push(`Xếp >=2 môn nặng trong cùng 1 buổi: -${hc6 * 100} điểm (${hc6} lỗi)`);
+        let hc6 = 0;
+        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
+        for (const [classId, slots] of classSchedule) {
+            const daySessionMap = new Map<string, Set<string>>();
+            for (const s of slots) {
+                const subjCode = this.getSubjectCode(s.subjectId);
+                if (heavyCodes.some(h => subjCode.includes(h))) {
+                    const session = s.period <= 5 ? 'Sáng' : 'Chiều';
+                    const key = `${s.day}-${session}`;
+                    if (!daySessionMap.has(key)) daySessionMap.set(key, new Set());
+                    daySessionMap.get(key)!.add(subjCode);
+                }
+            }
+            for (const [key, heavySet] of daySessionMap) {
+                if (heavySet.size > 1) {
+                    const count = heavySet.size - 1;
+                    hc6 += count;
+                    const [d, session] = key.split('-');
+                    violations.push({
+                        type: 'HARD', rule: 'HC6_MÔN_NẶNG',
+                        msg: `⛔ Lớp "${clsName(classId)}" ${this.dayName(+d)} buổi ${session}: ${heavySet.size} môn nặng [${[...heavySet].join(', ')}] trong cùng buổi`
+                    });
+                }
+            }
+        }
+        if (hc6) details.push(`⛔ [HC6] Xếp >=2 môn nặng trong cùng 1 buổi: -${hc6 * 100} điểm (${hc6} lỗi)`);
 
-        const hc7 = this.checkThursdayRestriction(schedule);
-        if (hc7) details.push(`Vi phạm lịch nghỉ Thứ 5: -${hc7 * 100} điểm (${hc7} lỗi)`);
+        // HC7: Thursday restriction
+        let hc7 = 0;
+        for (const s of schedule) {
+            if (s.day === 5 && [5, 10].includes(s.period)) {
+                hc7++;
+                violations.push({
+                    type: 'HARD', rule: 'HC7_THỨ_5',
+                    msg: `⛔ Lớp "${clsName(s.classId)}" xếp ${this.getSubjectCode(s.subjectId)} vào T5 tiết ${s.period} (phải nghỉ)`
+                });
+            }
+        }
+        if (hc7) details.push(`⛔ [HC7] Vi phạm lịch nghỉ Thứ 5: -${hc7 * 100} điểm (${hc7} lỗi)`);
+
+        // HC8: Session restriction — academic subjects must be in main session
+        let hc8 = 0;
+        const oppositeAllowedSubjects = ['GDTC', 'GDQP', 'HDTN', 'GDDP'];
+        for (const s of schedule) {
+            const subjCode = this.getSubjectCode(s.subjectId);
+            if (oppositeAllowedSubjects.some(oc => subjCode.includes(oc))) continue;
+            if (subjCode.includes('CHAO_CO') || subjCode.includes('SH_CUOI') || subjCode.includes('SHCN')) continue;
+            const mainSess = this.classSessionMap.get(s.classId);
+            if (mainSess === undefined) continue;
+            const slotSess = s.period <= 5 ? 0 : 1;
+            if (slotSess !== mainSess) {
+                hc8++;
+                violations.push({
+                    type: 'HARD', rule: 'HC8_SAI_BUỔI',
+                    msg: `⛔ Lớp "${clsName(s.classId)}": ${subjCode} xếp ${mainSess === 0 ? 'chiều' : 'sáng'} (phải học buổi ${mainSess === 0 ? 'sáng' : 'chiều'})`
+                });
+            }
+        }
+        if (hc8) details.push(`⛔ [HC8] Môn học sai buổi: -${hc8 * 100} điểm (${hc8} lỗi)`);
+
+        // ===== SOFT CONSTRAINTS =====
 
         const teacherSchedule = this.groupBy(schedule, 'teacherId');
 
-        const sc1 = this.checkSpreadSubjects(classSchedule);
-        if (sc1) details.push(`Môn học dồn cục: -${sc1 * 10} điểm`);
-
-        const sc3 = this.checkMorningPriority(classSchedule);
-        if (sc3) details.push(`Môn ưu tiên ở tiết cuối: -${sc3 * 15} điểm`);
-
-        const sc4 = this.checkBlock2(classSchedule);
-        if (sc4) details.push(`Môn 2 tiết bị xé lẻ: -${sc4 * 10} điểm`);
-
-        const sc6 = this.checkNoHoles(teacherSchedule);
-        if (sc6) details.push(`Tiết trống giáo viên: -${sc6 * 5} điểm`);
-
-        const sc7 = this.checkMaxLoad(teacherSchedule);
-        if (sc7) details.push(`Giáo viên dạy quá số tiết/buổi: -${sc7 * 10} điểm`);
-
-        const hardViolations = hc1 + hc2 + hc3 + hc4 + hc5 + hc6 + hc7;
-        const softPenalty = (sc1 * 10) + (sc3 * 15) + (sc4 * 10) + (sc6 * 5) + (sc7 * 10);
-        const score = 1000 - (hardViolations * 100) - softPenalty;
-
-        return { score, details, hardViolations, softPenalty };
-    }
-
-    private checkTeacherConflictDetails(schedule: TimeSlot[]): number {
-        const map = this.groupBy(schedule, 'teacherId');
-        let v = 0;
-        for (const [_, slots] of map) v += this.countTimeOverlaps(slots);
-        return v;
-    }
-    private checkClassConflictDetails(schedule: TimeSlot[]): number {
-        const map = this.groupBy(schedule, 'classId');
-        let v = 0;
-        for (const [_, slots] of map) v += this.countTimeOverlaps(slots);
-        return v;
-    }
-    private checkRoomConflictDetails(schedule: TimeSlot[]): number {
-        const map = this.groupBy(schedule, 'roomId');
-        let v = 0;
-        for (const [id, slots] of map) {
-            if (id && id !== 'undefined' && id !== 'null' && id !== 'none') {
-                v += this.countTimeOverlaps(slots);
+        // SC1: Spread subjects
+        let sc1 = 0;
+        for (const [classId, slots] of classSchedule) {
+            const subjectMap = new Map<number, number[]>();
+            for (const s of slots) {
+                if (!subjectMap.has(s.subjectId)) subjectMap.set(s.subjectId, []);
+                subjectMap.get(s.subjectId)!.push(s.day);
+            }
+            for (const [subjId, days] of subjectMap) {
+                if (days.length > 2) {
+                    const uniqueDays = new Set(days).size;
+                    if (uniqueDays < Math.min(days.length, 3)) {
+                        sc1++;
+                        violations.push({
+                            type: 'SOFT', rule: 'SC1_DỒN_CỤC',
+                            msg: `⚠️ Lớp "${clsName(classId)}": ${this.getSubjectCode(subjId)} có ${days.length} tiết nhưng chỉ rải ${uniqueDays} ngày [${[...new Set(days)].map(d => this.dayName(d)).join(', ')}]`
+                        });
+                    }
+                }
             }
         }
-        return v;
+        if (sc1) details.push(`⚠️ [SC1] Môn học dồn cục: -${sc1 * 10} điểm (${sc1} lỗi)`);
+
+
+        // SC4: Block 2
+        const sc4 = this.checkBlock2(classSchedule);
+        if (sc4) details.push(`⚠️ [SC4] Môn 2 tiết bị xé lẻ: -${sc4 * 10} điểm (${sc4} lỗi)`);
+
+        // SC6: No holes
+        let sc6 = 0;
+        for (const [teacherId, slots] of teacherSchedule) {
+            const sortedByDay = new Map<number, TimeSlot[]>();
+            slots.forEach(s => {
+                if (!sortedByDay.has(s.day)) sortedByDay.set(s.day, []);
+                sortedByDay.get(s.day)!.push(s);
+            });
+            for (const [day, daySlots] of sortedByDay) {
+                if (daySlots.length < 2) continue;
+                daySlots.sort((a, b) => a.period - b.period);
+                for (let i = 0; i < daySlots.length - 1; i++) {
+                    const curr = daySlots[i];
+                    const next = daySlots[i + 1];
+                    const currSession = curr.period <= 5 ? 0 : 1;
+                    const nextSession = next.period <= 5 ? 0 : 1;
+                    if (currSession === nextSession) {
+                        const gap = next.period - curr.period - 1;
+                        if (gap > 0) {
+                            sc6 += gap;
+                            violations.push({
+                                type: 'SOFT', rule: 'SC6_TIẾT_TRỐNG_GV',
+                                msg: `⚠️ GV "${this.getTeacherName(teacherId)}" ${this.dayName(day)}: trống ${gap} tiết giữa tiết ${curr.period} và ${next.period}`
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        if (sc6) details.push(`⚠️ [SC6] Tiết trống giáo viên: -${sc6 * 5} điểm (${sc6} lỗi)`);
+
+        // SC7: Max load
+        let sc7 = 0;
+        for (const [teacherId, slots] of teacherSchedule) {
+            const daySessionCounts = new Map<string, number>();
+            for (const s of slots) {
+                const session = s.period <= 5 ? 'Sáng' : 'Chiều';
+                const key = `${s.day}-${session}`;
+                daySessionCounts.set(key, (daySessionCounts.get(key) || 0) + 1);
+            }
+            for (const [key, count] of daySessionCounts) {
+                if (count > 4) {
+                    sc7 += count - 4;
+                    const [d, session] = key.split('-');
+                    violations.push({
+                        type: 'SOFT', rule: 'SC7_QUÁ_TẢI_GV',
+                        msg: `⚠️ GV "${this.getTeacherName(teacherId)}" ${this.dayName(+d)} buổi ${session}: dạy ${count} tiết (tối đa 4)`
+                    });
+                }
+            }
+        }
+        if (sc7) details.push(`⚠️ [SC7] Giáo viên dạy quá số tiết/buổi: -${sc7 * 10} điểm (${sc7} lỗi)`);
+
+        const hardViolations = hc1 + hc2 + hc3 + hc4 + hc5 + hc6 + hc7 + hc8;
+        const softPenalty = (sc1 * 10) + (sc4 * 10) + (sc6 * 5) + (sc7 * 10);
+        const score = 1000 - (hardViolations * 100) - softPenalty;
+
+        return { score, details, violations, hardViolations, softPenalty };
     }
 }

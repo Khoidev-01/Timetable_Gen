@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { AlgorithmService } from '../algorithm/algorithm.service';
@@ -7,25 +7,62 @@ import { ConstraintService } from '../algorithm/constraint.service';
 
 @Injectable()
 export class AlgorithmProducer {
+    private readonly logger = new Logger(AlgorithmProducer.name);
+
     constructor(
         @InjectQueue('optimization') private optimizationQueue: Queue,
+        private algorithmService: AlgorithmService,
         private prisma: PrismaService,
         private constraintService: ConstraintService
     ) { }
 
     async startOptimization(semesterId: string) {
-        const job = await this.optimizationQueue.add('optimize-schedule', {
-            semesterId,
-            params: {
-                populationSize: 100,
-                maxGenerations: 200,
-                mutationRate: 0.05
+        // Check if Redis/Queue is available with a timeout
+        const isRedisAvailable = await this.checkRedis();
+        
+        if (isRedisAvailable) {
+            try {
+                const job = await this.optimizationQueue.add('optimize-schedule', {
+                    semesterId,
+                    params: { populationSize: 100, maxGenerations: 200, mutationRate: 0.05 }
+                });
+                return { message: 'Optimization started', jobId: job.id, semesterId };
+            } catch (error) {
+                this.logger.warn('Queue add failed, falling back to direct mode');
             }
-        });
-        return { message: 'Optimization started', jobId: job.id, semesterId };
+        }
+
+        // Fallback: run directly without queue
+        this.logger.warn('Running algorithm directly (no Redis)...');
+        const result = await this.algorithmService.runAlgorithm(semesterId);
+        return { 
+            message: 'Optimization completed (direct mode)', 
+            jobId: 'direct-' + Date.now(), 
+            semesterId, 
+            directResult: true,
+            success: result.success 
+        };
+    }
+
+    private async checkRedis(): Promise<boolean> {
+        try {
+            const client = await (this.optimizationQueue as any).client;
+            if (!client) return false;
+            const result = await Promise.race([
+                client.ping(),
+                new Promise((_, reject) => setTimeout(() => reject('timeout'), 1000))
+            ]);
+            return result === 'PONG';
+        } catch {
+            return false;
+        }
     }
 
     async getJobStatus(jobId: string) {
+        // Handle direct-mode jobs
+        if (jobId.startsWith('direct-')) {
+            return { id: jobId, state: 'completed', progress: 100, result: { success: true } };
+        }
         const job = await this.optimizationQueue.getJob(jobId);
         if (!job) return null;
 
@@ -111,12 +148,15 @@ export class AlgorithmProducer {
         }));
         
         await this.constraintService.initialize(semesterId);
-        const fitnessResult = this.constraintService.getFitnessDetails(timeSlots);
+        const fitnessResult = this.constraintService.getFitnessDetails(timeSlots, classMap);
 
         return {
             bestSchedule,
             fitness_score: latestTkb.fitness_score,
             fitnessDetails: fitnessResult.details,
+            fitnessViolations: fitnessResult.violations,
+            hardViolations: fitnessResult.hardViolations,
+            softPenalty: fitnessResult.softPenalty,
             is_official: latestTkb.is_official,
             generated_at: latestTkb.created_at
         };
