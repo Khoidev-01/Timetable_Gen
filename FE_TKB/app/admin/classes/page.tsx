@@ -57,6 +57,21 @@ export default function ClassesPage() {
         }
     };
 
+    const handleDeleteAll = async () => {
+        if (!confirm(`Xóa TOÀN BỘ ${classes.length} lớp học cùng phân công và TKB liên quan? Hành động này không thể hoàn tác.`)) return;
+        if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
+        try {
+            const res = await fetch(`${API_URL}/organization/classes/all`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) { fetchClasses(); alert('Đã xóa toàn bộ lớp học.'); }
+            else alert('Lỗi khi xóa toàn bộ.');
+        } catch (e) {
+            alert('Lỗi khi xóa toàn bộ.');
+        }
+    };
+
     const handleSave = async (data: any) => {
         try {
             const url = editingClass
@@ -88,12 +103,21 @@ export default function ClassesPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quản lý Lớp học</h1>
-                <button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                    onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
-                >
-                    <span>➕</span> Thêm lớp học
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleDeleteAll}
+                        disabled={classes.length === 0}
+                        className="border border-red-600 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        Xóa toàn bộ
+                    </button>
+                    <button
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                        onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
+                    >
+                        <span>➕</span> Thêm lớp học
+                    </button>
+                </div>
             </div>
 
             <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--border-default)] overflow-hidden">

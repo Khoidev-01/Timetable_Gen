@@ -1873,12 +1873,10 @@ export class ExcelService {
     programGroup?: string,
     notes?: string,
   ): PeriodType {
-    if (basePeriodType !== PeriodType.THEORY) return basePeriodType;
-    const pg = normalizeKey(programGroup ?? '');
-    const n = normalizeKey(notes ?? '');
-    if (pg.includes('thuchanh') || n.includes('thuchanh')) {
-      return PeriodType.PRACTICE;
-    }
+    if (basePeriodType === PeriodType.SPECIAL) return basePeriodType;
+    const txt = normalizeKey((programGroup ?? '') + ' ' + (notes ?? ''));
+    if (txt.includes('thuchanh')) return PeriodType.PRACTICE;
+    if (txt.includes('lythuyet')) return PeriodType.THEORY;
     return basePeriodType;
   }
 }

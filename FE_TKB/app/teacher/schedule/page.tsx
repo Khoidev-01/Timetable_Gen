@@ -1,180 +1,127 @@
-
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import TimetableGrid from '@/app/components/admin/TimetableGrid';
 import { API_URL } from '@/lib/api';
 
-interface Semester {
-    id: string;
-    name: string;
-    is_current?: boolean;
-    yearName?: string;
-}
-
-interface Teacher {
-    id: string;
-    full_name: string;
-    code: string;
-}
-
 export default function TeacherSchedulePage() {
-    const [schedule, setSchedule] = useState<any[]>([]);
-    const [selectedSemester, setSelectedSemester] = useState<string>('');
-    const [semesters, setSemesters] = useState<Semester[]>([]);
-    const [teachers, setTeachers] = useState<Teacher[]>([]);
-    const [viewTeacherId, setViewTeacherId] = useState<string>('');
-    const [user, setUser] = useState<any>(null);
-    const [isLoading, setIsLoading] = useState(false);
+  const [schedule, setSchedule] = useState<any[]>([]);
+  const [semesters, setSemesters] = useState<{ id: string; name: string; yearName: string; start_date?: string }[]>([]);
+  const [selectedSemesterId, setSelectedSemesterId] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState(1);
+  const [totalWeeks, setTotalWeeks] = useState(1);
+  const [semesterStartDate, setSemesterStartDate] = useState<string | null>(null);
+  const [myTeacherId, setMyTeacherId] = useState('');
+  const [loading, setLoading] = useState(false);
 
-    // Load user and initial data
-    useEffect(() => {
-        const savedUser = localStorage.getItem('user');
-        if (savedUser) {
-            setUser(JSON.parse(savedUser));
-        }
-        fetchSemesters();
-        fetchTeachers();
-    }, []);
+  const token = () => localStorage.getItem('token') ?? '';
 
-    // Set default view to self when teachers list is loaded and user is known
-    useEffect(() => {
-        if (user && teachers.length > 0 && !viewTeacherId) {
-            // Match teacher by full_name or teacher_profile linked in User object
-            // Assuming User object from Login now might have teacher_profile?
-            // If not, we try to match by name (legacy) or just default to null
-            // The previous logic used ho_ten === user.ho_ten.
-            // New logic: user.teacher_profile?.id if present, else match name.
-            if (user.teacher_profile?.id) {
-                setViewTeacherId(user.teacher_profile.id);
-            } else {
-                const myself = teachers.find(t => t.full_name === user.full_name || t.full_name === user.username);
-                if (myself) setViewTeacherId(myself.id);
-            }
-        }
-    }, [user, teachers, viewTeacherId]);
+  // Resolve own teacher profile ID
+  useEffect(() => {
+    fetch(`${API_URL}/auth/profile`, { headers: { Authorization: `Bearer ${token()}` } })
+      .then(r => r.json()).then(data => {
+        if (data.teacherId) setMyTeacherId(data.teacherId);
+        else if (data.teacher_profile?.id) setMyTeacherId(data.teacher_profile.id);
+      }).catch(() => {});
+  }, []);
 
-    const fetchSemesters = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/system/years`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const years: any[] = await res.json();
-                // Flatten semesters
-                const sems: Semester[] = [];
-                years.forEach(y => {
-                    if (y.semesters) {
-                        y.semesters.forEach((s: any) => {
-                            sems.push({ ...s, yearName: y.name });
-                        });
-                    }
-                });
-                setSemesters(sems);
-                // Select active
-                const current = sems.find(s => s.is_current) || sems[0];
-                if (current) setSelectedSemester(current.id);
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    };
+  // Load semesters
+  useEffect(() => {
+    fetch(`${API_URL}/system/years`, { headers: { Authorization: `Bearer ${token()}` } })
+      .then(r => r.json()).then((years: any[]) => {
+        const sems: any[] = [];
+        years.forEach(y => y.semesters?.forEach((s: any) => sems.push({ ...s, yearName: y.name })));
+        setSemesters(sems);
+        if (sems.length) setSelectedSemesterId(sems[0].id);
+      }).catch(() => {});
+  }, []);
 
-    const fetchTeachers = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/resources/teachers`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setTeachers(data);
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    };
+  const fetchSchedule = useCallback(async () => {
+    if (!selectedSemesterId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/algorithm/result/${selectedSemesterId}?week=${selectedWeek}`, {
+        headers: { Authorization: `Bearer ${token()}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSchedule(data.bestSchedule ?? []);
+        setTotalWeeks(data.totalWeeks ?? 1);
+        setSemesterStartDate(data.semesterStartDate ?? null);
+      } else {
+        setSchedule([]);
+      }
+    } catch { setSchedule([]); }
+    setLoading(false);
+  }, [selectedSemesterId, selectedWeek]);
 
-    const fetchSchedule = async () => {
-        if (!selectedSemester || !viewTeacherId) return;
-        setIsLoading(true);
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/algorithm/result/${selectedSemester}?teacherId=${viewTeacherId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setSchedule(data);
-            } else {
-                setSchedule([]);
-            }
-        } catch (error) {
-            console.error(error);
-            setSchedule([]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  useEffect(() => { fetchSchedule(); }, [fetchSchedule]);
 
-    useEffect(() => {
-        fetchSchedule();
-    }, [selectedSemester, viewTeacherId]);
+  // Reset week when semester changes
+  useEffect(() => { setSelectedWeek(1); }, [selectedSemesterId]);
 
-    return (
-        <div className="space-y-6 h-full flex flex-col">
-            <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex gap-4 items-center flex-wrap">
-                    <h1 className="text-xl font-bold text-gray-800">My Timetable</h1>
+  const getWeekDateRange = () => {
+    if (!semesterStartDate) return null;
+    const start = new Date(semesterStartDate);
+    start.setDate(start.getDate() + (selectedWeek - 1) * 7);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    return `${fmt(start)} – ${fmt(end)}`;
+  };
 
-                    <select
-                        className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-gray-50 text-sm"
-                        value={selectedSemester}
-                        onChange={(e) => setSelectedSemester(e.target.value)}
-                    >
-                        {semesters.map(s => (
-                            <option key={s.id} value={s.id}>{s.name} ({s.yearName})</option>
-                        ))}
-                    </select>
+  const mySlots = schedule.filter(s => s.teacherId === myTeacherId);
 
-                    <div className="flex items-center gap-2 border-l pl-4 ml-2">
-                        <span className="text-sm text-gray-600">Viewing:</span>
-                        <select
-                            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-sm font-medium text-emerald-700 min-w-[200px]"
-                            value={viewTeacherId}
-                            onChange={(e) => setViewTeacherId(e.target.value)}
-                        >
-                            <option value="">-- Select Teacher --</option>
-                            {teachers.map(t => (
-                                <option key={t.id} value={t.id}>
-                                    {t.full_name} {user && (user.teacher_profile?.id === t.id || user.full_name === t.full_name) ? '(Me)' : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            </div>
+  return (
+    <div className="space-y-4 h-full flex flex-col">
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-3 bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-default)]">
+        <h1 className="text-xl font-bold text-[var(--text-primary)] mr-2">Thời khóa biểu của tôi</h1>
 
-            <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
-                {isLoading && (
-                    <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-                    </div>
-                )}
+        <select
+          className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-sm text-[var(--text-primary)]"
+          value={selectedSemesterId}
+          onChange={e => setSelectedSemesterId(e.target.value)}
+        >
+          {semesters.map(s => <option key={s.id} value={s.id}>{s.yearName} — {s.name}</option>)}
+        </select>
 
-                {schedule.length > 0 ? (
-                    <TimetableGrid
-                        schedule={schedule}
-                        isEditable={false} // Teachers cannot edit timetable, only view
-                        viewMode="TEACHER"
-                        selectedEntityId={viewTeacherId}
-                    />
-                ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400">
-                        No timetable data found.
-                    </div>
-                )}
-            </div>
+        {/* Week Picker */}
+        <div className="flex items-center gap-2 border-l border-[var(--border-default)] pl-3 ml-1">
+          <button onClick={() => setSelectedWeek(w => Math.max(1, w - 1))}
+            className="w-7 h-7 rounded bg-[var(--bg-surface-hover)] font-bold text-[var(--text-primary)] hover:bg-[var(--border-default)] transition-colors text-sm">‹</button>
+          <span className="text-sm font-semibold text-[var(--text-primary)] min-w-[80px] text-center">
+            Tuần {selectedWeek}
+            {getWeekDateRange() && <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">({getWeekDateRange()})</span>}
+          </span>
+          <button onClick={() => setSelectedWeek(w => Math.min(totalWeeks, w + 1))}
+            className="w-7 h-7 rounded bg-[var(--bg-surface-hover)] font-bold text-[var(--text-primary)] hover:bg-[var(--border-default)] transition-colors text-sm">›</button>
+          <span className="text-xs text-[var(--text-muted)]">/ {totalWeeks}</span>
         </div>
-    );
+
+        {loading && <span className="text-xs text-[var(--text-muted)] ml-auto animate-pulse">Đang tải...</span>}
+      </div>
+
+      {/* Grid */}
+      <div className="flex-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden relative">
+        {loading && (
+          <div className="absolute inset-0 bg-[var(--bg-surface)]/60 z-10 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+          </div>
+        )}
+
+        {!loading && mySlots.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-[var(--text-muted)]">
+            {schedule.length === 0 ? 'Chưa có thời khóa biểu' : 'Tuần này không có tiết dạy'}
+          </div>
+        ) : (
+          <TimetableGrid
+            schedule={schedule}
+            isEditable={false}
+            viewMode="TEACHER"
+            selectedEntityId={myTeacherId}
+          />
+        )}
+      </div>
+    </div>
+  );
 }

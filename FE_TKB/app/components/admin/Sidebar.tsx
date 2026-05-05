@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, School, GraduationCap, BookOpen, ClipboardList, CalendarDays, LogOut, PanelLeftClose, PanelLeft, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, School, GraduationCap, BookOpen, ClipboardList, CalendarDays, LogOut, PanelLeftClose, PanelLeft, Settings, Clock } from 'lucide-react';
 import { useState } from 'react';
 import AppLogo from '../AppLogo';
 
@@ -14,6 +14,7 @@ const menuItems = [
   { name: 'Môn học', href: '/admin/subjects', icon: BookOpen },
   { name: 'Phân công', href: '/admin/assignments', icon: ClipboardList },
   { name: 'Thời khóa biểu', href: '/admin/timetable', icon: CalendarDays },
+  { name: 'Lịch bận GV', href: '/admin/busy-schedule', icon: Clock },
   { name: 'Cấu hình', href: '/admin/configuration', icon: Settings },
 ];
 

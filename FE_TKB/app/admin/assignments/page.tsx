@@ -390,6 +390,24 @@ export default function AssignmentsPage() {
     fileInputRef.current?.click();
   };
 
+  const handleDeleteAll = async () => {
+    if (!selectedSemesterId) return;
+    if (isDirty) { alert('Vui lòng lưu hoặc hủy thay đổi trước khi xóa toàn bộ.'); return; }
+    if (!confirm(`Xóa TOÀN BỘ ${assignments.length} phân công của học kỳ này? Hành động này không thể hoàn tác.`)) return;
+    if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/assignments/all?semester_id=${encodeURIComponent(selectedSemesterId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) { await fetchAssignments(selectedSemesterId); alert('Đã xóa toàn bộ phân công.'); }
+      else alert('Lỗi khi xóa toàn bộ.');
+    } catch (e) {
+      alert('Lỗi khi xóa toàn bộ.');
+    }
+  };
+
   const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -558,6 +576,14 @@ export default function AssignmentsPage() {
             className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Thêm phân công
+          </button>
+          <button
+            onClick={handleDeleteAll}
+            disabled={!selectedSemesterId || assignments.length === 0 || isDirty || isSaving}
+            title={isDirty ? 'Lưu hoặc hủy thay đổi trước khi xóa toàn bộ' : undefined}
+            className="rounded-lg border border-red-600 px-4 py-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Xóa toàn bộ
           </button>
         </div>
       </div>

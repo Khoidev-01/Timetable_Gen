@@ -216,9 +216,9 @@ export class ConstraintService {
         // GDTC / GDQP period restrictions (Must be P1,2,3 or P8,9,10)
         violations += this.checkSpecialSubjectTime(schedule);
 
-        // Heavy Subject restrictions (Max 1 distinct heavy subject per session)
+        // Block subject rules (R1+R2+R3 for TOAN/VAN/ANH)
         const classSchedule = this.groupBy(schedule, 'classId');
-        violations += this.checkHeavySubjects(classSchedule);
+        violations += this.checkBlockRules(classSchedule);
 
         // Thursday Restriction
         violations += this.checkThursdayRestriction(schedule);
@@ -266,7 +266,7 @@ export class ConstraintService {
         return map;
     }
 
-    // SC01: Spread Subjects
+    // SC01: Spread Subjects — pair (2 tiết liền cùng ngày) là hợp lệ, không tính là dồn cục
     private checkSpreadSubjects(classSchedule: Map<string, TimeSlot[]>): number {
         let penalty = 0;
         for (const [_, slots] of classSchedule) {
@@ -278,7 +278,8 @@ export class ConstraintService {
             for (const [, days] of subjectMap) {
                 if (days.length > 2) {
                     const uniqueDays = new Set(days).size;
-                    if (uniqueDays < Math.min(days.length, 3)) {
+                    // Threshold = ceil(n/2): pair trên 1 ngày = 1 "đơn vị phân bố"
+                    if (uniqueDays < Math.ceil(days.length / 2)) {
                         penalty++;
                     }
                 }
@@ -287,33 +288,42 @@ export class ConstraintService {
         return penalty;
     }
 
-    // SC02 -> HC: Avoid multiple Heavy Subjects in the same session
-    public checkHeavySubjects(classSchedule: Map<string, TimeSlot[]>): number {
-        let penalty = 0;
-        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
+    // HC: Block subject rules — R1 total ≤3/session, R2 same code ≤2/session, R3 no 3 consecutive
+    public checkBlockRules(classSchedule: Map<string, TimeSlot[]>): number {
+        let violations = 0;
+        const blockCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
 
         for (const [_, slots] of classSchedule) {
-            const daySessionMap = new Map<string, Set<string>>(); // "day-session" -> Set of subject codes
+            const daySessionByCode = new Map<string, Map<string, number>>();
+            const daySessionPeriods = new Map<string, number[]>();
 
             for (const s of slots) {
                 const subjCode = this.getSubjectCode(s.subjectId);
-                const isHeavy = heavyCodes.some(h => subjCode.includes(h));
-                if (isHeavy) {
-                    const session = s.period <= 5 ? 0 : 1;
-                    const key = `${s.day}-${session}`;
-                    if (!daySessionMap.has(key)) daySessionMap.set(key, new Set());
-                    daySessionMap.get(key)!.add(subjCode);
-                }
+                if (!blockCodes.some(b => subjCode.includes(b))) continue;
+                const session = s.period <= 5 ? 0 : 1;
+                const key = `${s.day}-${session}`;
+                if (!daySessionByCode.has(key)) daySessionByCode.set(key, new Map());
+                const m = daySessionByCode.get(key)!;
+                m.set(subjCode, (m.get(subjCode) || 0) + 1);
+                if (!daySessionPeriods.has(key)) daySessionPeriods.set(key, []);
+                daySessionPeriods.get(key)!.push(s.period);
             }
 
-            for (const [, heavySubjects] of daySessionMap) {
-                if (heavySubjects.size > 1) {
-                    // Penalty for every distinct heavy subject beyond the first one
-                    penalty += (heavySubjects.size - 1);
+            for (const [key, m] of daySessionByCode) {
+                let total = 0;
+                for (const c of m.values()) total += c;
+                if (total > 3) violations += (total - 3);                       // R1
+                for (const c of m.values()) if (c > 2) violations += (c - 2);   // R2
+                const periods = (daySessionPeriods.get(key) || []).slice().sort((a, b) => a - b);
+                for (let k = 0; k <= periods.length - 3; k++) {
+                    if (periods[k+1] === periods[k] + 1 && periods[k+2] === periods[k] + 2) {
+                        violations++;                                            // R3
+                        break;
+                    }
                 }
             }
         }
-        return penalty;
+        return violations;
     }
 
     // HC: Special Subject Time Constraint
@@ -352,7 +362,7 @@ export class ConstraintService {
     public checkSessionRestriction(schedule: TimeSlot[]): number {
         let violations = 0;
         // These subjects are allowed in opposite session
-        const oppositeAllowed = ['GDTC', 'GDQP', 'HDTN', 'GDDP'];
+        const oppositeAllowed = ['GDTC', 'GDQP'];
         for (const s of schedule) {
             const code = this.getSubjectCode(s.subjectId);
             if (oppositeAllowed.some(oc => code.includes(oc))) continue;
@@ -384,7 +394,7 @@ export class ConstraintService {
         return penalty;
     }
 
-    // SC04: Block 2 check
+    // SC04: Block 2 check — đếm số pair còn thiếu, bỏ qua slot "lẻ" tất yếu của môn số tiết lẻ
     private checkBlock2(classSchedule: Map<string, TimeSlot[]>): number {
         let penalty = 0;
         const blocks = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
@@ -398,19 +408,25 @@ export class ConstraintService {
 
             for (const [subjId, subjSlots] of subjectMap) {
                 const code = this.getSubjectCode(subjId);
-                if (blocks.some(b => code.includes(b))) {
-                    subjSlots.sort((a, b) => a.day === b.day ? a.period - b.period : a.day - b.day);
-                    for (let i = 0; i < subjSlots.length; i++) {
-                        const prev = subjSlots[i - 1];
-                        const next = subjSlots[i + 1];
-                        const curr = subjSlots[i];
-                        const isAdjPrev = prev && prev.day === curr.day && Math.abs(prev.period - curr.period) === 1;
-                        const isAdjNext = next && next.day === curr.day && Math.abs(next.period - curr.period) === 1;
-                        if (!isAdjPrev && !isAdjNext && subjSlots.length > 1) {
-                            penalty++;
-                        }
+                if (!blocks.some(b => code.includes(b))) continue;
+                const n = subjSlots.length;
+                if (n <= 1) continue;
+
+                // Đếm actual pairs (2 slot liền nhau cùng ngày)
+                subjSlots.sort((a, b) => a.day === b.day ? a.period - b.period : a.day - b.day);
+                let actualPairs = 0;
+                let i = 0;
+                while (i < subjSlots.length - 1) {
+                    const a = subjSlots[i], b = subjSlots[i + 1];
+                    if (a.day === b.day && Math.abs(a.period - b.period) === 1) {
+                        actualPairs++;
+                        i += 2;
+                    } else {
+                        i++;
                     }
                 }
+                // Cần ít nhất floor(n/2) pairs; nếu thiếu mới phạt
+                penalty += Math.max(0, Math.floor(n / 2) - actualPairs);
             }
         }
         return penalty;
@@ -604,34 +620,56 @@ export class ConstraintService {
         }
         if (hc5) details.push(`⛔ [HC5] Môn GDTC/GDQP học giờ nắng: -${hc5 * 100} điểm (${hc5} lỗi)`);
 
-        // HC6: Heavy subjects
+        // HC6: Block subject rules — R1 total ≤3/session, R2 same code ≤2/session, R3 no 3 consecutive
         const classSchedule = this.groupBy(schedule, 'classId');
         let hc6 = 0;
-        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
+        const blockCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
         for (const [classId, slots] of classSchedule) {
-            const daySessionMap = new Map<string, Set<string>>();
+            const dayKeyMap = new Map<string, { byCode: Map<string, number>, periods: number[] }>();
             for (const s of slots) {
                 const subjCode = this.getSubjectCode(s.subjectId);
-                if (heavyCodes.some(h => subjCode.includes(h))) {
-                    const session = s.period <= 5 ? 'Sáng' : 'Chiều';
-                    const key = `${s.day}-${session}`;
-                    if (!daySessionMap.has(key)) daySessionMap.set(key, new Set());
-                    daySessionMap.get(key)!.add(subjCode);
-                }
+                if (!blockCodes.some(b => subjCode.includes(b))) continue;
+                const session = s.period <= 5 ? 'Sáng' : 'Chiều';
+                const key = `${s.day}-${session}`;
+                if (!dayKeyMap.has(key)) dayKeyMap.set(key, { byCode: new Map(), periods: [] });
+                const entry = dayKeyMap.get(key)!;
+                entry.byCode.set(subjCode, (entry.byCode.get(subjCode) || 0) + 1);
+                entry.periods.push(s.period);
             }
-            for (const [key, heavySet] of daySessionMap) {
-                if (heavySet.size > 1) {
-                    const count = heavySet.size - 1;
-                    hc6 += count;
-                    const [d, session] = key.split('-');
+            for (const [key, { byCode, periods }] of dayKeyMap) {
+                let total = 0;
+                for (const c of byCode.values()) total += c;
+                const [d, session] = key.split('-');
+                if (total > 3) {
+                    hc6 += (total - 3);
                     violations.push({
-                        type: 'HARD', rule: 'HC6_MÔN_NẶNG',
-                        msg: `⛔ Lớp "${clsName(classId)}" ${this.dayName(+d)} buổi ${session}: ${heavySet.size} môn nặng [${[...heavySet].join(', ')}] trong cùng buổi`
+                        type: 'HARD', rule: 'HC6_QUÁ_3_TIẾT_NẶNG',
+                        msg: `⛔ Lớp "${clsName(classId)}" ${this.dayName(+d)} buổi ${session}: ${total} tiết môn nặng (>3) [${[...byCode.keys()].join(', ')}]`
                     });
+                }
+                for (const [c, cnt] of byCode) {
+                    if (cnt > 2) {
+                        hc6 += (cnt - 2);
+                        violations.push({
+                            type: 'HARD', rule: 'HC6_TRÙNG_MÔN_NẶNG',
+                            msg: `⛔ Lớp "${clsName(classId)}" ${this.dayName(+d)} buổi ${session}: ${cnt} tiết ${c} (>2 cùng môn)`
+                        });
+                    }
+                }
+                const sorted = periods.slice().sort((a, b) => a - b);
+                for (let k = 0; k <= sorted.length - 3; k++) {
+                    if (sorted[k+1] === sorted[k] + 1 && sorted[k+2] === sorted[k] + 2) {
+                        hc6++;
+                        violations.push({
+                            type: 'HARD', rule: 'HC6_3_LIÊN_TIẾP',
+                            msg: `⛔ Lớp "${clsName(classId)}" ${this.dayName(+d)} buổi ${session}: 3 tiết môn nặng liên tiếp (T${sorted[k]}-T${sorted[k+2]})`
+                        });
+                        break;
+                    }
                 }
             }
         }
-        if (hc6) details.push(`⛔ [HC6] Xếp >=2 môn nặng trong cùng 1 buổi: -${hc6 * 100} điểm (${hc6} lỗi)`);
+        if (hc6) details.push(`⛔ [HC6] Vi phạm rule môn nặng (TOAN/VAN/ANH): -${hc6 * 100} điểm (${hc6} lỗi)`);
 
         // HC7: Thursday restriction
         let hc7 = 0;
@@ -670,7 +708,7 @@ export class ConstraintService {
 
         const teacherSchedule = this.groupBy(schedule, 'teacherId');
 
-        // SC1: Spread subjects
+        // SC1: Spread subjects — pair (2 tiết liền cùng ngày) không tính là dồn cục
         let sc1 = 0;
         for (const [classId, slots] of classSchedule) {
             const subjectMap = new Map<number, number[]>();
@@ -681,7 +719,7 @@ export class ConstraintService {
             for (const [subjId, days] of subjectMap) {
                 if (days.length > 2) {
                     const uniqueDays = new Set(days).size;
-                    if (uniqueDays < Math.min(days.length, 3)) {
+                    if (uniqueDays < Math.ceil(days.length / 2)) {
                         sc1++;
                         violations.push({
                             type: 'SOFT', rule: 'SC1_DỒN_CỤC',

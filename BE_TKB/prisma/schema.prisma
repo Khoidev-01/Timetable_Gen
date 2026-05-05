@@ -36,10 +36,13 @@ model Semester {
   name        String   // "HK1"
   is_current  Boolean  @default(false)
   term_order  Int      @default(1)
+  start_date  DateTime?
+  end_date    DateTime?
 
   academic_year         AcademicYear @relation(fields: [year_id], references: [id])
   teaching_assignments  TeachingAssignment[]
   generated_timetables  GeneratedTimetable[]
+  busy_requests         TeacherBusyRequest[]
 
   @@map("semesters")
 }
@@ -127,11 +130,12 @@ model Teacher {
   notes               String?
 
   user                User?
-  
+
   homeroom_classes    Class[]
   constraints         TeacherConstraint[]
   teaching_assignments TeachingAssignment[]
   timetable_slots     TimetableSlot[]
+  busy_requests       TeacherBusyRequest[]
 
   @@map("teachers")
 }
@@ -153,6 +157,12 @@ model TeacherConstraint {
 enum ConstraintType {
   BUSY  // Hard constraint
   AVOID // Soft constraint
+}
+
+enum BusyStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 // ==========================================
@@ -252,9 +262,10 @@ model TimetableSlot {
   subject_id    Int
   teacher_id    String
   room_id       Int?     // Map to physical room (Fixed or Lab)
-  
+
   day           Int      // 2-7
-  period        Int      // 1-5
+  period        Int      // 1-10
+  week          Int      @default(1) // nth week of semester (1-based)
   is_locked     Boolean  @default(false)
 
   timetable     GeneratedTimetable @relation(fields: [timetable_id], references: [id], onDelete: Cascade)
@@ -263,16 +274,41 @@ model TimetableSlot {
   teacher       Teacher @relation(fields: [teacher_id], references: [id])
   room          Room?   @relation(fields: [room_id], references: [id])
 
-  // Unique Constraints for Validity
-  @@unique([timetable_id, class_id, day, period], name: "unique_class_slot")
-  @@unique([timetable_id, teacher_id, day, period], name: "unique_teacher_slot")
-  @@unique([timetable_id, room_id, day, period], name: "unique_room_slot")
+  @@unique([timetable_id, class_id, day, period, week], name: "unique_class_slot")
+  @@unique([timetable_id, teacher_id, day, period, week], name: "unique_teacher_slot")
+  @@unique([timetable_id, room_id, day, period, week], name: "unique_room_slot")
 
   @@map("timetable_slots")
 }
 
 // ==========================================
-// GROUP 7: NOTIFICATIONS
+// GROUP 7: TEACHER BUSY REQUESTS
+// ==========================================
+
+model TeacherBusyRequest {
+  id              String     @id @default(uuid())
+  teacher_id      String
+  semester_id     String
+  week_number     Int
+  day_of_week     Int        // 2-7
+  period          Int        // 1-10
+  reason          String
+  status          BusyStatus @default(PENDING)
+  rejection_note  String?
+  reviewed_by     String?    // admin user_id
+  reviewed_at     DateTime?
+  created_at      DateTime   @default(now())
+
+  teacher         Teacher    @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  semester        Semester   @relation(fields: [semester_id], references: [id], onDelete: Cascade)
+
+  @@unique([teacher_id, semester_id, week_number, day_of_week, period])
+  @@index([teacher_id, semester_id, status])
+  @@map("teacher_busy_requests")
+}
+
+// ==========================================
+// GROUP 8: NOTIFICATIONS
 // ==========================================
 
 model Notification {

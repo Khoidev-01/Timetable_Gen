@@ -80,7 +80,11 @@ export class AuthService {
     async getProfile(userId: string) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
-            include: { teacher_profile: true }
+            include: {
+                teacher_profile: {
+                    include: { homeroom_classes: { select: { id: true, name: true } } }
+                }
+            }
         });
         if (!user) return null;
         return {
@@ -93,6 +97,7 @@ export class AuthService {
                 id: user.teacher_profile.id,
                 code: user.teacher_profile.code,
                 full_name: user.teacher_profile.full_name,
+                homeroom_classes: user.teacher_profile.homeroom_classes,
             } : undefined
         };
     }

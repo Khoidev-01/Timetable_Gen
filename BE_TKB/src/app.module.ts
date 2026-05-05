@@ -17,6 +17,7 @@ import { ExcelModule } from './excel/excel.module';
 import { ConstraintsModule } from './constraints/constraints.module';
 import { NotificationModule } from './notifications/notification.module';
 import { AutoAssignModule } from './auto-assign/auto-assign.module';
+import { BusyScheduleModule } from './busy-schedule/busy-schedule.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { AutoAssignModule } from './auto-assign/auto-assign.module';
     ConstraintsModule,
     NotificationModule,
     AutoAssignModule,
+    BusyScheduleModule,
   ],
   controllers: [AppController],
   providers: [AppService],

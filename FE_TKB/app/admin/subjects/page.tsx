@@ -130,16 +130,41 @@ export default function SubjectsPage() {
         if (confirm('Hủy bỏ thay đổi?')) fetchSubjects();
     };
 
+    const handleDeleteAll = async () => {
+        if (!confirm(`Xóa TOÀN BỘ ${subjects.length} môn học cùng phân công và TKB liên quan? Hành động này không thể hoàn tác.`)) return;
+        if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
+        try {
+            const res = await fetch(`${API_URL}/resources/subjects/all`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) { fetchSubjects(); alert('Đã xóa toàn bộ môn học.'); }
+            else alert('Lỗi khi xóa toàn bộ.');
+        } catch (e) {
+            alert('Lỗi khi xóa toàn bộ.');
+        }
+    };
+
     return (
         <div className="space-y-6 pb-20">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quản lý Môn học</h1>
-                <button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                    onClick={() => { setEditingSubject(null); setIsModalOpen(true); }}
-                >
-                    <span>➕</span> Thêm môn học
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleDeleteAll}
+                        disabled={subjects.length === 0 || isDirty || isSaving}
+                        title={isDirty ? 'Lưu hoặc hủy thay đổi trước khi xóa toàn bộ' : undefined}
+                        className="border border-red-600 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        Xóa toàn bộ
+                    </button>
+                    <button
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                        onClick={() => { setEditingSubject(null); setIsModalOpen(true); }}
+                    >
+                        <span>➕</span> Thêm môn học
+                    </button>
+                </div>
             </div>
 
             <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--border-default)] overflow-hidden relative">

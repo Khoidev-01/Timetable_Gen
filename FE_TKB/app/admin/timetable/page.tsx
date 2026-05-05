@@ -35,6 +35,7 @@ export default function TimetablePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  const [dragConflictLog, setDragConflictLog] = useState<string[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [viewMode, setViewMode] = useState<'CLASS' | 'TEACHER'>('CLASS');
   const [displayMode, setDisplayMode] = useState<'WEEK' | 'MONTH'>('WEEK');
@@ -47,6 +48,9 @@ export default function TimetablePage() {
   const [newYearStart, setNewYearStart] = useState('');
   const [newYearEnd, setNewYearEnd] = useState('');
   const [isMoving, setIsMoving] = useState(false);
+  const [selectedWeek, setSelectedWeek] = useState(1);
+  const [totalWeeks, setTotalWeeks] = useState(1);
+  const [semesterStartDate, setSemesterStartDate] = useState<string | null>(null);
 
   useEffect(() => {
     fetchYears();
@@ -55,7 +59,10 @@ export default function TimetablePage() {
   useEffect(() => {
     if (selectedSemesterId) {
       setResult(null);
-      checkExistingResult(selectedSemesterId);
+      setSelectedWeek(1);
+      setTotalWeeks(1);
+      setSemesterStartDate(null);
+      checkExistingResult(selectedSemesterId, 1);
       fetchMetadata();
     }
   }, [selectedSemesterId]);
@@ -203,10 +210,10 @@ export default function TimetablePage() {
     }
   };
 
-  const checkExistingResult = async (semesterId: string) => {
+  const checkExistingResult = async (semesterId: string, week: number = selectedWeek) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/algorithm/result/${semesterId}`, {
+      const response = await fetch(`${API_URL}/algorithm/result/${semesterId}?week=${week}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -224,8 +231,10 @@ export default function TimetablePage() {
       }
 
       if (schedule.length > 0) {
-        setResult({ fitness_score: fitness, bestSchedule: schedule, fitnessDetails: data.fitnessDetails });
-        setLogs((previous) => [...previous, `Đã tải ${schedule.length} tiết học cho học kỳ đang chọn.`]);
+        setResult({ fitness_score: fitness, bestSchedule: schedule, fitnessDetails: data.fitnessDetails, fitnessViolations: data.fitnessViolations });
+        setTotalWeeks(data.totalWeeks ?? 1);
+        setSemesterStartDate(data.semesterStartDate ?? null);
+        setLogs((previous) => [...previous, `Đã tải ${schedule.length} tiết học — Tuần ${week}/${data.totalWeeks ?? 1}.`]);
         setIsGenerating(false);
       }
     } catch (error) {
@@ -431,6 +440,20 @@ export default function TimetablePage() {
     }
   };
 
+  const handleWeekChange = (week: number) => {
+    if (week < 1 || week > totalWeeks) return;
+    setSelectedWeek(week);
+    checkExistingResult(selectedSemesterId, week);
+  };
+
+  const getWeekDateRange = (startDateStr: string, week: number): string => {
+    const start = new Date(startDateStr);
+    const weekStart = new Date(start.getTime() + (week - 1) * 7 * 24 * 3600 * 1000);
+    const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 3600 * 1000);
+    const fmt = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`;
+    return `${fmt(weekStart)} – ${fmt(weekEnd)}`;
+  };
+
   const selectedYear = years.find((item) => item.id === selectedYearId);
 
   return (
@@ -625,9 +648,61 @@ export default function TimetablePage() {
                   </div>
                 </details>
               )}
+
+              {/* Drag conflict log */}
+              {dragConflictLog.length > 0 && (
+                <div className="mt-2 rounded-lg border border-red-300 bg-red-50">
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <span className="text-sm font-semibold text-red-700">🚫 Xung đột khi kéo thả ({dragConflictLog.length} lần)</span>
+                    <button
+                      onClick={() => setDragConflictLog([])}
+                      className="text-xs text-red-400 hover:text-red-600"
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                  <ul className="max-h-36 overflow-y-auto px-3 pb-2 space-y-0.5">
+                    {dragConflictLog.map((msg, idx) => (
+                      <li key={idx} className="text-xs text-red-600 border-b border-red-100 last:border-0 py-0.5">
+                        ❌ {msg}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
+              {/* Week navigator */}
+              {totalWeeks > 1 && (
+                <div className="flex items-center gap-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-2 py-1">
+                  <button
+                    onClick={() => handleWeekChange(selectedWeek - 1)}
+                    disabled={selectedWeek <= 1}
+                    className="px-2 py-0.5 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 font-bold text-base"
+                  >
+                    ‹
+                  </button>
+                  <div className="text-center min-w-[110px]">
+                    <div className="text-sm font-bold text-[var(--text-primary)]">
+                      Tuần {selectedWeek}/{totalWeeks}
+                    </div>
+                    {semesterStartDate && (
+                      <div className="text-[10px] text-[var(--text-muted)]">
+                        {getWeekDateRange(semesterStartDate, selectedWeek)}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleWeekChange(selectedWeek + 1)}
+                    disabled={selectedWeek >= totalWeeks}
+                    className="px-2 py-0.5 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 font-bold text-base"
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] p-1">
                 <button
                   className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
@@ -693,6 +768,13 @@ export default function TimetablePage() {
               selectedEntityId={selectedEntityId}
               onSlotMove={handleSlotMove}
               onToggleLock={handleToggleLock}
+              onConflictLog={(msgs) => {
+                const time = new Date().toLocaleTimeString();
+                setDragConflictLog(prev => [
+                  ...prev,
+                  ...msgs.map(msg => `[${time}] ${msg}`)
+                ]);
+              }}
             />
           ) : (
             <MonthlyTimetableGrid

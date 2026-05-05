@@ -21,6 +21,11 @@ export class AssignmentsController {
         return this.assignmentsService.update(id, body);
     }
 
+    @Delete('all')
+    deleteAllAssignments(@Query('semester_id') semesterId?: string) {
+        return this.assignmentsService.deleteAll(semesterId);
+    }
+
     @Delete(':id')
     deleteAssignment(@Param('id') id: string) {
         return this.assignmentsService.delete(id);

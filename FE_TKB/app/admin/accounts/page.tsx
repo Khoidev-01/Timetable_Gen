@@ -72,16 +72,40 @@ export default function AccountsPage() {
         fetchAccounts();
     };
 
+    const handleDeleteAll = async () => {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const otherCount = accounts.filter(a => a.id !== currentUser.id).length;
+        if (otherCount === 0) { alert('Không có tài khoản nào khác để xóa.'); return; }
+        if (!confirm(`Xóa TOÀN BỘ ${otherCount} tài khoản (giữ lại admin hiện tại)? Hành động này không thể hoàn tác.`)) return;
+        if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/users/all?except_id=${encodeURIComponent(currentUser.id)}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) { fetchAccounts(); alert('Đã xóa toàn bộ tài khoản.'); }
+        else alert('Lỗi khi xóa toàn bộ.');
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quản lý Tài khoản</h1>
-                <button
-                    onClick={() => { setSelectedAccount(null); setIsModalOpen(true); }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                >
-                    + Thêm tài khoản
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleDeleteAll}
+                        disabled={accounts.length === 0}
+                        className="border border-red-600 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        Xóa toàn bộ
+                    </button>
+                    <button
+                        onClick={() => { setSelectedAccount(null); setIsModalOpen(true); }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                        + Thêm tài khoản
+                    </button>
+                </div>
             </div>
 
             <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--border-default)] overflow-hidden">

@@ -73,16 +73,30 @@ export class AlgorithmProducer {
         return { id: job.id, state, progress, result };
     }
 
-    async getResult(semesterId: string) {
+    async getResult(semesterId: string, week: number = 1) {
         const latestTkb = await this.prisma.generatedTimetable.findFirst({
             where: { semester_id: semesterId },
             orderBy: { created_at: 'desc' },
             include: {
-                slots: true
+                slots: { where: { week } }
             }
         });
 
         if (!latestTkb) return [];
+
+        // Total weeks in this timetable
+        const weekAgg = await this.prisma.timetableSlot.aggregate({
+            _max: { week: true },
+            where: { timetable_id: latestTkb.id }
+        });
+        const totalWeeks = weekAgg._max.week ?? 1;
+
+        // Semester start date for FE week-range display
+        const semester = await this.prisma.semester.findUnique({
+            where: { id: semesterId },
+            select: { start_date: true, end_date: true }
+        });
+
 
         // Fetch Reference Data (Names)
         const teacherIds = [...new Set(latestTkb.slots.map(t => t.teacher_id).filter(Boolean))];
@@ -158,7 +172,10 @@ export class AlgorithmProducer {
             hardViolations: fitnessResult.hardViolations,
             softPenalty: fitnessResult.softPenalty,
             is_official: latestTkb.is_official,
-            generated_at: latestTkb.created_at
+            generated_at: latestTkb.created_at,
+            totalWeeks,
+            currentWeek: week,
+            semesterStartDate: semester?.start_date ?? null,
         };
     }
 }

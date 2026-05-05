@@ -36,6 +36,7 @@ export class ResourcesController {
     @Get('subjects') getSubjects() { return this.subjectService.findAll(); }
     @Post('subjects') createSubject(@Body() body: any) { return this.subjectService.create(body); }
     @Put('subjects/:id') updateSubject(@Param('id') id: string, @Body() body: any) { return this.subjectService.update(+id, body); }
+    @Delete('subjects/all') deleteAllSubjects() { return this.subjectService.deleteAll(); }
     @Delete('subjects/:id') deleteSubject(@Param('id') id: string) { return this.subjectService.delete(+id); }
 
     // TEACHERS
@@ -43,6 +44,7 @@ export class ResourcesController {
     @Get('teachers/:id') getTeacher(@Param('id') id: string) { return this.teacherService.findOne(id); }
     @Post('teachers') createTeacher(@Body() body: any) { return this.teacherService.create(body); }
     @Put('teachers/:id') updateTeacher(@Param('id') id: string, @Body() body: any) { return this.teacherService.update(id, body); }
+    @Delete('teachers/all') deleteAllTeachers() { return this.teacherService.deleteAll(); }
     @Delete('teachers/:id') deleteTeacher(@Param('id') id: string) { return this.teacherService.delete(id); }
 
     // TEACHER CONSTRAINTS

@@ -64,6 +64,21 @@ export default function TeachersPage() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!confirm(`Xóa TOÀN BỘ ${teachers.length} giáo viên cùng phân công và TKB liên quan? Hành động này không thể hoàn tác.`)) return;
+    if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
+    try {
+      const res = await fetch(`${API_URL}/resources/teachers/all`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) { fetchTeachers(); alert('Đã xóa toàn bộ giáo viên.'); }
+      else alert('Lỗi khi xóa toàn bộ.');
+    } catch (e) {
+      alert('Lỗi khi xóa toàn bộ.');
+    }
+  };
+
   const handleSave = async (data: any) => {
     try {
       const url = editingTeacher
@@ -97,6 +112,13 @@ export default function TeachersPage() {
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quản lý giáo viên</h1>
         <div className="flex gap-2">
+          <button
+            onClick={handleDeleteAll}
+            disabled={teachers.length === 0}
+            className="rounded-lg border border-red-600 px-4 py-2 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Xóa toàn bộ
+          </button>
           <Link
             href="/admin/assignments"
             className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700"

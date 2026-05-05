@@ -47,4 +47,11 @@ export class UsersService {
     async remove(id: string) {
         return this.prisma.user.delete({ where: { id } });
     }
+
+    async removeAll(exceptId?: string) {
+        const result = await this.prisma.user.deleteMany({
+            where: exceptId ? { NOT: { id: exceptId } } : {}
+        });
+        return { deleted: result.count };
+    }
 }

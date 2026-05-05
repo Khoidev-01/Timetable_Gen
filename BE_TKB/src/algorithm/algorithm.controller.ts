@@ -24,8 +24,11 @@ export class AlgorithmController {
     }
 
     @Get('result/:semesterId')
-    async getResult(@Param('semesterId') semesterId: string) {
-        return this.algorithmProducer.getResult(semesterId);
+    async getResult(
+        @Param('semesterId') semesterId: string,
+        @Query('week') week?: string
+    ) {
+        return this.algorithmProducer.getResult(semesterId, week ? parseInt(week, 10) : 1);
     }
 
     @Get('export/:semesterId')

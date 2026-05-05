@@ -45,6 +45,11 @@ export class SystemController {
         return this.semesterService.create(body);
     }
 
+    @Put('semesters/:id')
+    updateSemester(@Param('id') id: string, @Body() body: any) {
+        return this.semesterService.update(id, body);
+    }
+
     @Put('semesters/:id/set-current')
     setCurrentSemester(@Param('id') id: string) {
         return this.semesterService.setCurrent(id);

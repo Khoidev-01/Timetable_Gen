@@ -34,6 +34,17 @@ export class TeacherService {
         return this.prisma.teacher.delete({ where: { id } });
     }
 
+    async deleteAll() {
+        const [, , , , teachers] = await this.prisma.$transaction([
+            this.prisma.timetableSlot.deleteMany({}),
+            this.prisma.teachingAssignment.deleteMany({}),
+            this.prisma.class.updateMany({ data: { homeroom_teacher_id: null } }),
+            this.prisma.user.updateMany({ data: { teacher_profile_id: null } }),
+            this.prisma.teacher.deleteMany({}),
+        ]);
+        return { deleted: teachers.count };
+    }
+
     // Constraint Management
     async updateConstraints(teacherId: string, constraints: any[]) {
         // Clear old hard/soft constraints for this teacher? Or merge?

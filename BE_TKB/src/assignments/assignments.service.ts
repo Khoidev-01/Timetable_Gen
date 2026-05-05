@@ -30,6 +30,13 @@ export class AssignmentsService {
         });
     }
 
+    async deleteAll(semesterId?: string) {
+        const result = await this.prisma.teachingAssignment.deleteMany({
+            where: semesterId ? { semester_id: semesterId } : {},
+        });
+        return { deleted: result.count };
+    }
+
     async importAssignments(semesterId: string, assignments: any[]) {
         // Bulk create logic
         // This relies on Excel parsing which should now return English fields

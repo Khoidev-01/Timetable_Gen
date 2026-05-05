@@ -20,14 +20,26 @@ export class AcademicYearService {
     }
 
     async create(data: any) {
-        // Automatically create HK1 and HK2
+        // Auto-split year into HK1 / HK2 by date if dates provided
+        let hk1Start: Date | undefined, hk1End: Date | undefined;
+        let hk2Start: Date | undefined, hk2End: Date | undefined;
+        if (data.start_date && data.end_date) {
+            const s = new Date(data.start_date);
+            const e = new Date(data.end_date);
+            const mid = new Date(s.getTime() + Math.floor((e.getTime() - s.getTime()) / 2));
+            hk1Start = s;
+            hk1End = mid;
+            hk2Start = new Date(mid.getTime() + 24 * 3600 * 1000);
+            hk2End = e;
+        }
+
         return this.prisma.academicYear.create({
             data: {
                 ...data,
                 semesters: {
                     create: [
-                        { name: 'HK1', is_current: false, term_order: 1 },
-                        { name: 'HK2', is_current: false, term_order: 2 }
+                        { name: 'HK1', is_current: false, term_order: 1, start_date: hk1Start, end_date: hk1End },
+                        { name: 'HK2', is_current: false, term_order: 2, start_date: hk2Start, end_date: hk2End }
                     ]
                 }
             },

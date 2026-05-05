@@ -35,7 +35,7 @@ export class AlgorithmService {
             const prevTimetable = await this.prisma.generatedTimetable.findFirst({
                 where: { semester_id: semesterId },
                 orderBy: { created_at: 'desc' },
-                include: { slots: { where: { is_locked: true } } }
+                include: { slots: { where: { is_locked: true, week: 1 } } } // only template week
             });
 
             if (prevTimetable && prevTimetable.slots.length > 0) {
@@ -89,7 +89,7 @@ export class AlgorithmService {
 
             const timetable = await this.saveToDatabase(semesterId, solution, data, log);
 
-            return { ...timetable, debugLogs, fitnessDetails: fitnessResult.details, success: true };
+            return { ...timetable, debugLogs, fitnessDetails: fitnessResult.details, fitnessViolations: fitnessResult.violations, success: true };
 
         } catch (error: any) {
             log(`[ERROR] Algorithm Failed: ${error.message}`);
@@ -231,32 +231,45 @@ export class AlgorithmService {
         // ── O(1) Index structures ──
         const classOccupied = new Set<string>();
         const teacherOccupied = new Set<string>();
-        const classDaySessionHeavy = new Map<string, Set<string>>();
+        // Block subjects (TOAN/VAN/ANH) count per class-day-session, broken down by code
+        const classDaySessionBlock = new Map<string, Map<string, number>>(); // "classId-day-sess" → Map<code,count>
+        // Block subject periods per class-day-session (for 3-consecutive check)
+        const classDaySessionBlockPeriods = new Map<string, Set<number>>();
         // Track which subjects already placed on which days per class (for spread)
         const classSubjectDays = new Map<string, Set<number>>(); // "classId-subjectId" → Set<day>
         // Track teacher slot count per day-session (for SC7 overload check)
         const teacherDaySessionCount = new Map<string, number>(); // "teacherId-day-session" → count
+        // Track total slots per class-day (for fill-to-5 logic)
+        const classDayTotals = new Map<string, number>(); // "classId-day" → count
 
         const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
         const blockCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
         const priorityCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
+
+        const trackBlock = (classId: string, day: number, period: number, code: string) => {
+            if (!blockCodes.some(b => code.includes(b))) return;
+            const sess = period <= 5 ? 0 : 1;
+            const hk = `${classId}-${day}-${sess}`;
+            if (!classDaySessionBlock.has(hk)) classDaySessionBlock.set(hk, new Map());
+            const m = classDaySessionBlock.get(hk)!;
+            m.set(code, (m.get(code) || 0) + 1);
+            if (!classDaySessionBlockPeriods.has(hk)) classDaySessionBlockPeriods.set(hk, new Set());
+            classDaySessionBlockPeriods.get(hk)!.add(period);
+        };
 
         // Build index from existing slots (Phase 1 locked slots)
         for (const s of solution.slots) {
             classOccupied.add(`${s.classId}-${s.day}-${s.period}`);
             teacherOccupied.add(`${s.teacherId}-${s.day}-${s.period}`);
             const code = this.constraintService.getSubjectCode(s.subjectId);
-            if (heavyCodes.some(h => code.includes(h))) {
-                const sess = s.period <= 5 ? 0 : 1;
-                const hk = `${s.classId}-${s.day}-${sess}`;
-                if (!classDaySessionHeavy.has(hk)) classDaySessionHeavy.set(hk, new Set());
-                classDaySessionHeavy.get(hk)!.add(code);
-            }
+            trackBlock(s.classId, s.day, s.period, code);
             const csKey = `${s.classId}-${s.subjectId}`;
             if (!classSubjectDays.has(csKey)) classSubjectDays.set(csKey, new Set());
             classSubjectDays.get(csKey)!.add(s.day);
             const tdsKey = `${s.teacherId}-${s.day}-${s.period <= 5 ? 0 : 1}`;
             teacherDaySessionCount.set(tdsKey, (teacherDaySessionCount.get(tdsKey) || 0) + 1);
+            const dtKey = `${s.classId}-${s.day}`;
+            classDayTotals.set(dtKey, (classDayTotals.get(dtKey) || 0) + 1);
         }
 
         const addSlot = (slot: any) => {
@@ -264,17 +277,14 @@ export class AlgorithmService {
             classOccupied.add(`${slot.classId}-${slot.day}-${slot.period}`);
             teacherOccupied.add(`${slot.teacherId}-${slot.day}-${slot.period}`);
             const code = this.constraintService.getSubjectCode(slot.subjectId);
-            if (heavyCodes.some(h => code.includes(h))) {
-                const sess = slot.period <= 5 ? 0 : 1;
-                const hk = `${slot.classId}-${slot.day}-${sess}`;
-                if (!classDaySessionHeavy.has(hk)) classDaySessionHeavy.set(hk, new Set());
-                classDaySessionHeavy.get(hk)!.add(code);
-            }
+            trackBlock(slot.classId, slot.day, slot.period, code);
             const csKey = `${slot.classId}-${slot.subjectId}`;
             if (!classSubjectDays.has(csKey)) classSubjectDays.set(csKey, new Set());
             classSubjectDays.get(csKey)!.add(slot.day);
             const tdsKey = `${slot.teacherId}-${slot.day}-${slot.period <= 5 ? 0 : 1}`;
             teacherDaySessionCount.set(tdsKey, (teacherDaySessionCount.get(tdsKey) || 0) + 1);
+            const dtKey = `${slot.classId}-${slot.day}`;
+            classDayTotals.set(dtKey, (classDayTotals.get(dtKey) || 0) + 1);
         };
 
         const subjectById = new Map<number, any>();
@@ -303,16 +313,89 @@ export class AlgorithmService {
             return true;
         };
 
-        // Helper: check heavy subject conflict
-        const hasHeavyConflict = (classId: string, day: number, period: number, subjCode: string): boolean => {
-            if (!heavyCodes.some(h => subjCode.includes(h))) return false;
+        // Helper: check block subject rules — R1 total ≤3/session, R2 same code ≤2/session, R3 no 3 consecutive
+        const violatesBlockRule = (classId: string, day: number, period: number, subjCode: string): boolean => {
+            if (!blockCodes.some(b => subjCode.includes(b))) return false;
             const sess = period <= 5 ? 0 : 1;
             const hk = `${classId}-${day}-${sess}`;
-            const existing = classDaySessionHeavy.get(hk);
-            if (!existing || existing.size === 0) return false;
-            for (const ec of existing) { if (ec !== subjCode) return true; }
+            const m = classDaySessionBlock.get(hk);
+            if (m) {
+                let total = 0;
+                for (const c of m.values()) total += c;
+                if (total >= 3) return true;                          // R1: would exceed 3/session
+                if ((m.get(subjCode) || 0) >= 2) return true;         // R2: would exceed 2/code/session
+            }
+            const periodsSet = classDaySessionBlockPeriods.get(hk);
+            if (periodsSet) {
+                const arr = [...periodsSet, period].sort((a, b) => a - b);
+                for (let k = 0; k <= arr.length - 3; k++) {
+                    if (arr[k+1] === arr[k] + 1 && arr[k+2] === arr[k] + 2) return true; // R3
+                }
+            }
             return false;
         };
+
+        // ── Step 0: Pre-place high-conflict subjects (TIN) with cross-class round-robin ──
+        // TIN teachers shared across many classes → must coordinate days to avoid teacher conflicts
+        const highConflictCodes = ['TIN', 'TIN_HOC'];
+        const tinAssignmentsByTeacher = new Map<string, { cls: any; assign: any }[]>();
+        for (const cls of classes) {
+            const cAssigns = classAssignments.get(cls.id) || [];
+            for (const assign of cAssigns) {
+                const subj = subjectById.get(assign.subject_id);
+                if (!subj || !highConflictCodes.some(hc => subj.code.toUpperCase().includes(hc))) continue;
+                if (!tinAssignmentsByTeacher.has(assign.teacher_id)) {
+                    tinAssignmentsByTeacher.set(assign.teacher_id, []);
+                }
+                tinAssignmentsByTeacher.get(assign.teacher_id)!.push({ cls, assign });
+            }
+        }
+
+        for (const [teacherId, entries] of tinAssignmentsByTeacher) {
+            const allDays = [2, 3, 4, 5, 6, 7];
+            this.shuffleArray(allDays);
+            let dayIdx = 0;
+
+            for (const { cls, assign } of entries) {
+                const subj = subjectById.get(assign.subject_id)!;
+                const mainStart = cls.main_session === 0 ? 1 : 6;
+                const mainEnd = cls.main_session === 0 ? 5 : 10;
+
+                let alreadyAssigned = 0;
+                for (const s of solution.slots) {
+                    if (s.classId === cls.id && s.subjectId === assign.subject_id) alreadyAssigned++;
+                }
+                let remaining = Math.max(0, assign.total_periods - alreadyAssigned);
+
+                while (remaining > 0) {
+                    const day = allDays[dayIdx % allDays.length];
+                    dayIdx++;
+                    let placed = false;
+                    // Try earliest period first (within main session)
+                    for (let p = mainStart; p <= mainEnd && !placed; p++) {
+                        if (day === 2 && p === 1) continue;
+                        if (day === 5 && [5, 10].includes(p)) continue;
+                        if (classOccupied.has(`${cls.id}-${day}-${p}`)) continue;
+                        if (teacherOccupied.has(`${teacherId}-${day}-${p}`)) continue;
+                        if (this.constraintService.isTeacherBusy(teacherId, day, p)) continue;
+                        const sess = p <= 5 ? 0 : 1;
+                        const tdsKey = `${teacherId}-${day}-${sess}`;
+                        if ((teacherDaySessionCount.get(tdsKey) || 0) >= 5) continue;
+                        // Place it
+                        addSlot({
+                            id: crypto.randomUUID(), day, period: p, classId: cls.id,
+                            subjectId: assign.subject_id, teacherId,
+                            roomId: cls.fixed_room_id, isLocked: false
+                        });
+                        remaining--;
+                        placed = true;
+                    }
+                    if (!placed) {
+                        this.logger.warn(`[PrePlace] Could not place TIN for ${cls.name} day ${day}, trying next day`);
+                    }
+                }
+            }
+        }
 
         for (const cls of classes) {
             const clsAssignments = classAssignments.get(cls.id) || [];
@@ -330,7 +413,7 @@ export class AlgorithmService {
             for (const assign of clsAssignments) {
                 const subject = subjectById.get(assign.subject_id);
                 if (!subject) continue;
-                const isOpposite = ['GDQP', 'GDTC', 'HDTN', 'GDDP'].includes(subject.code);
+                const isOpposite = ['GDQP', 'GDTC'].includes(subject.code);
 
                 let alreadyAssigned = 0;
                 for (const s of solution.slots) {
@@ -370,15 +453,9 @@ export class AlgorithmService {
                 return 0;
             });
 
-            // ── Step 2a: Place GDTC/GDQP blocks in opposite session (cool periods) ──
-            const gdtcGdqpBlocks = oppositeBlockSubjects.filter(b => {
-                const s = subjectById.get(b.assign.subject_id);
-                return s && ['GDTC', 'GDQP'].includes(s.code);
-            });
-            const activitySubjects = oppositeBlockSubjects.filter(b => {
-                const s = subjectById.get(b.assign.subject_id);
-                return s && ['HDTN', 'GDDP'].includes(s.code);
-            });
+            // ── Step 2a: Place GDTC/GDQP blocks in opposite session — 1 môn / 1 buổi ──
+            const gdtcGdqpBlocks = oppositeBlockSubjects;
+            const oppDaysUsed = new Set<number>(); // mỗi ngày chỉ 1 môn trái buổi
 
             for (const block of gdtcGdqpBlocks) {
                 const { assign, count } = block;
@@ -386,10 +463,13 @@ export class AlgorithmService {
                 const maxP = isMorningMain ? 10 : 3;
                 const validRange = Array.from({ length: maxP - minP + 1 }, (_, i) => minP + i);
                 let placed = false;
-                const days = [2, 3, 4, 5, 6, 7].sort(() => 0.5 - Math.random());
+                // Ưu tiên ngày chưa có môn trái buổi nào
+                const days = [2, 3, 4, 5, 6, 7]
+                    .sort((a, b) => (oppDaysUsed.has(a) ? 1 : 0) - (oppDaysUsed.has(b) ? 1 : 0) || Math.random() - 0.5);
 
                 for (const day of days) {
                     if (placed) break;
+                    if (oppDaysUsed.has(day)) continue; // mỗi ngày chỉ 1 môn trái buổi
                     for (let startIdx = 0; startIdx <= validRange.length - count; startIdx++) {
                         const periods = validRange.slice(startIdx, startIdx + count);
                         const ok = periods.every(p => canPlaceAt(cls, assign, day, p));
@@ -399,38 +479,13 @@ export class AlgorithmService {
                                     subjectId: assign.subject_id, teacherId: assign.teacher_id,
                                     roomId: undefined, isLocked: false });
                             });
+                            oppDaysUsed.add(day);
                             placed = true; break;
                         }
                     }
                 }
                 if (!placed) {
                     for (let k = 0; k < count; k++) oppositeSlots.push(assign);
-                }
-            }
-
-            // ── Step 2b: Place HDTN/GDDP in opposite session (individual periods) ──
-            for (const block of activitySubjects) {
-                const { assign, count } = block;
-                const oppStart = isMorningMain ? 6 : 1;
-                const oppEnd = isMorningMain ? 10 : 5;
-                let placedCount = 0;
-                const days = [2, 3, 4, 5, 6, 7];
-                this.shuffleArray(days);
-
-                for (const day of days) {
-                    if (placedCount >= count) break;
-                    for (let p = oppStart; p <= oppEnd; p++) {
-                        if (placedCount >= count) break;
-                        if (canPlaceAt(cls, assign, day, p)) {
-                            addSlot({ id: crypto.randomUUID(), day, period: p, classId: cls.id,
-                                subjectId: assign.subject_id, teacherId: assign.teacher_id,
-                                roomId: cls.fixed_room_id, isLocked: false });
-                            placedCount++;
-                        }
-                    }
-                }
-                for (let k = placedCount; k < count; k++) {
-                    oppositeSlots.push(assign);
                 }
             }
 
@@ -443,34 +498,35 @@ export class AlgorithmService {
                 const { assign, code } = unit;
                 let placed = false;
 
-                // Get days sorted: prefer days where this subject hasn't been placed yet (SC1 spread)
+                // Get days sorted: fill other days to 5 first, spread subject (SC1), Thursday last
                 const csKey = `${cls.id}-${assign.subject_id}`;
                 const usedDays = classSubjectDays.get(csKey) || new Set();
-                const allDays = [2, 3, 4, 5, 6, 7];
-                const freshDays = allDays.filter(d => !usedDays.has(d));
-                const staledays = allDays.filter(d => usedDays.has(d));
-                this.shuffleArray(freshDays);
+                const baseDays = [2, 3, 4, 6, 7];
+                const freshDays = baseDays.filter(d => !usedDays.has(d));
+                const staledays = baseDays.filter(d => usedDays.has(d));
+                // Prefer days with fewer total slots (fill to 5 before Thursday)
+                freshDays.sort((a, b) =>
+                    (classDayTotals.get(`${cls.id}-${a}`) || 0) - (classDayTotals.get(`${cls.id}-${b}`) || 0)
+                );
                 this.shuffleArray(staledays);
-                const sortedDays = [...freshDays, ...staledays];
-
-                // Prefer early periods for priority subjects (SC3)
-                const periodsToTry: number[][] = [];
-                for (let p = mainPeriodStart; p < mainPeriodEnd; p++) {
-                    periodsToTry.push([p, p + 1]);
-                }
-                if (unit.isPriority) {
-                    // Already sorted early first — good
-                } else {
-                    // Non-priority: try middle/late first to leave early slots for priority
-                    periodsToTry.reverse();
-                }
+                const sortedDays = [...freshDays, ...staledays, 5];
 
                 for (const day of sortedDays) {
                     if (placed) break;
+                    // On Thursday always try early periods first to prevent leading gaps;
+                    // on other days non-priority yields early slots to priority subjects
+                    const periodsToTry: number[][] = [];
+                    for (let p = mainPeriodStart; p < mainPeriodEnd; p++) {
+                        periodsToTry.push([p, p + 1]);
+                    }
+                    if (!unit.isPriority && day !== 5) {
+                        periodsToTry.reverse();
+                    }
                     for (const [p1, p2] of periodsToTry) {
                         if (!canPlaceAt(cls, assign, day, p1)) continue;
                         if (!canPlaceAt(cls, assign, day, p2)) continue;
-                        if (hasHeavyConflict(cls.id, day, p1, code)) continue;
+                        if (violatesBlockRule(cls.id, day, p1, code)) continue;
+                        if (violatesBlockRule(cls.id, day, p2, code)) continue;
 
                         addSlot({ id: crypto.randomUUID(), day, period: p1, classId: cls.id,
                             subjectId: assign.subject_id, teacherId: assign.teacher_id,
@@ -503,25 +559,30 @@ export class AlgorithmService {
                     }
                 }
 
-                // Sort days: prefer days with 0 slots, then 1 slot, avoid days with 2+ (SC1)
-                const allDays = [2, 3, 4, 5, 6, 7];
+                // Sort days: SC1-spread primary, fill-to-5 secondary, Thursday last
+                const allDays = [2, 3, 4, 6, 7];
                 allDays.sort((a, b) => {
                     const ca = daySlotCount.get(a) || 0;
                     const cb = daySlotCount.get(b) || 0;
-                    if (ca !== cb) return ca - cb; // Fewer slots first
-                    return Math.random() - 0.5; // Randomize within same count
+                    if (ca !== cb) return ca - cb; // primary: spread same subject (SC1)
+                    const ta = classDayTotals.get(`${cls.id}-${a}`) || 0;
+                    const tb = classDayTotals.get(`${cls.id}-${b}`) || 0;
+                    if (ta !== tb) return ta - tb; // secondary: fill to 5
+                    return Math.random() - 0.5;
                 });
+                allDays.push(5); // Thursday always last
 
                 for (const day of allDays) {
                     if (placed) break;
-                    // Period order: priority gets early, non-priority gets late
+                    // On Thursday always try early periods first to prevent leading gaps;
+                    // on other days non-priority yields early slots to priority subjects
                     const periods: number[] = [];
                     for (let p = mainPeriodStart; p <= mainPeriodEnd; p++) periods.push(p);
-                    if (!unit.isPriority) periods.reverse();
+                    if (!unit.isPriority && day !== 5) periods.reverse();
 
                     for (const period of periods) {
                         if (!canPlaceAt(cls, assign, day, period)) continue;
-                        if (hasHeavyConflict(cls.id, day, period, code)) continue;
+                        if (violatesBlockRule(cls.id, day, period, code)) continue;
 
                         addSlot({ id: crypto.randomUUID(), day, period, classId: cls.id,
                             subjectId: assign.subject_id, teacherId: assign.teacher_id,
@@ -535,12 +596,18 @@ export class AlgorithmService {
                 }
             }
 
-            // ── Step 5: Place remaining GDQP/GDTC opposite slots only ──
+            // ── Step 5: Place remaining GDQP/GDTC opposite slots — vẫn giữ 1 môn/ngày ──
             for (const assign of oppositeSlots) {
                 let placed = false;
                 const oppStart = isMorningMain ? 8 : 1;
                 const oppEnd = isMorningMain ? 10 : 3;
-                for (let day = 2; day <= 7 && !placed; day++) {
+                // Thử ngày chưa dùng trước, fallback sang ngày đã dùng nếu không còn lựa
+                const dayOrder = [2, 3, 4, 5, 6, 7].sort(
+                    (a, b) => (oppDaysUsed.has(a) ? 1 : 0) - (oppDaysUsed.has(b) ? 1 : 0)
+                );
+                for (const day of dayOrder) {
+                    if (placed) break;
+                    if (oppDaysUsed.has(day)) continue;
                     for (let p = oppStart; p <= oppEnd && !placed; p++) {
                         if (canPlaceAt(cls, assign, day, p)) {
                             const subject = subjectById.get(assign.subject_id);
@@ -548,6 +615,7 @@ export class AlgorithmService {
                             addSlot({ id: crypto.randomUUID(), day, period: p, classId: cls.id,
                                 subjectId: assign.subject_id, teacherId: assign.teacher_id,
                                 roomId: isYard ? undefined : cls.fixed_room_id, isLocked: false });
+                            oppDaysUsed.add(day);
                             placed = true;
                         }
                     }
@@ -558,6 +626,46 @@ export class AlgorithmService {
             }
         }
         this.logger.log(`Phase 2 done in ${Date.now() - startP2}ms. Total slots: ${solution.slots.length}`);
+        this.phase2c_CompactMainSession(solution, data);
+    }
+
+    // Post-process: compact main-session slots toward early periods (no holes at P1, P2…)
+    private phase2c_CompactMainSession(solution: any, data: any) {
+        const startC = Date.now();
+        let moved = 0;
+        for (const cls of data.classes) {
+            const mainStart = cls.main_session === 0 ? 1 : 6;
+            const mainEnd = cls.main_session === 0 ? 5 : 10;
+            for (let day = 2; day <= 7; day++) {
+                // Build occupied period map for this class-day
+                const slotsByPeriod = new Map<number, any>();
+                for (const s of solution.slots) {
+                    if (s.classId === cls.id && s.day === day) slotsByPeriod.set(s.period, s);
+                }
+                for (let target = mainStart; target <= mainEnd; target++) {
+                    if (slotsByPeriod.has(target)) continue;
+                    if (day === 5 && target === 5) continue;     // T5 P5 blocked
+                    if (day === 5 && target === 10) continue;    // T5 P10 blocked
+                    // Find a movable slot at later period in same main session
+                    for (let later = mainEnd; later > target; later--) {
+                        const cand = slotsByPeriod.get(later);
+                        if (!cand || cand.isLocked) continue;
+                        // Check teacher conflict at target
+                        if (this.constraintService.isTeacherBusy(cand.teacherId, day, target)) continue;
+                        const conflict = solution.slots.some((o: any) =>
+                            o !== cand && o.teacherId === cand.teacherId && o.day === day && o.period === target);
+                        if (conflict) continue;
+                        // Move
+                        slotsByPeriod.delete(later);
+                        cand.period = target;
+                        slotsByPeriod.set(target, cand);
+                        moved++;
+                        break;
+                    }
+                }
+            }
+        }
+        this.logger.log(`Phase 2c compact done in ${Date.now() - startC}ms. Moved ${moved} slots to fill early periods.`);
     }
 
     private async phase3_Genetic(solution: any, data: any) {
@@ -566,6 +674,7 @@ export class AlgorithmService {
         const slots = solution.slots;
         const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
         const blockCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
+        const thursdayHeavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
 
         // Build class session map: classId → 0 (morning) or 1 (afternoon)
         const classMainSession = new Map<string, number>();
@@ -625,24 +734,41 @@ export class AlgorithmService {
                 if (s.period <= 5 ? s.period > 3 : s.period < 8) cost += 150;
             }
             // HC: Non-academic subjects can be in opposite session; academic subjects must be in main session
-            const oppositeAllowed = ['GDTC', 'GDQP', 'HDTN', 'GDDP', 'CHAO_CO', 'SH_CUOI', 'SHCN'];
+            const oppositeAllowed = ['GDTC', 'GDQP', 'CHAO_CO', 'SH_CUOI', 'SHCN'];
             const isOppositeAllowed = oppositeAllowed.some(oc => code.includes(oc));
             if (!isOppositeAllowed) {
                 const mainSess = classMainSession.get(s.classId) ?? 0; // 0=morning, 1=afternoon
                 const slotSess = s.period <= 5 ? 0 : 1;
                 if (slotSess !== mainSess) cost += 500; // HARD: wrong session
             }
-            // HC6: Heavy subject in same session — HARD constraint weight
-            if (heavyCodes.some(h => code.includes(h))) {
-                const sess6 = s.period <= 5 ? 0 : 1;
-                const classSlots = classSlotsIdx.get(s.classId) || [];
-                for (const j of classSlots) {
-                    if (j === idx) continue;
+            // HC9: Block subjects (TOAN/VAN/ANH) — R1 total ≤3/session, R2 same code ≤2/session, R3 no 3 consecutive
+            if (blockCodes.some(b => code.includes(b))) {
+                const sess9 = s.period <= 5 ? 0 : 1;
+                const classSlotsB = classSlotsIdx.get(s.classId) || [];
+                let totalBlock = 0;
+                let sameCodeCount = 0;
+                const blockPeriods: number[] = [];
+                for (const j of classSlotsB) {
                     const o = slots[j];
                     if (o.day !== s.day) continue;
-                    if ((o.period <= 5 ? 0 : 1) !== sess6) continue;
+                    if ((o.period <= 5 ? 0 : 1) !== sess9) continue;
                     const oc = this.constraintService.getSubjectCode(o.subjectId);
-                    if (oc !== code && heavyCodes.some(h => oc.includes(h))) { cost += 500; break; }
+                    if (blockCodes.some(b => oc.includes(b))) {
+                        totalBlock++;
+                        blockPeriods.push(o.period);
+                        if (oc === code) sameCodeCount++;
+                    }
+                }
+                // R1: total > 3 in session — hard
+                if (totalBlock > 3) cost += 250;
+                // R2: same code > 2 in session — hard
+                if (sameCodeCount > 2) cost += 250;
+                // R3: 3+ consecutive block periods in session — hard
+                blockPeriods.sort((a, b) => a - b);
+                for (let k = 0; k <= blockPeriods.length - 3; k++) {
+                    if (blockPeriods[k+1] === blockPeriods[k] + 1 && blockPeriods[k+2] === blockPeriods[k] + 2) {
+                        cost += 250; break;
+                    }
                 }
             }
 
@@ -708,6 +834,8 @@ export class AlgorithmService {
             }
             if (hasGap) cost += 5;
 
+            // SC_T5: Toán/Văn/Anh nằm thứ 5 → penalty mềm
+            if (s.day === 5 && thursdayHeavyCodes.some(h => code.includes(h))) cost += 15;
             return cost;
         };
 
@@ -930,6 +1058,21 @@ export class AlgorithmService {
 
     private async saveToDatabase(semesterId: string, solution: any, data: any, log: (msg: string) => void) {
         try {
+            // Calculate week count from semester dates
+            const semester = await this.prisma.semester.findUnique({
+                where: { id: semesterId },
+                include: { academic_year: true }
+            });
+            let numWeeks = 18; // default
+            if (semester?.start_date && semester?.end_date) {
+                numWeeks = Math.max(1, Math.ceil(
+                    (semester.end_date.getTime() - semester.start_date.getTime()) / (7 * 24 * 3600 * 1000)
+                ));
+            } else if (semester?.academic_year?.weeks) {
+                numWeeks = Math.ceil(semester.academic_year.weeks / 2);
+            }
+            log(`[DEBUG] Expanding template across ${numWeeks} weeks`);
+
             const timetable = await this.prisma.generatedTimetable.create({
                 data: {
                     name: `TKB ${new Date().toLocaleString('vi-VN')}`,
@@ -939,23 +1082,30 @@ export class AlgorithmService {
             });
             log(`[DEBUG] Header Created: ${timetable.id}`);
 
-            const slotsToCreate = solution.slots.map((s: TimeSlot) => ({
-                timetable_id: timetable.id,
-                class_id: s.classId,
-                subject_id: s.subjectId,
-                teacher_id: s.teacherId,
-                room_id: s.roomId,
-                day: s.day,
-                period: s.period,
-                is_locked: s.isLocked || false,
-            }));
+            // Expand template slots × numWeeks
+            const slotsToCreate: any[] = [];
+            for (let week = 1; week <= numWeeks; week++) {
+                for (const s of solution.slots as TimeSlot[]) {
+                    slotsToCreate.push({
+                        timetable_id: timetable.id,
+                        class_id: s.classId,
+                        subject_id: s.subjectId,
+                        teacher_id: s.teacherId,
+                        room_id: s.roomId,
+                        day: s.day,
+                        period: s.period,
+                        week,
+                        is_locked: s.isLocked || false,
+                    });
+                }
+            }
 
             if (slotsToCreate.length > 0) {
                 const batch = await this.prisma.timetableSlot.createMany({
                     data: slotsToCreate,
                     skipDuplicates: true
                 });
-                log(`[DEBUG] Inserted ${batch.count} slots.`);
+                log(`[DEBUG] Inserted ${batch.count} slots (${solution.slots.length} × ${numWeeks} weeks).`);
             } else {
                 log('[DEBUG] No slots to insert!');
             }
@@ -975,29 +1125,27 @@ export class AlgorithmService {
         });
         if (!sourceSlot) throw new Error('Slot not found');
 
+        // Find swap target within same week
         const targetSlot = await this.prisma.timetableSlot.findFirst({
             where: {
                 timetable_id: sourceSlot.timetable_id,
                 class_id: sourceSlot.class_id,
                 day: newDay,
-                period: newPeriod
+                period: newPeriod,
+                week: sourceSlot.week
             }
         });
 
         if (targetSlot) {
-            // SWAP with sequential transaction to avoid unique constraint violations
             await this.prisma.$transaction(async (tx) => {
-                // 1. Move Source to temp position
                 await tx.timetableSlot.update({
                     where: { id: sourceSlot.id },
                     data: { day: 0, period: 0 }
                 });
-                // 2. Move Target to Source's original position
                 await tx.timetableSlot.update({
                     where: { id: targetSlot.id },
                     data: { day: sourceSlot.day, period: sourceSlot.period, is_locked: true }
                 });
-                // 3. Move Source to Target's original position
                 await tx.timetableSlot.update({
                     where: { id: sourceSlot.id },
                     data: { day: newDay, period: newPeriod, is_locked: true }
