@@ -31,7 +31,7 @@ export default function AdminDashboard() {
       <div className="bg-gradient-to-r from-blue-600 to-violet-600 rounded-2xl p-6 md:p-8 text-white shadow-xl shadow-blue-600/20">
         <div className="flex items-center gap-3 mb-2">
           <CalendarDays size={28} />
-          <h1 className="text-2xl md:text-3xl font-bold">TKB Pro</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">MiKiTimetable</h1>
         </div>
         <p className="text-blue-100 text-sm md:text-base">Hệ thống xếp thời khóa biểu tự động cho trường THPT</p>
       </div>

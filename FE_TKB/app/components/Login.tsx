@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '@/lib/api';
-import { CalendarDays, LogIn, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { LogIn, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
 import ThemeToggle from './ThemeToggle';
 
 interface LoginProps {
@@ -80,11 +81,9 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       <div className="relative w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 shadow-xl shadow-blue-500/25 mb-4">
-            <CalendarDays size={32} className="text-white" />
-          </div>
+          <Image src="/logo.png" alt="MiKiTimetable" width={72} height={72} className="rounded-2xl shadow-xl mb-4" />
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-            TKB Pro
+            MiKiTimetable
           </h1>
           <p className="text-[var(--text-muted)] text-sm mt-1">Hệ thống xếp thời khóa biểu tự động</p>
         </div>
@@ -190,7 +189,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         </div>
 
         <p className="text-center text-[var(--text-muted)] text-xs mt-6">
-          TKB Pro v1.0 &mdash; Hệ thống xếp thời khóa biểu tự động
+          MiKiTimetable v1.0 &mdash; Hệ thống xếp thời khóa biểu tự động
         </p>
       </div>
     </div>
