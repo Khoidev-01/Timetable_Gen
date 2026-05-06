@@ -22,17 +22,22 @@ export class UsersService {
     }
 
     async create(data: any) {
-        const { password, ...rest } = data;
+        const { password, teacher_profile_id, ...rest } = data;
         const hashedPassword = await bcrypt.hash(password || '123456', 10);
         return this.prisma.user.create({
-            data: { ...rest, password_hash: hashedPassword },
+            data: {
+                ...rest,
+                password_hash: hashedPassword,
+                ...(teacher_profile_id ? { teacher_profile_id } : {}),
+            },
             include: { teacher_profile: true }
         });
     }
 
     async update(id: string, data: any) {
-        const { password, ...rest } = data;
+        const { password, teacher_profile_id, ...rest } = data;
         const payload: any = { ...rest };
+        if (teacher_profile_id) payload.teacher_profile_id = teacher_profile_id;
         if (password) {
             payload.password_hash = await bcrypt.hash(password, 10);
         }

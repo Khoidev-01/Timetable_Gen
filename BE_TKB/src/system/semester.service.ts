@@ -35,9 +35,20 @@ export class SemesterService {
     }
 
     async setCurrent(id: string) {
-        // Unset current
         await this.prisma.semester.updateMany({ data: { is_current: false } });
-        // Set new current
         return this.prisma.semester.update({ where: { id }, data: { is_current: true } });
+    }
+
+    async delete(id: string) {
+        const sem = await this.prisma.semester.findUnique({
+            where: { id },
+            include: { _count: { select: { teaching_assignments: true, generated_timetables: true, busy_requests: true } } }
+        });
+        if (!sem) throw new NotFoundException('Không tìm thấy học kỳ');
+        if (sem._count.teaching_assignments > 0 || sem._count.generated_timetables > 0) {
+            throw new BadRequestException('Học kỳ đã có dữ liệu phân công hoặc TKB. Xóa dữ liệu đó trước.');
+        }
+        await this.prisma.teacherBusyRequest.deleteMany({ where: { semester_id: id } });
+        return this.prisma.semester.delete({ where: { id } });
     }
 }

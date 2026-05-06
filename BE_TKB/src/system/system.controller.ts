@@ -54,4 +54,9 @@ export class SystemController {
     setCurrentSemester(@Param('id') id: string) {
         return this.semesterService.setCurrent(id);
     }
+
+    @Delete('semesters/:id')
+    deleteSemester(@Param('id') id: string) {
+        return this.semesterService.delete(id);
+    }
 }

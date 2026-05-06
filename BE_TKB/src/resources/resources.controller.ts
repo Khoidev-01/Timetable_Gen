@@ -30,6 +30,7 @@ export class ResourcesController {
     @Get('rooms') getRooms() { return this.roomService.findAll(); }
     @Post('rooms') createRoom(@Body() body: any) { return this.roomService.create(body); }
     @Put('rooms/:id') updateRoom(@Param('id') id: string, @Body() body: any) { return this.roomService.update(+id, body); }
+    @Delete('rooms/all') deleteAllRooms() { return this.roomService.deleteAll(); }
     @Delete('rooms/:id') deleteRoom(@Param('id') id: string) { return this.roomService.delete(+id); }
 
     // SUBJECTS
