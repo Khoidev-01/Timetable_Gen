@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { toast } from '@/lib/toast';
 import ClassModal from '../../components/admin/ClassModal';
 import { API_URL } from '@/lib/api';
+import { TableSkeleton, EmptyState } from '../../components/ui/States';
+import { School, DoorOpen } from 'lucide-react';
 
 interface ClassData {
   id: string; name: string; grade_level: number; main_session: number;
@@ -15,7 +18,7 @@ const ROOM_TYPE_LABELS: Record<string, string> = {
   CLASSROOM: 'Phòng thường', LAB: 'Phòng thí nghiệm', SPECIALIZED: 'Phòng chuyên',
 };
 const ROOM_TYPE_COLORS: Record<string, string> = {
-  CLASSROOM: 'bg-blue-100 text-blue-700', LAB: 'bg-green-100 text-green-700', SPECIALIZED: 'bg-purple-100 text-purple-700',
+  CLASSROOM: 'bg-[var(--accent-soft)] text-[var(--accent)]', LAB: 'bg-green-100 text-green-700', SPECIALIZED: 'bg-[var(--accent-soft)] text-[var(--accent)]',
 };
 
 function RoomFormDialog({ room, onClose, onSave }: {
@@ -35,7 +38,7 @@ function RoomFormDialog({ room, onClose, onSave }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-sm rounded-xl bg-[var(--bg-surface)] shadow-xl p-6 space-y-4">
+      <div className="w-full max-w-sm rounded-[var(--radius-md)] bg-[var(--bg-surface)] shadow-xl p-6 space-y-4">
         <h3 className="text-lg font-bold text-[var(--text-primary)]">{room ? 'Sửa phòng học' : 'Thêm phòng học'}</h3>
         {err && <p className="text-sm text-red-600 bg-red-50 rounded p-2">{err}</p>}
         <form onSubmit={handle} className="space-y-3">
@@ -69,7 +72,7 @@ function RoomFormDialog({ room, onClose, onSave }: {
             <button type="button" onClick={onClose}
               className="px-4 py-2 rounded-lg bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] text-sm">Hủy</button>
             <button type="submit" disabled={saving}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+              className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-semibold hover:bg-[var(--accent-hover)] disabled:opacity-50">
               {saving ? 'Đang lưu...' : 'Lưu'}
             </button>
           </div>
@@ -100,14 +103,14 @@ export default function ClassesPage() {
   const handleDeleteClass = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa lớp này?')) return;
     const res = await fetch(`${API_URL}/organization/classes/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
-    if (res.ok) fetchClasses(); else alert('Xóa thất bại');
+    if (res.ok) fetchClasses(); else toast('Xóa thất bại', "error");
   };
 
   const handleDeleteAllClasses = async () => {
     if (!confirm(`Xóa TOÀN BỘ ${classes.length} lớp học cùng phân công và TKB liên quan?`)) return;
     if (!confirm('Xác nhận lần cuối — không thể hoàn tác!')) return;
     const res = await fetch(`${API_URL}/organization/classes/all`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
-    if (res.ok) fetchClasses(); else alert('Lỗi khi xóa');
+    if (res.ok) fetchClasses(); else toast('Lỗi khi xóa', "error");
   };
 
   const handleSaveClass = async (data: any) => {
@@ -142,14 +145,14 @@ export default function ClassesPage() {
   const handleDeleteRoom = async (id: number) => {
     if (!confirm('Xóa phòng học này?')) return;
     const res = await fetch(`${API_URL}/resources/rooms/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
-    if (res.ok) fetchRooms(); else alert('Xóa thất bại — phòng có thể đang được dùng trong TKB');
+    if (res.ok) fetchRooms(); else toast('Xóa thất bại. Phòng có thể đang được dùng trong TKB', "error");
   };
 
   const handleDeleteAllRooms = async () => {
     if (!confirm(`Xóa TOÀN BỘ ${rooms.length} phòng học?`)) return;
     if (!confirm('Xác nhận lần cuối — không thể hoàn tác!')) return;
     const res = await fetch(`${API_URL}/resources/rooms/all`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
-    if (res.ok) fetchRooms(); else alert('Lỗi khi xóa');
+    if (res.ok) fetchRooms(); else toast('Lỗi khi xóa', "error");
   };
 
   return (
@@ -161,7 +164,7 @@ export default function ClassesPage() {
         {([{ key: 'classes', label: `Lớp học (${classes.length})` }, { key: 'rooms', label: `Phòng học (${rooms.length})` }] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px
-              ${tab === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>
+              ${tab === t.key ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>
             {t.label}
           </button>
         ))}
@@ -176,12 +179,12 @@ export default function ClassesPage() {
               Xóa toàn bộ
             </button>
             <button onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+              className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2 rounded-lg text-sm">
               + Thêm lớp học
             </button>
           </div>
 
-          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden">
+          <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] border border-[var(--border-default)] overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead className="bg-[var(--bg-surface-hover)] text-[var(--text-primary)] font-semibold border-b border-[var(--border-default)]">
                 <tr>
@@ -195,11 +198,13 @@ export default function ClassesPage() {
               </thead>
               <tbody className="text-[var(--text-secondary)] divide-y divide-[var(--border-light)]">
                 {classLoading ? (
-                  <tr><td colSpan={6} className="text-center py-10 text-[var(--text-muted)]">Đang tải...</td></tr>
+                  <TableSkeleton rows={5} cols={6} />
                 ) : classes.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-10 text-[var(--text-muted)]">Chưa có lớp học nào</td></tr>
-                ) : classes.map(cls => (
-                  <tr key={cls.id} className="hover:bg-[var(--bg-surface-hover)]">
+                  <tr><td colSpan={6}>
+                    <EmptyState icon={<School size={22} strokeWidth={1.8} />} title="Chưa có lớp học nào" hint="Thêm lớp thủ công hoặc nhập từ Excel ở trang Phân công." />
+                  </td></tr>
+                ) : classes.map((cls, idx) => (
+                  <tr key={cls.id} style={{ animationDelay: `${idx * 30}ms` }} className="animate-rise hover:bg-[var(--bg-surface-hover)] transition-colors">
                     <td className="px-6 py-4 font-medium text-[var(--text-primary)]">{cls.name}</td>
                     <td className="px-6 py-4"><span className="bg-[var(--bg-surface-hover)] px-2 py-0.5 rounded text-xs font-bold">{cls.grade_level}</span></td>
                     <td className="px-6 py-4">
@@ -210,7 +215,7 @@ export default function ClassesPage() {
                     <td className="px-6 py-4">{cls.fixed_room?.name ?? <span className="text-[var(--text-muted)] italic">--</span>}</td>
                     <td className="px-6 py-4">{cls.homeroom_teacher?.full_name ?? <span className="text-[var(--text-muted)] italic">--</span>}</td>
                     <td className="px-6 py-4 text-right space-x-3">
-                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      <button className="text-[var(--accent)] hover:text-[var(--accent-hover)] text-sm font-medium"
                         onClick={() => { setEditingClass(cls); setIsModalOpen(true); }}>Sửa</button>
                       <button className="text-red-600 hover:text-red-800 text-sm font-medium"
                         onClick={() => handleDeleteClass(cls.id)}>Xóa</button>
@@ -234,12 +239,12 @@ export default function ClassesPage() {
               Xóa toàn bộ
             </button>
             <button onClick={() => { setRoomDialog('new' as any); setRoomDialogOpen(true); }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+              className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2 rounded-lg text-sm">
               + Thêm phòng học
             </button>
           </div>
 
-          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden">
+          <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] border border-[var(--border-default)] overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead className="bg-[var(--bg-surface-hover)] text-[var(--text-primary)] font-semibold border-b border-[var(--border-default)]">
                 <tr>
@@ -252,9 +257,11 @@ export default function ClassesPage() {
               </thead>
               <tbody className="text-[var(--text-secondary)] divide-y divide-[var(--border-light)]">
                 {roomLoading ? (
-                  <tr><td colSpan={5} className="text-center py-10 text-[var(--text-muted)]">Đang tải...</td></tr>
+                  <TableSkeleton rows={5} cols={5} />
                 ) : rooms.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center py-10 text-[var(--text-muted)]">Chưa có phòng học nào</td></tr>
+                  <tr><td colSpan={5}>
+                    <EmptyState icon={<DoorOpen size={22} strokeWidth={1.8} />} title="Chưa có phòng học nào" hint="Thêm phòng học để thuật toán phân bổ phòng cho các tiết." />
+                  </td></tr>
                 ) : rooms.map(r => (
                   <tr key={r.id} className="hover:bg-[var(--bg-surface-hover)]">
                     <td className="px-6 py-4 font-medium text-[var(--text-primary)]">{r.name}</td>
@@ -266,7 +273,7 @@ export default function ClassesPage() {
                     <td className="px-6 py-4 text-center">{r.floor}</td>
                     <td className="px-6 py-4 text-center">{r.capacity}</td>
                     <td className="px-6 py-4 text-right space-x-3">
-                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      <button className="text-[var(--accent)] hover:text-[var(--accent-hover)] text-sm font-medium"
                         onClick={() => { setRoomDialog(r); setRoomDialogOpen(true); }}>Sửa</button>
                       <button className="text-red-600 hover:text-red-800 text-sm font-medium"
                         onClick={() => handleDeleteRoom(r.id)}>Xóa</button>

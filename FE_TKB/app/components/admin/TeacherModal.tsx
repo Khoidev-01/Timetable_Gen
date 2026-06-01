@@ -59,27 +59,27 @@ export default function TeacherModal({ isOpen, onClose, onSave, initialData }: T
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-[var(--bg-surface)] rounded-xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="px-6 py-4 border-b border-[var(--border-light)] flex justify-between items-center bg-[var(--bg-surface-hover)]">
+            <div className="bg-[var(--bg-surface)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] w-full max-w-2xl overflow-hidden animate-rise">
+                <div className="px-6 py-4 border-b border-[var(--border-default)] flex justify-between items-center bg-[var(--bg-surface-hover)]">
                     <h3 className="text-lg font-bold text-[var(--text-primary)]">
-                        {initialData ? 'Update Teacher' : 'Add New Teacher'}
+                        {initialData ? 'Sửa giáo viên' : 'Thêm giáo viên'}
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-[var(--text-secondary)]">✕</button>
+                    <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Teacher Code</label>
-                            <input className="w-full px-3 py-2 border rounded-lg"
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Mã giáo viên</label>
+                            <input className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                                 value={formData.code}
                                 onChange={e => setFormData({ ...formData, code: e.target.value })}
-                                placeholder="Auto-generated if empty"
+                                placeholder="Tự sinh nếu để trống"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Full Name *</label>
-                            <input className="w-full px-3 py-2 border rounded-lg"
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Họ và tên *</label>
+                            <input className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                                 required
                                 value={formData.full_name}
                                 onChange={e => setFormData({ ...formData, full_name: e.target.value })}
@@ -90,14 +90,14 @@ export default function TeacherModal({ isOpen, onClose, onSave, initialData }: T
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Email</label>
-                            <input type="email" className="w-full px-3 py-2 border rounded-lg"
+                            <input type="email" className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                                 value={formData.email}
                                 onChange={e => setFormData({ ...formData, email: e.target.value })}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Phone Number</label>
-                            <input className="w-full px-3 py-2 border rounded-lg"
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Số điện thoại</label>
+                            <input className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                                 value={formData.phone}
                                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
                             />
@@ -105,18 +105,18 @@ export default function TeacherModal({ isOpen, onClose, onSave, initialData }: T
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Max Periods / Week</label>
-                        <input type="number" className="w-full px-3 py-2 border rounded-lg"
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Số tiết tối đa / tuần</label>
+                        <input type="number" className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                             value={formData.max_periods_per_week}
                             onChange={e => setFormData({ ...formData, max_periods_per_week: Number(e.target.value) })}
                         />
                     </div>
 
-                    <div className="pt-4 flex justify-end gap-3 border-t border-[var(--border-light)] mt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--bg-surface-hover)] rounded-lg hover:bg-gray-200 text-[var(--text-secondary)]">Cancel</button>
-                        <button type="submit" disabled={isLoading} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 text-white flex items-center gap-2">
-                            {isLoading && <span className="animate-spin text-white">⏳</span>}
-                            Save
+                    <div className="pt-4 flex justify-end gap-3 border-t border-[var(--border-default)] mt-4">
+                        <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--bg-surface-hover)] rounded-[var(--radius-md)] hover:bg-[var(--border-default)] text-[var(--text-secondary)] font-medium tactile">Hủy</button>
+                        <button type="submit" disabled={isLoading} className="px-4 py-2 bg-[var(--accent)] rounded-[var(--radius-md)] hover:bg-[var(--accent-hover)] text-[var(--accent-contrast)] font-semibold flex items-center gap-2 disabled:opacity-60 tactile">
+                            {isLoading && <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+                            {initialData ? "Lưu thay đổi" : "Tạo giáo viên"}
                         </button>
                     </div>
                 </form>

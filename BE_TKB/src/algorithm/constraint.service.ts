@@ -1,6 +1,13 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+    BLOCK_CODES,
+    PRIORITY_CODES,
+    isBlock,
+    isOutdoor,
+    isSessionExempt,
+} from './subject-rules';
 
 export interface TimeSlot {
     id?: string;
@@ -291,7 +298,6 @@ export class ConstraintService {
     // HC: Block subject rules — R1 total ≤3/session, R2 same code ≤2/session, R3 no 3 consecutive
     public checkBlockRules(classSchedule: Map<string, TimeSlot[]>): number {
         let violations = 0;
-        const blockCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
 
         for (const [_, slots] of classSchedule) {
             const daySessionByCode = new Map<string, Map<string, number>>();
@@ -299,7 +305,7 @@ export class ConstraintService {
 
             for (const s of slots) {
                 const subjCode = this.getSubjectCode(s.subjectId);
-                if (!blockCodes.some(b => subjCode.includes(b))) continue;
+                if (!isBlock(subjCode)) continue;
                 const session = s.period <= 5 ? 0 : 1;
                 const key = `${s.day}-${session}`;
                 if (!daySessionByCode.has(key)) daySessionByCode.set(key, new Map());
@@ -331,7 +337,7 @@ export class ConstraintService {
         let penalty = 0;
         for (const s of schedule) {
             const subjCode = this.getSubjectCode(s.subjectId);
-            if (subjCode.includes('GDTC') || subjCode.includes('GDQP') || subjCode.includes('QUOC_PHONG')) {
+            if (isOutdoor(subjCode)) {
                 // Morning: Must be 1, 2, 3. Afternoon: Must be 8, 9, 10
                 const isMorning = s.period <= 5;
                 if (isMorning) {
@@ -358,16 +364,14 @@ export class ConstraintService {
         return violations;
     }
 
-    // HC: Session Restriction — academic subjects must be in main session
+    // HC: Session Restriction — academic subjects must be in main session.
+    // Uses the shared isSessionExempt() so GDTC/GDQP/HDTN/GDDP + special
+    // activities are allowed in either session (matches getFitnessDetails HC8).
     public checkSessionRestriction(schedule: TimeSlot[]): number {
         let violations = 0;
-        // These subjects are allowed in opposite session
-        const oppositeAllowed = ['GDTC', 'GDQP'];
         for (const s of schedule) {
             const code = this.getSubjectCode(s.subjectId);
-            if (oppositeAllowed.some(oc => code.includes(oc))) continue;
-            // Skip special subjects (CHAO_CO, SH_CUOI_TUAN)
-            if (code.includes('CHAO_CO') || code.includes('SH_CUOI') || code.includes('SHCN')) continue;
+            if (isSessionExempt(code)) continue;
             const mainSess = this.classSessionMap.get(s.classId);
             if (mainSess === undefined) continue;
             const slotSess = s.period <= 5 ? 0 : 1;
@@ -379,12 +383,11 @@ export class ConstraintService {
     // SC03: Morning Priority
     private checkMorningPriority(classSchedule: Map<string, TimeSlot[]>): number {
         let penalty = 0;
-        const priority = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
 
         for (const [_, slots] of classSchedule) {
             for (const s of slots) {
                 const subjCode = this.getSubjectCode(s.subjectId);
-                if (priority.some(p => subjCode.includes(p))) {
+                if (PRIORITY_CODES.some(p => subjCode.includes(p))) {
                     if (s.period > 3 && s.period <= 5) {
                         penalty++;
                     }
@@ -397,7 +400,6 @@ export class ConstraintService {
     // SC04: Block 2 check — đếm số pair còn thiếu, bỏ qua slot "lẻ" tất yếu của môn số tiết lẻ
     private checkBlock2(classSchedule: Map<string, TimeSlot[]>): number {
         let penalty = 0;
-        const blocks = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
 
         for (const [_, slots] of classSchedule) {
             const subjectMap = new Map<number, TimeSlot[]>();
@@ -408,7 +410,7 @@ export class ConstraintService {
 
             for (const [subjId, subjSlots] of subjectMap) {
                 const code = this.getSubjectCode(subjId);
-                if (!blocks.some(b => code.includes(b))) continue;
+                if (!isBlock(code)) continue;
                 const n = subjSlots.length;
                 if (n <= 1) continue;
 
@@ -606,7 +608,7 @@ export class ConstraintService {
         let hc5 = 0;
         for (const s of schedule) {
             const subjCode = this.getSubjectCode(s.subjectId);
-            if (subjCode.includes('GDTC') || subjCode.includes('GDQP') || subjCode.includes('QUOC_PHONG')) {
+            if (isOutdoor(subjCode)) {
                 const isMorning = s.period <= 5;
                 const bad = isMorning ? s.period > 3 : s.period < 8;
                 if (bad) {
@@ -623,12 +625,11 @@ export class ConstraintService {
         // HC6: Block subject rules — R1 total ≤3/session, R2 same code ≤2/session, R3 no 3 consecutive
         const classSchedule = this.groupBy(schedule, 'classId');
         let hc6 = 0;
-        const blockCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
         for (const [classId, slots] of classSchedule) {
             const dayKeyMap = new Map<string, { byCode: Map<string, number>, periods: number[] }>();
             for (const s of slots) {
                 const subjCode = this.getSubjectCode(s.subjectId);
-                if (!blockCodes.some(b => subjCode.includes(b))) continue;
+                if (!isBlock(subjCode)) continue;
                 const session = s.period <= 5 ? 'Sáng' : 'Chiều';
                 const key = `${s.day}-${session}`;
                 if (!dayKeyMap.has(key)) dayKeyMap.set(key, { byCode: new Map(), periods: [] });
@@ -686,11 +687,9 @@ export class ConstraintService {
 
         // HC8: Session restriction — academic subjects must be in main session
         let hc8 = 0;
-        const oppositeAllowedSubjects = ['GDTC', 'GDQP', 'HDTN', 'GDDP'];
         for (const s of schedule) {
             const subjCode = this.getSubjectCode(s.subjectId);
-            if (oppositeAllowedSubjects.some(oc => subjCode.includes(oc))) continue;
-            if (subjCode.includes('CHAO_CO') || subjCode.includes('SH_CUOI') || subjCode.includes('SHCN')) continue;
+            if (isSessionExempt(subjCode)) continue;
             const mainSess = this.classSessionMap.get(s.classId);
             if (mainSess === undefined) continue;
             const slotSess = s.period <= 5 ? 0 : 1;

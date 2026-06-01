@@ -131,13 +131,13 @@ export default function MonthlyTimetableGrid({ schedule, viewMode, selectedEntit
         <div className="bg-[var(--bg-surface)] rounded-lg shadow-sm overflow-hidden border border-[var(--border-default)] select-none flex flex-col">
             {/* Header */}
             <div className="flex justify-between items-center p-4 border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)]">
-                <button onClick={prevMonth} className="px-3 py-1 rounded bg-[var(--bg-surface)] border border-[var(--border-default)] hover:bg-gray-100 dark:hover:bg-gray-800">
+                <button onClick={prevMonth} className="px-3 py-1 rounded bg-[var(--bg-surface)] border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)]">
                     &lt; Tháng trước
                 </button>
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">
                     Tháng {currentDate.getMonth() + 1} - Năm {currentDate.getFullYear()}
                 </h2>
-                <button onClick={nextMonth} className="px-3 py-1 rounded bg-[var(--bg-surface)] border border-[var(--border-default)] hover:bg-gray-100 dark:hover:bg-gray-800">
+                <button onClick={nextMonth} className="px-3 py-1 rounded bg-[var(--bg-surface)] border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)]">
                     Tháng sau &gt;
                 </button>
             </div>
@@ -160,7 +160,7 @@ export default function MonthlyTimetableGrid({ schedule, viewMode, selectedEntit
                         {weeks.map((week, wIndex) => (
                             <tr key={wIndex}>
                                 {week.map((dayObj, dIndex) => {
-                                    if (!dayObj) return <td key={dIndex} className="border border-[var(--border-default)] bg-gray-50/50 dark:bg-gray-900/20 p-2 min-h-[120px]"></td>;
+                                    if (!dayObj) return <td key={dIndex} className="border border-[var(--border-default)] bg-[var(--bg-surface-hover)]/40 p-2 min-h-[120px]"></td>;
                                     
                                     // Map jsDayOfWeek (1-6) to DB Day (2-7)
                                     // JS: 1(Mon) -> DB: 2

@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { toast } from '@/lib/toast';
 import { useEffect, useState } from 'react';
 import TeacherModal from '../../components/admin/TeacherModal';
 import { API_URL } from '@/lib/api';
+import { TableSkeleton, EmptyState } from '../../components/ui/States';
+import { GraduationCap } from 'lucide-react';
 
 interface Teacher {
   id: string;
@@ -57,10 +60,10 @@ export default function TeachersPage() {
       if (response.ok) {
         fetchTeachers();
       } else {
-        alert('Xóa giáo viên thất bại.');
+        toast('Xóa giáo viên thất bại.', "error");
       }
     } catch (error) {
-      alert('Lỗi kết nối khi xóa giáo viên.');
+      toast('Lỗi kết nối khi xóa giáo viên.', "error");
     }
   };
 
@@ -72,10 +75,10 @@ export default function TeachersPage() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) { fetchTeachers(); alert('Đã xóa toàn bộ giáo viên.'); }
-      else alert('Lỗi khi xóa toàn bộ.');
+      if (res.ok) { fetchTeachers(); toast('Đã xóa toàn bộ giáo viên.', "success"); }
+      else toast('Lỗi khi xóa toàn bộ.', "error");
     } catch (e) {
-      alert('Lỗi khi xóa toàn bộ.');
+      toast('Lỗi khi xóa toàn bộ.', "error");
     }
   };
 
@@ -102,7 +105,7 @@ export default function TeachersPage() {
 
       fetchTeachers();
     } catch (error: any) {
-      alert(error.message);
+      toast(error.message, "error");
       throw error;
     }
   };
@@ -126,7 +129,7 @@ export default function TeachersPage() {
             Nhập Excel tại Phân công
           </Link>
           <button
-            className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-white hover:bg-[var(--accent-hover)]"
             onClick={() => {
               setEditingTeacher(null);
               setIsModalOpen(true);
@@ -137,39 +140,39 @@ export default function TeachersPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-[var(--border-default)] bg-blue-50 px-4 py-3 text-sm text-blue-800">
+      <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">
         File Excel nhập tổng năm học được xử lý tại trang <b>Phân công chuyên môn</b> để đồng bộ
         giáo viên, lớp, tổ hợp và phân công cho cả hai học kỳ.
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-white shadow-sm">
+      <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)]">
         <table className="w-full border-collapse text-left">
-          <thead className="border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] font-semibold text-[var(--text-primary)]">
+          <thead className="border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             <tr>
-              <th className="px-6 py-4">Mã GV</th>
-              <th className="px-6 py-4">Họ và tên</th>
-              <th className="px-6 py-4">Chủ nhiệm</th>
-              <th className="px-6 py-4">Liên hệ</th>
-              <th className="px-6 py-4">Số tiết tối đa / tuần</th>
-              <th className="px-6 py-4 text-right">Thao tác</th>
+              <th className="px-6 py-3">Mã GV</th>
+              <th className="px-6 py-3">Họ và tên</th>
+              <th className="px-6 py-3">Chủ nhiệm</th>
+              <th className="px-6 py-3">Liên hệ</th>
+              <th className="px-6 py-3">Số tiết tối đa / tuần</th>
+              <th className="px-6 py-3 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-light)] text-[var(--text-secondary)]">
             {isLoading ? (
-              <tr>
-                <td colSpan={6} className="py-8 text-center">
-                  Đang tải dữ liệu...
-                </td>
-              </tr>
+              <TableSkeleton rows={6} cols={6} />
             ) : teachers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-8 text-center">
-                  Chưa có giáo viên nào
+                <td colSpan={6}>
+                  <EmptyState
+                    icon={<GraduationCap size={22} strokeWidth={1.8} />}
+                    title="Chưa có giáo viên nào"
+                    hint="Thêm thủ công hoặc nhập danh sách từ Excel ở trang Phân công."
+                  />
                 </td>
               </tr>
             ) : (
-              teachers.map((teacher) => (
-                <tr key={teacher.id} className="hover:bg-[var(--bg-surface-hover)]">
+              teachers.map((teacher, idx) => (
+                <tr key={teacher.id} style={{ animationDelay: `${idx * 30}ms` }} className="animate-rise hover:bg-[var(--bg-surface-hover)] transition-colors">
                   <td className="px-6 py-4 font-medium text-[var(--text-primary)]">{teacher.code}</td>
                   <td className="px-6 py-4 font-medium">{teacher.full_name}</td>
                   <td className="px-6 py-4 text-sm">
@@ -178,7 +181,7 @@ export default function TeachersPage() {
                         {teacher.homeroom_classes.map(c => c.name).join(', ')}
                       </span>
                     ) : (
-                      <span className="text-[var(--text-muted)]">—</span>
+                      <span className="text-[var(--text-muted)]">-</span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-sm">
@@ -186,13 +189,13 @@ export default function TeachersPage() {
                     <div className="text-[var(--text-muted)]">{teacher.email || '--'}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="rounded bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
+                    <span className="rounded bg-[var(--accent-soft)] px-2 py-1 text-xs font-bold text-[var(--accent)]">
                       {teacher.max_periods_per_week}
                     </span>
                   </td>
                   <td className="space-x-2 px-6 py-4 text-right">
                     <button
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      className="text-sm font-medium text-[var(--accent)] hover:text-[var(--accent-hover)]"
                       onClick={() => {
                         setEditingTeacher(teacher);
                         setIsModalOpen(true);

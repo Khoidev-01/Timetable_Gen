@@ -151,7 +151,7 @@ export default function TeacherFeedbackPage() {
           onChange={e => setSelectedSemesterId(e.target.value)}
         >
           {years.map(y => y.semesters.map(s => (
-            <option key={s.id} value={s.id}>{y.name} — {s.name}</option>
+            <option key={s.id} value={s.id}>{y.name} · {s.name}</option>
           )))}
         </select>
       </div>
@@ -173,7 +173,7 @@ export default function TeacherFeedbackPage() {
       </div>
 
       {/* Grid */}
-      <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden">
+      <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-sm select-none">
             <thead className="bg-[var(--bg-surface-hover)] text-xs font-bold text-[var(--text-secondary)] uppercase">
@@ -232,9 +232,9 @@ export default function TeacherFeedbackPage() {
 
       {/* Requests for current week */}
       {weekRequests.length > 0 && (
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden">
+        <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden">
           <div className="px-4 py-3 border-b border-[var(--border-default)]">
-            <h3 className="font-bold text-sm text-[var(--text-primary)]">Yêu cầu đã gửi — Tuần {selectedWeek}</h3>
+            <h3 className="font-bold text-sm text-[var(--text-primary)]">Yêu cầu đã gửi · Tuần {selectedWeek}</h3>
           </div>
           <table className="min-w-full text-sm">
             <thead className="bg-[var(--bg-surface-hover)] text-xs font-bold text-[var(--text-secondary)] uppercase">

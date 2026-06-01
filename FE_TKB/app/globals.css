@@ -1,49 +1,91 @@
 @import "tailwindcss";
 
+/*
+  MiKiTimetable design tokens.
+  Family: calm, data-dense, trust-first internal admin app.
+  One accent (indigo). Cool-gray (slate) neutrals only. Tinted shadows.
+*/
 @theme inline {
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-accent: #8b5cf6;
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+
+  --color-accent: #4f46e5;        /* indigo-600 — the single accent */
+  --color-accent-hover: #4338ca;  /* indigo-700 */
+  --color-accent-soft: #eef2ff;   /* indigo-50 */
 }
 
 /* ---- Light Mode (default) ---- */
 :root {
-  --bg-base: #f8fafc;
+  --bg-base: #f6f7f9;
   --bg-surface: #ffffff;
-  --bg-surface-hover: #f1f5f9;
-  --bg-sidebar: #0f172a;
-  --bg-sidebar-hover: #1e293b;
-  --bg-sidebar-active: #2563eb;
+  --bg-surface-hover: #f1f3f6;
+  --bg-sidebar: #0b1220;
+  --bg-sidebar-hover: #18213400;
+  --bg-sidebar-active: #4f46e5;
+
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #94a3b8;
-  --text-sidebar: #cbd5e1;
-  --border-default: #e2e8f0;
-  --border-light: #f1f5f9;
-  --shadow-color: rgba(0, 0, 0, 0.05);
+  --text-sidebar: #94a3b8;
+  --text-sidebar-active: #ffffff;
+
+  --border-default: #e5e8ec;
+  --border-light: #f1f3f6;
+
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: #eef2ff;
+  --accent-contrast: #ffffff;
+
+  /* tinted shadows — carry a slate hue, never pure black */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
+  --shadow-md: 0 2px 4px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+
+  /* radius scale — containers soft, controls medium */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --ring: 0 0 0 3px rgba(79, 70, 229, 0.35);
 }
 
 /* ---- Dark Mode ---- */
 .dark {
-  --bg-base: #0f172a;
-  --bg-surface: #1e293b;
-  --bg-surface-hover: #334155;
-  --bg-sidebar: #020617;
-  --bg-sidebar-hover: #0f172a;
-  --bg-sidebar-active: #2563eb;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-sidebar: #94a3b8;
-  --border-default: #334155;
-  --border-light: #1e293b;
-  --shadow-color: rgba(0, 0, 0, 0.3);
+  --bg-base: #0a0f1a;
+  --bg-surface: #121a2a;
+  --bg-surface-hover: #1c273b;
+  --bg-sidebar: #070b14;
+  --bg-sidebar-hover: #ffffff0a;
+  --bg-sidebar-active: #4f46e5;
+
+  --text-primary: #eef2f7;
+  --text-secondary: #97a4ba;
+  --text-muted: #5d6b82;
+  --text-sidebar: #8a99b3;
+  --text-sidebar-active: #ffffff;
+
+  --border-default: #24304a;
+  --border-light: #1a2336;
+
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-soft: #1e1b4b;
+  --accent-contrast: #ffffff;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+  --ring: 0 0 0 3px rgba(99, 102, 241, 0.45);
 }
 
 body {
   background: var(--bg-base);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   transition: background-color 0.2s, color 0.2s;
   color-scheme: light;
 }
@@ -53,30 +95,78 @@ body {
   color-scheme: dark;
 }
 
+/* Tabular figures everywhere numbers carry meaning */
+.tabular,
+table,
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Native select/option elements */
 .dark select option {
   background: var(--bg-surface);
   color: var(--text-primary);
 }
 
+/* ---- Accessible focus ring (keyboard only) ---- */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--radius-sm);
+}
+
+/* Smooth in-page anchor scroll */
+html {
+  scroll-behavior: smooth;
+}
+
 /* ---- Scrollbar ---- */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--text-muted);
-  border-radius: 3px;
+  background: var(--border-default);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  background: var(--text-muted);
 }
 
-/* ---- Utility ---- */
+/* ---- Utilities ---- */
 .writing-vertical {
   writing-mode: vertical-rl;
   text-orientation: mixed;
+}
+
+/* Subtle grain to break flat surfaces (fixed, never repaints on scroll) */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Staggered entry for lists/cards (respects reduced motion) */
+@media (prefers-reduced-motion: no-preference) {
+  .animate-rise {
+    animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* Reusable interactive primitives */
+.tactile {
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.18s, box-shadow 0.18s, border-color 0.18s;
+}
+.tactile:active {
+  transform: translateY(1px) scale(0.99);
 }

@@ -43,10 +43,15 @@ export default function Home() {
     }
   };
 
-  if (isChecking) return <div className="h-screen flex items-center justify-center bg-white text-gray-500">Checking session...</div>;
+  if (isChecking) return (
+    <div className="h-[100dvh] flex items-center justify-center bg-[var(--bg-base)] text-[var(--text-muted)]">
+      <span className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mr-3" />
+      Đang kiểm tra phiên đăng nhập...
+    </div>
+  );
 
   return (
-    <main className="h-screen w-screen overflow-hidden bg-white">
+    <main className="h-[100dvh] w-screen overflow-hidden bg-[var(--bg-base)]">
       <Login onLoginSuccess={handleLoginSuccess} />
     </main>
   );

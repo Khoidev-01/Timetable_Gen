@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import TimetableGrid from '@/app/components/admin/TimetableGrid';
 import { API_URL } from '@/lib/api';
+import { EmptyState } from '@/app/components/ui/States';
+import { CalendarDays } from 'lucide-react';
 
 export default function TeacherSchedulePage() {
   const [schedule, setSchedule] = useState<any[]>([]);
@@ -66,7 +68,7 @@ export default function TeacherSchedulePage() {
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
     const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-    return `${fmt(start)} – ${fmt(end)}`;
+    return `${fmt(start)} - ${fmt(end)}`;
   };
 
   const mySlots = schedule.filter(s => s.teacherId === myTeacherId);
@@ -74,7 +76,7 @@ export default function TeacherSchedulePage() {
   return (
     <div className="space-y-4 h-full flex flex-col">
       {/* Controls */}
-      <div className="flex flex-wrap items-center gap-3 bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-default)]">
+      <div className="flex flex-wrap items-center gap-3 bg-[var(--bg-surface)] p-4 rounded-[var(--radius-md)] border border-[var(--border-default)]">
         <h1 className="text-xl font-bold text-[var(--text-primary)] mr-2">Thời khóa biểu của tôi</h1>
 
         <select
@@ -82,7 +84,7 @@ export default function TeacherSchedulePage() {
           value={selectedSemesterId}
           onChange={e => setSelectedSemesterId(e.target.value)}
         >
-          {semesters.map(s => <option key={s.id} value={s.id}>{s.yearName} — {s.name}</option>)}
+          {semesters.map(s => <option key={s.id} value={s.id}>{s.yearName} · {s.name}</option>)}
         </select>
 
         {/* Week Picker */}
@@ -102,7 +104,7 @@ export default function TeacherSchedulePage() {
       </div>
 
       {/* Grid */}
-      <div className="flex-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden relative">
+      <div className="flex-1 bg-[var(--bg-surface)] rounded-[var(--radius-md)] border border-[var(--border-default)] overflow-hidden relative">
         {loading && (
           <div className="absolute inset-0 bg-[var(--bg-surface)]/60 z-10 flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
@@ -110,9 +112,11 @@ export default function TeacherSchedulePage() {
         )}
 
         {!loading && mySlots.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-[var(--text-muted)]">
-            {schedule.length === 0 ? 'Chưa có thời khóa biểu' : 'Tuần này không có tiết dạy'}
-          </div>
+          <EmptyState
+            icon={<CalendarDays size={22} strokeWidth={1.8} />}
+            title={schedule.length === 0 ? 'Chưa có thời khóa biểu' : 'Tuần này không có tiết dạy'}
+            hint={schedule.length === 0 ? 'Quản trị viên chưa xếp lịch cho học kỳ này.' : 'Chọn tuần khác để xem lịch dạy của bạn.'}
+          />
         ) : (
           <TimetableGrid
             schedule={schedule}

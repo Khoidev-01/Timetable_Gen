@@ -117,7 +117,7 @@ export default function BusySchedulePage() {
           onChange={e => setSelectedSemesterId(e.target.value)}
         >
           {years.map(y => y.semesters.map(s => (
-            <option key={s.id} value={s.id}>{y.name} — {s.name}</option>
+            <option key={s.id} value={s.id}>{y.name} · {s.name}</option>
           )))}
         </select>
       </div>
@@ -131,7 +131,7 @@ export default function BusySchedulePage() {
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px
-              ${tab === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>
+              ${tab === t.key ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>
             {t.label}
             {t.key === 'conflicts' && conflicts.length > 0 && (
               <span className="ml-1.5 text-[10px] bg-red-500 text-white rounded-full px-1.5 py-0.5">{conflicts.length}</span>
@@ -146,7 +146,7 @@ export default function BusySchedulePage() {
         <>
           {/* ── PENDING & DONE ── */}
           {(tab === 'pending' || tab === 'done') && (
-            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden">
+            <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden">
               {requests.length === 0 ? (
                 <div className="py-16 text-center text-[var(--text-muted)]">Không có yêu cầu nào</div>
               ) : (
@@ -208,11 +208,11 @@ export default function BusySchedulePage() {
           {tab === 'conflicts' && (
             <div className="space-y-4">
               {conflicts.length === 0 ? (
-                <div className="rounded-xl border border-green-200 bg-green-50 py-16 text-center text-green-700 font-semibold">
+                <div className="rounded-[var(--radius-md)] border border-green-200 bg-green-50 py-16 text-center text-green-700 font-semibold">
                   ✅ Không có xung đột nào giữa lịch bận và thời khóa biểu
                 </div>
               ) : conflicts.map((c, i) => (
-                <div key={i} className="rounded-xl border border-red-200 bg-[var(--bg-surface)] p-5 space-y-3">
+                <div key={i} className="rounded-[var(--radius-md)] border border-red-200 bg-[var(--bg-surface)] p-5 space-y-3">
                   <div className="flex flex-wrap items-start gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export default function BusySchedulePage() {
                         <span className="text-xs text-[var(--text-muted)]">({c.teacher.code})</span>
                       </div>
                       <div className="mt-1 text-sm text-[var(--text-secondary)]">
-                        Bận <strong>Tuần {c.weekNumber}</strong> — {DAY_LABELS[c.dayOfWeek]} Tiết {c.period}
+                        Bận <strong>Tuần {c.weekNumber}</strong> · {DAY_LABELS[c.dayOfWeek]} Tiết {c.period}
                         {' '}→ Đang dạy <strong>{c.subjectName}</strong> lớp <strong>{c.className}</strong>
                       </div>
                       <div className="text-xs text-[var(--text-muted)] mt-0.5">Lý do: {c.reason}</div>
@@ -238,7 +238,7 @@ export default function BusySchedulePage() {
                             <button key={s.id}
                               onClick={() => resolve(c.timetableSlotId, s.id, key)}
                               disabled={resolving === key}
-                              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-300 bg-blue-50 hover:bg-blue-100 text-sm font-semibold text-blue-700 disabled:opacity-50 transition-colors">
+                              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent-soft)] hover:bg-[var(--accent-soft)] text-sm font-semibold text-[var(--accent)] disabled:opacity-50 transition-colors">
                               {resolving === key ? '...' : `✓ ${s.full_name} (${s.code})`}
                             </button>
                           );
@@ -247,7 +247,7 @@ export default function BusySchedulePage() {
                     </div>
                   ) : (
                     <div className="text-xs text-red-500 font-semibold">
-                      ❌ Không tìm được GV thay thế phù hợp — cần xử lý thủ công
+                      ❌ Không tìm được GV thay thế phù hợp. Cần xử lý thủ công
                     </div>
                   )}
                 </div>
@@ -260,7 +260,7 @@ export default function BusySchedulePage() {
       {/* Reject Dialog */}
       {rejectDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-[var(--bg-surface)] shadow-xl p-6 space-y-4">
+          <div className="w-full max-w-md rounded-[var(--radius-md)] bg-[var(--bg-surface)] shadow-xl p-6 space-y-4">
             <h3 className="text-lg font-bold text-[var(--text-primary)]">Từ chối yêu cầu</h3>
             <textarea
               className="w-full rounded-lg border border-[var(--border-default)] p-3 text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] h-24 resize-none"

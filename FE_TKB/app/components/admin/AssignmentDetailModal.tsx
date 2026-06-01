@@ -1,5 +1,6 @@
 ﻿'use client';
 import { useState, useEffect } from 'react';
+import { toast } from '@/lib/toast';
 import { API_URL } from '@/lib/api';
 
 interface AssignmentDetailModalProps {
@@ -100,9 +101,9 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
                 setNewAssignment({ mon_hoc_id: '', lop_hoc_id: '', so_tiet_tuan: 2 });
                 setEditingAssignmentId(null);
             } else {
-                alert('Lỗi lưu phân công');
+                toast('Lỗi lưu phân công', "error");
             }
-        } catch (e) { alert('Lỗi hệ thống'); }
+        } catch (e) { toast('Lỗi hệ thống', "error"); }
     };
 
     const startEditAssignment = (item: any) => {
@@ -129,7 +130,7 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
             });
             fetchDetails();
             onRefresh();
-        } catch (e) { alert('Lỗi xóa'); }
+        } catch (e) { toast('Lỗi xóa', "error"); }
     };
 
     const handleSaveDuty = async () => {
@@ -164,9 +165,9 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
                 setNewDuty({ ten_nhiem_vu: '', so_tiet_quy_doi: 0 });
                 setEditingDutyId(null);
             } else {
-                alert('Lỗi lưu kiêm nhiệm');
+                toast('Lỗi lưu kiêm nhiệm', "error");
             }
-        } catch (e) { alert('Lỗi hệ thống'); }
+        } catch (e) { toast('Lỗi hệ thống', "error"); }
     };
 
     const startEditDuty = (item: any) => {
@@ -192,17 +193,17 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
             });
             fetchDetails();
             onRefresh();
-        } catch (e) { alert('Lỗi xóa'); }
+        } catch (e) { toast('Lỗi xóa', "error"); }
     };
 
     if (!isOpen || !teacher) return null;
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-[var(--bg-surface)] rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+            <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
                 <div className="px-6 py-4 border-b border-[var(--border-light)] flex justify-between items-center bg-[var(--bg-surface-hover)] sticky top-0">
                     <h3 className="text-xl font-bold text-[var(--text-primary)]">
-                        Phân công: <span className="text-blue-600">{teacher.ho_ten}</span>
+                        Phân công: <span className="text-[var(--accent)]">{teacher.ho_ten}</span>
                     </h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-[var(--text-secondary)] text-2xl">&times;</button>
                 </div>
@@ -233,7 +234,7 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
                                 <input type="number" className="w-full p-2 border rounded" value={newAssignment.so_tiet_tuan} onChange={e => setNewAssignment({ ...newAssignment, so_tiet_tuan: Number(e.target.value) })} />
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={handleSaveAssignment} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 flex-1">
+                                <button onClick={handleSaveAssignment} className="bg-[var(--accent)] text-white p-2 rounded hover:bg-[var(--accent-hover)] flex-1">
                                     {editingAssignmentId ? 'Lưu' : 'Thêm'}
                                 </button>
                                 {editingAssignmentId && (
@@ -261,7 +262,7 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
                                             <td className="p-2 border">{a.lop_hoc?.ten_lop}</td>
                                             <td className="p-2 border text-center">{a.so_tiet_tuan}</td>
                                             <td className="p-2 border text-right space-x-2">
-                                                <button onClick={() => startEditAssignment(a)} className="text-blue-500 hover:text-blue-700">Sửa</button>
+                                                <button onClick={() => startEditAssignment(a)} className="text-[var(--accent)] hover:text-[var(--accent-hover)]">Sửa</button>
                                                 <button onClick={() => handleDeleteAssignment(a.id)} className="text-red-500 hover:text-red-700">Xóa</button>
                                             </td>
                                         </tr>
@@ -311,7 +312,7 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
                                             <td className="p-2 border">{d.ten_nhiem_vu}</td>
                                             <td className="p-2 border text-center">{d.so_tiet_quy_doi}</td>
                                             <td className="p-2 border text-right space-x-2">
-                                                <button onClick={() => startEditDuty(d)} className="text-blue-500 hover:text-blue-700">Sửa</button>
+                                                <button onClick={() => startEditDuty(d)} className="text-[var(--accent)] hover:text-[var(--accent-hover)]">Sửa</button>
                                                 <button onClick={() => handleDeleteDuty(d.id)} className="text-red-500 hover:text-red-700">Xóa</button>
                                             </td>
                                         </tr>
@@ -322,7 +323,7 @@ export default function AssignmentDetailModal({ isOpen, onClose, teacher, onRefr
                 </div>
 
                 <div className="p-4 border-t border-[var(--border-light)] bg-[var(--bg-surface-hover)] flex justify-end">
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-[var(--text-primary)] font-medium">Đóng</button>
+                    <button onClick={onClose} className="px-6 py-2 bg-[var(--bg-surface-hover)] rounded-[var(--radius-md)] hover:bg-[var(--border-default)] text-[var(--text-primary)] font-medium">Đóng</button>
                 </div>
             </div>
         </div>

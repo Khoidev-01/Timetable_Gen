@@ -1,14 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, School, BookOpen, DoorOpen, CalendarDays, Activity, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Users, School, BookOpen, DoorOpen, CalendarDays, ClipboardList, Clock, ArrowRight } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 
 const statConfig = [
-  { key: 'teachers', label: 'Giáo viên', icon: Users, gradient: 'from-blue-500 to-blue-600' },
-  { key: 'classes', label: 'Lớp học', icon: School, gradient: 'from-emerald-500 to-emerald-600' },
-  { key: 'subjects', label: 'Môn học', icon: BookOpen, gradient: 'from-violet-500 to-violet-600' },
-  { key: 'rooms', label: 'Phòng học', icon: DoorOpen, gradient: 'from-amber-500 to-amber-600' },
+  { key: 'teachers', label: 'Giáo viên', icon: Users, href: '/admin/teachers' },
+  { key: 'classes', label: 'Lớp học', icon: School, href: '/admin/classes' },
+  { key: 'subjects', label: 'Môn học', icon: BookOpen, href: '/admin/subjects' },
+  { key: 'rooms', label: 'Phòng học', icon: DoorOpen, href: '/admin/configuration' },
+];
+
+const quickActions = [
+  { label: 'Phân công giảng dạy', desc: 'Nhập phân công hoặc import Excel', icon: ClipboardList, href: '/admin/assignments' },
+  { label: 'Xếp thời khóa biểu', desc: 'Chạy thuật toán và chỉnh tay', icon: CalendarDays, href: '/admin/timetable' },
+  { label: 'Lịch bận giáo viên', desc: 'Duyệt yêu cầu nghỉ của giáo viên', icon: Clock, href: '/admin/busy-schedule' },
 ];
 
 export default function AdminDashboard() {
@@ -26,69 +33,73 @@ export default function AdminDashboard() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1400px]">
       {/* Welcome banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-violet-600 rounded-2xl p-6 md:p-8 text-white shadow-xl shadow-blue-600/20">
-        <div className="flex items-center gap-3 mb-2">
-          <CalendarDays size={28} />
-          <h1 className="text-2xl md:text-3xl font-bold">MiKiTimetable</h1>
+      <div className="relative overflow-hidden rounded-[var(--radius-lg)] bg-[var(--bg-sidebar)] p-6 md:p-8 text-white shadow-[var(--shadow-lg)]">
+        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--accent)]/25 blur-3xl" aria-hidden />
+        <div className="relative flex items-center gap-3 mb-2">
+          <CalendarDays size={28} strokeWidth={1.8} />
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">MiKiTimetable</h1>
         </div>
-        <p className="text-blue-100 text-sm md:text-base">Hệ thống xếp thời khóa biểu tự động cho trường THPT</p>
+        <p className="relative text-white/70 text-sm md:text-base">
+          Hệ thống xếp thời khóa biểu tự động cho trường THPT
+        </p>
       </div>
 
-      {/* Stat cards */}
+      {/* Stat cards — single accent, tabular numbers */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statConfig.map((stat, idx) => {
           const Icon = stat.icon;
           const value = stats[stat.key] ?? 0;
           return (
-            <div key={idx} className="bg-[var(--bg-surface)] p-5 rounded-xl border border-[var(--border-default)]
-              hover:shadow-lg transition-all group">
-              <div className="flex items-center justify-between mb-3">
-                <div className={`p-2.5 rounded-xl bg-gradient-to-br ${stat.gradient} shadow-lg`}>
-                  <Icon size={20} className="text-white" />
+            <Link
+              key={stat.key}
+              href={stat.href}
+              style={{ animationDelay: `${idx * 60}ms` }}
+              className="tactile animate-rise group bg-[var(--bg-surface)] p-5 rounded-[var(--radius-md)] border border-[var(--border-default)]
+                hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)]"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2.5 rounded-[var(--radius-sm)] bg-[var(--accent-soft)] text-[var(--accent)]">
+                  <Icon size={20} strokeWidth={1.8} />
                 </div>
+                <ArrowRight size={16} className="text-[var(--text-muted)] opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all" />
               </div>
-              <p className="text-2xl md:text-3xl font-bold text-[var(--text-primary)]">
-                {loading ? <Loader2 size={24} className="animate-spin text-gray-400" /> : value}
+              <p className="font-mono text-3xl font-semibold text-[var(--text-primary)] tabular-nums">
+                {loading ? <span className="inline-block h-8 w-12 rounded bg-[var(--bg-surface-hover)] animate-pulse" /> : value}
               </p>
-              <p className="text-sm text-[var(--text-muted)] mt-0.5">{stat.label}</p>
-            </div>
+              <p className="text-sm text-[var(--text-muted)] mt-1">{stat.label}</p>
+            </Link>
           );
         })}
       </div>
 
-      {/* Bottom panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-[var(--bg-surface)] p-6 rounded-xl border border-[var(--border-default)]">
-          <div className="flex items-center gap-2 mb-4">
-            <CalendarDays size={18} className="text-blue-500" />
-            <h3 className="font-semibold text-[var(--text-primary)]">Trạng thái Xếp TKB</h3>
-          </div>
-          <div className="flex items-center justify-center h-48 text-[var(--text-muted)] text-sm">
-            Chưa có dữ liệu xếp lịch
-          </div>
-        </div>
-
-        <div className="bg-[var(--bg-surface)] p-6 rounded-xl border border-[var(--border-default)]">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity size={18} className="text-emerald-500" />
-            <h3 className="font-semibold text-[var(--text-primary)]">Hoạt động gần đây</h3>
-          </div>
-          <ul className="space-y-3">
-            <li className="flex items-center text-sm text-[var(--text-secondary)]">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full mr-3 shrink-0" />
-              Đã cập nhật cấu hình ràng buộc
-            </li>
-            <li className="flex items-center text-sm text-[var(--text-secondary)]">
-              <span className="w-2 h-2 bg-blue-500 rounded-full mr-3 shrink-0" />
-              Giáo viên đã gửi yêu cầu bận
-            </li>
-            <li className="flex items-center text-sm text-[var(--text-secondary)]">
-              <span className="w-2 h-2 bg-violet-500 rounded-full mr-3 shrink-0" />
-              Hệ thống sẵn sàng xếp lịch
-            </li>
-          </ul>
+      {/* Quick actions — real navigation, no fake activity feed */}
+      <div>
+        <h2 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">Tác vụ nhanh</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="tactile group flex items-start gap-4 bg-[var(--bg-surface)] p-5 rounded-[var(--radius-md)]
+                  border border-[var(--border-default)] hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)]"
+              >
+                <div className="p-2.5 rounded-[var(--radius-sm)] bg-[var(--accent-soft)] text-[var(--accent)] shrink-0">
+                  <Icon size={20} strokeWidth={1.8} />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+                    {action.label}
+                    <ArrowRight size={14} className="text-[var(--accent)] opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all" />
+                  </p>
+                  <p className="text-sm text-[var(--text-muted)] mt-0.5">{action.desc}</p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 ﻿
 'use client';
 import { useState, useEffect } from 'react';
+import { toast } from '@/lib/toast';
 import { API_URL } from '@/lib/api';
 
 interface AccountModalProps {
@@ -46,7 +47,7 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
             await onSave(formData);
             onClose();
         } catch (error) {
-            alert('Lỗi khi lưu dữ liệu');
+            toast('Lỗi khi lưu dữ liệu', "error");
         } finally {
             setIsLoading(false);
         }
@@ -54,7 +55,7 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-[var(--bg-surface)] rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
                 <div className="px-6 py-4 border-b border-[var(--border-light)] flex justify-between items-center bg-[var(--bg-surface-hover)]">
                     <h3 className="text-lg font-bold text-[var(--text-primary)]">
                         {initialData ? 'Cập nhật tài khoản' : 'Thêm tài khoản mới'}
@@ -69,7 +70,7 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
                             type="text"
                             required
                             disabled={!!initialData} // Username usually immutable
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-[var(--bg-surface-hover)] disabled:text-[var(--text-muted)]"
+                            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all disabled:opacity-60"
                             value={formData.username}
                             onChange={e => setFormData({ ...formData, username: e.target.value })}
                         />
@@ -82,7 +83,7 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
                         <input
                             type="password"
                             required={!initialData}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                             value={formData.password}
                             onChange={e => setFormData({ ...formData, password: e.target.value })}
                         />
@@ -91,7 +92,7 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
                     <div>
                         <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Vai trò</label>
                         <select
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                             value={formData.role}
                             onChange={e => setFormData({ ...formData, role: e.target.value })}
                         >
@@ -114,14 +115,14 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-[var(--text-secondary)] bg-[var(--bg-surface-hover)] hover:bg-gray-200 rounded-lg"
+                            className="px-4 py-2 text-[var(--text-secondary)] bg-[var(--bg-surface-hover)] hover:bg-[var(--border-default)] rounded-lg"
                         >
                             Hủy
                         </button>
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2"
+                            className="px-4 py-2 text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-lg flex items-center gap-2"
                         >
                             {isLoading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                             Lưu
@@ -162,7 +163,7 @@ function TeacherSelect({ value, onChange }: { value: string, onChange: (val: str
 
     return (
         <select
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
             value={value}
             onChange={e => onChange(e.target.value)}
         >

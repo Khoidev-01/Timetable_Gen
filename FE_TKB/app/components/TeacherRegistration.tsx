@@ -13,6 +13,7 @@ export default function TeacherRegistration({ teacherId, onClose }: TeacherRegis
     const [busySessions, setBusySessions] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
     useEffect(() => {
         const fetchTeacher = async () => {
@@ -69,19 +70,21 @@ export default function TeacherRegistration({ teacherId, onClose }: TeacherRegis
 
     const handleSave = async () => {
         setIsSaving(true);
+        setMessage(null);
         try {
-            await fetch(`${API_URL}/giao-vien/${teacherId}`, {
+            const res = await fetch(`${API_URL}/giao-vien/${teacherId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ngay_nghi_dang_ky: busySessions
                 })
             });
-            alert("Đã lưu nguyện vọng thành công!");
-            onClose();
+            if (!res.ok) throw new Error('save failed');
+            setMessage({ text: 'Đã lưu nguyện vọng thành công.', ok: true });
+            setTimeout(onClose, 800);
         } catch (error) {
             console.error("Save failed:", error);
-            alert("Lưu thất bại.");
+            setMessage({ text: 'Lưu thất bại. Vui lòng thử lại.', ok: false });
         } finally {
             setIsSaving(false);
         }
@@ -98,13 +101,13 @@ export default function TeacherRegistration({ teacherId, onClose }: TeacherRegis
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-slate-50 shrink-0">
+            <div className="bg-[var(--bg-surface)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="px-6 py-4 border-b border-[var(--border-default)] flex justify-between items-center bg-[var(--bg-surface-hover)] shrink-0">
                     <div>
-                        <h3 className="font-bold text-slate-700 text-lg">Đăng Ký Nguyện Vọng</h3>
-                        <p className="text-sm text-slate-500">Giáo viên: <span className="font-semibold text-blue-600">{teacher.ho_ten}</span></p>
+                        <h3 className="font-bold text-[var(--text-primary)] text-lg">Đăng Ký Nguyện Vọng</h3>
+                        <p className="text-sm text-[var(--text-secondary)]">Giáo viên: <span className="font-semibold text-emerald-600">{teacher.ho_ten}</span></p>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                    <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
                             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
                         </svg>
@@ -112,23 +115,23 @@ export default function TeacherRegistration({ teacherId, onClose }: TeacherRegis
                 </div>
 
                 <div className="p-6 overflow-y-auto">
-                    <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm border border-blue-100">
-                        <strong>Hướng dẫn:</strong> Bấm vào các ô để đánh dấu là <span className="font-bold text-red-500">BẬN (Không dạy)</span>. Các ô trắng là có thể dạy bình thường.
+                    <div className="mb-4 p-3 bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] rounded-[var(--radius-md)] text-sm border border-[var(--border-default)]">
+                        <strong className="text-[var(--text-primary)]">Hướng dẫn:</strong> Bấm vào các ô để đánh dấu là <span className="font-bold text-red-500">BẬN (Không dạy)</span>. Các ô trống là có thể dạy bình thường.
                     </div>
 
                     <table className="w-full border-collapse">
                         <thead>
                             <tr>
-                                <th className="p-3 border border-gray-200 bg-slate-50 text-slate-600">Buổi / Thứ</th>
+                                <th className="p-3 border border-[var(--border-default)] bg-[var(--bg-surface-hover)] text-[var(--text-secondary)]">Buổi / Thứ</th>
                                 {days.map(day => (
-                                    <th key={day} className="p-3 border border-gray-200 bg-slate-50 text-slate-600">Thứ {day}</th>
+                                    <th key={day} className="p-3 border border-[var(--border-default)] bg-[var(--bg-surface-hover)] text-[var(--text-secondary)]">Thứ {day}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {sessions.map(sess => (
                                 <tr key={sess.id}>
-                                    <td className="p-3 border border-gray-200 font-bold text-center text-slate-700 bg-slate-50">
+                                    <td className="p-3 border border-[var(--border-default)] font-bold text-center text-[var(--text-primary)] bg-[var(--bg-surface-hover)]">
                                         {sess.label}
                                     </td>
                                     {days.map(day => {
@@ -139,8 +142,8 @@ export default function TeacherRegistration({ teacherId, onClose }: TeacherRegis
                                                 key={key}
                                                 onClick={() => toggleSession(day, sess.id)}
                                                 className={`
-                                                    p-3 border border-gray-200 text-center cursor-pointer transition-all hover:opacity-80
-                                                    ${isBusy ? 'bg-red-500 text-white font-bold' : 'bg-white hover:bg-slate-50'}
+                                                    p-3 border border-[var(--border-default)] text-center cursor-pointer transition-all hover:opacity-80
+                                                    ${isBusy ? 'bg-red-500 text-white font-bold' : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)]'}
                                                 `}
                                             >
                                                 {isBusy ? 'BẬN' : ''}
@@ -153,10 +156,16 @@ export default function TeacherRegistration({ teacherId, onClose }: TeacherRegis
                     </table>
                 </div>
 
-                <div className="px-6 py-4 bg-slate-50 border-t border-gray-100 flex justify-end gap-2 shrink-0">
+                {message && (
+                    <div className={`mx-6 mb-1 rounded-[var(--radius-sm)] px-4 py-2.5 text-sm font-medium border
+                        ${message.ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                        {message.text}
+                    </div>
+                )}
+                <div className="px-6 py-4 bg-[var(--bg-surface-hover)] border-t border-[var(--border-default)] flex justify-end gap-2 shrink-0">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition-all"
+                        className="px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--border-default)] rounded-[var(--radius-md)] transition-all"
                     >
                         Hủy
                     </button>

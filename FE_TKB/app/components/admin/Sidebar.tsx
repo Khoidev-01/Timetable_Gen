@@ -50,13 +50,17 @@ export default function AdminSidebar({ onLogout }: { onLogout: () => void }) {
                 key={item.href}
                 href={item.href}
                 title={collapsed ? item.name : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150
+                aria-current={isActive ? 'page' : undefined}
+                className={`relative flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] tactile
                   ${isActive
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-medium'
-                    : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-surface)]/8 hover:text-white'
+                    ? 'bg-[var(--accent)] text-[var(--accent-contrast)] font-medium shadow-[var(--shadow-md)]'
+                    : 'text-[var(--text-sidebar)] hover:bg-white/[0.06] hover:text-white'
                   }
                   ${collapsed ? 'justify-center' : ''}`}
               >
+                {isActive && !collapsed && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-[var(--accent-contrast)]" />
+                )}
                 <Icon size={20} strokeWidth={isActive ? 2.2 : 1.8} />
                 {!collapsed && <span className="text-sm">{item.name}</span>}
               </Link>
@@ -69,7 +73,7 @@ export default function AdminSidebar({ onLogout }: { onLogout: () => void }) {
           <button
             onClick={onLogout}
             title={collapsed ? 'Đăng xuất' : undefined}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] transition-colors
               text-red-400 hover:bg-red-500/15 hover:text-red-300
               ${collapsed ? 'justify-center' : ''}`}
           >

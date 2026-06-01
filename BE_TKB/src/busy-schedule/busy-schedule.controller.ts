@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, UseGuards } from '@nestjs/common';
 import { BusyScheduleService } from './busy-schedule.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('busy-schedule')
+@UseGuards(JwtAuthGuard)
 export class BusyScheduleController {
     constructor(private readonly service: BusyScheduleService) { }
 

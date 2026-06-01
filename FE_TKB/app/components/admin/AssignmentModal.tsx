@@ -93,7 +93,7 @@ export default function AssignmentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl">
+      <div className="w-full max-w-lg overflow-hidden rounded-[var(--radius-lg)] bg-[var(--bg-surface)] shadow-[var(--shadow-lg)]">
         <div className="flex items-center justify-between border-b border-[var(--border-light)] bg-[var(--bg-surface-hover)] px-6 py-4">
           <h3 className="text-lg font-bold text-[var(--text-primary)]">
             {initialData ? 'Cập nhật phân công' : 'Thêm phân công'}
@@ -174,14 +174,14 @@ export default function AssignmentModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 text-[var(--text-secondary)] hover:bg-gray-200"
+              className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--border-default)]"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-white hover:bg-[var(--accent-hover)]"
             >
               {isLoading ? 'Đang lưu...' : 'Lưu'}
             </button>

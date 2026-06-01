@@ -56,7 +56,7 @@ function ConstraintsTab() {
   return (
     <div className="space-y-8">
       {/* Hard */}
-      <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden">
+      <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] border border-[var(--border-default)] overflow-hidden">
         <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex justify-between items-center">
           <div>
             <h2 className="text-lg font-bold text-red-800">Ràng buộc Cứng (Hard Constraints)</h2>
@@ -85,13 +85,13 @@ function ConstraintsTab() {
       </div>
 
       {/* Soft */}
-      <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden">
-        <div className="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
+      <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] border border-[var(--border-default)] overflow-hidden">
+        <div className="bg-[var(--accent-soft)] px-6 py-4 border-b border-[var(--accent)]/20 flex justify-between items-center">
           <div>
-            <h2 className="text-lg font-bold text-blue-800">Ràng buộc Mềm (Soft Constraints)</h2>
-            <p className="text-sm text-blue-600 mt-0.5">Vi phạm → trừ điểm Fitness, TKB vẫn hợp lệ</p>
+            <h2 className="text-lg font-bold text-[var(--accent)]">Ràng buộc Mềm (Soft Constraints)</h2>
+            <p className="text-sm text-[var(--accent)] mt-0.5">Vi phạm → trừ điểm Fitness, TKB vẫn hợp lệ</p>
           </div>
-          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">{soft.length} Rules</span>
+          <span className="px-3 py-1 bg-[var(--accent-soft)] text-[var(--accent)] text-xs font-bold rounded-full">{soft.length} Rules</span>
         </div>
         <div className="divide-y divide-[var(--border-light)]">
           {soft.map(c => (
@@ -106,14 +106,14 @@ function ConstraintsTab() {
               <div className="flex items-center gap-6">
                 <div className="flex flex-col items-end">
                   <label className="text-xs text-[var(--text-muted)] mb-1">Trọng số</label>
-                  <input type="number" className="w-20 text-right p-1.5 border border-[var(--border-default)] rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  <input type="number" className="w-20 text-right p-1.5 border border-[var(--border-default)] rounded text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none"
                     value={c.trong_so}
                     onChange={e => setConstraints(prev => prev.map(x => x.id === c.id ? { ...x, trong_so: +e.target.value } : x))}
                     onBlur={e => patch(c.id, { trong_so: +e.target.value })} />
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" checked={c.is_active} onChange={() => patch(c.id, { is_active: !c.is_active })} />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-[var(--accent)]/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent)]" />
                   <span className="ml-3 text-sm text-[var(--text-secondary)] w-10">{c.is_active ? 'Bật' : 'Tắt'}</span>
                 </label>
               </div>
@@ -170,7 +170,7 @@ function AcademicYearsTab() {
     else showToast('Lỗi cập nhật', false);
   };
 
-  const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+  const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '-';
   const toInput = (d?: string) => d ? new Date(d).toISOString().slice(0, 10) : '';
 
   if (loading) return <div className="text-center py-10 text-[var(--text-muted)]">Đang tải...</div>;
@@ -187,12 +187,12 @@ function AcademicYearsTab() {
       {years.length === 0 && <p className="text-center py-10 text-[var(--text-muted)]">Chưa có năm học nào</p>}
 
       {years.map(y => (
-        <div key={y.id} className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden">
+        <div key={y.id} className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] border border-[var(--border-default)] overflow-hidden">
           {/* Year header */}
           <div className="flex items-center justify-between px-5 py-4 bg-[var(--bg-surface-hover)] border-b border-[var(--border-default)]">
             <div className="flex items-center gap-3">
               <span className="font-bold text-[var(--text-primary)]">{y.name}</span>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${y.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${y.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-[var(--bg-surface-hover)] text-[var(--text-muted)]'}`}>
                 {y.status === 'ACTIVE' ? 'Đang hoạt động' : y.status}
               </span>
               {y.start_date && <span className="text-xs text-[var(--text-muted)]">{fmt(y.start_date)} → {fmt(y.end_date)}</span>}
@@ -209,12 +209,12 @@ function AcademicYearsTab() {
               <div key={s.id} className="flex items-center justify-between px-5 py-3">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="font-medium text-sm text-[var(--text-primary)]">{s.name}</span>
-                  {s.is_current && <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Hiện tại</span>}
+                  {s.is_current && <span className="text-[10px] font-bold bg-[var(--accent-soft)] text-[var(--accent)] px-2 py-0.5 rounded-full">Hiện tại</span>}
                   <span className="text-xs text-[var(--text-muted)]">{fmt(s.start_date)} → {fmt(s.end_date)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setEditSem({ id: s.id, start_date: toInput(s.start_date), end_date: toInput(s.end_date) })}
-                    className="text-xs text-blue-500 hover:text-blue-700 font-medium">Sửa ngày</button>
+                    className="text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] font-medium">Sửa ngày</button>
                   <button onClick={() => deleteSemester(s.id, s.name)}
                     className="text-xs text-red-500 hover:text-red-700 font-medium border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors">
                     Xóa HK
@@ -229,7 +229,7 @@ function AcademicYearsTab() {
       {/* Edit semester dates dialog */}
       {editSem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-xl bg-[var(--bg-surface)] shadow-xl p-6 space-y-4">
+          <div className="w-full max-w-sm rounded-[var(--radius-md)] bg-[var(--bg-surface)] shadow-xl p-6 space-y-4">
             <h3 className="font-bold text-[var(--text-primary)]">Cập nhật ngày học kỳ</h3>
             <div className="space-y-3">
               <div>
@@ -247,7 +247,7 @@ function AcademicYearsTab() {
               <button onClick={() => setEditSem(null)}
                 className="px-4 py-2 rounded-lg bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] text-sm">Hủy</button>
               <button onClick={saveSemDates}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">Lưu</button>
+                className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-semibold hover:bg-[var(--accent-hover)]">Lưu</button>
             </div>
           </div>
         </div>
@@ -272,7 +272,7 @@ export default function ConfigurationPage() {
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px
-              ${tab === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>
+              ${tab === t.key ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>
             {t.label}
           </button>
         ))}

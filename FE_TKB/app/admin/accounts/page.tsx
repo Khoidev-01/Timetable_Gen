@@ -1,8 +1,11 @@
 ﻿
 'use client';
 import { useState, useEffect } from 'react';
+import { toast } from '@/lib/toast';
 import AccountModal from '../../components/admin/AccountModal';
 import { API_URL } from '@/lib/api';
+import { TableSkeleton, EmptyState } from '../../components/ui/States';
+import { Users } from 'lucide-react';
 
 interface User {
     id: string;
@@ -58,7 +61,7 @@ export default function AccountsPage() {
             fetchAccounts();
         } else {
             const err = await res.json();
-            alert(err.message || 'Lỗi khi lưu tài khoản');
+            toast(err.message || 'Lỗi khi lưu tài khoản', "error");
         }
     };
 
@@ -75,7 +78,7 @@ export default function AccountsPage() {
     const handleDeleteAll = async () => {
         const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
         const otherCount = accounts.filter(a => a.id !== currentUser.id).length;
-        if (otherCount === 0) { alert('Không có tài khoản nào khác để xóa.'); return; }
+        if (otherCount === 0) { toast('Không có tài khoản nào khác để xóa.', "error"); return; }
         if (!confirm(`Xóa TOÀN BỘ ${otherCount} tài khoản (giữ lại admin hiện tại)? Hành động này không thể hoàn tác.`)) return;
         if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
         const token = localStorage.getItem('token');
@@ -83,8 +86,8 @@ export default function AccountsPage() {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) { fetchAccounts(); alert('Đã xóa toàn bộ tài khoản.'); }
-        else alert('Lỗi khi xóa toàn bộ.');
+        if (res.ok) { fetchAccounts(); toast('Đã xóa toàn bộ tài khoản.', "success"); }
+        else toast('Lỗi khi xóa toàn bộ.', "error");
     };
 
     return (
@@ -101,14 +104,14 @@ export default function AccountsPage() {
                     </button>
                     <button
                         onClick={() => { setSelectedAccount(null); setIsModalOpen(true); }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                        className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2 rounded-lg flex items-center gap-2"
                     >
                         + Thêm tài khoản
                     </button>
                 </div>
             </div>
 
-            <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--border-default)] overflow-hidden">
+            <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] shadow-sm border border-[var(--border-default)] overflow-hidden">
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-[var(--bg-surface-hover)] border-b">
                         <tr>
@@ -120,15 +123,17 @@ export default function AccountsPage() {
                     </thead>
                     <tbody className="divide-y divide-[var(--border-light)]">
                         {isLoading ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-[var(--text-muted)]">Đang tải...</td></tr>
+                            <TableSkeleton rows={5} cols={4} />
                         ) : accounts.length === 0 ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-[var(--text-muted)]">Không tìm thấy tài khoản nào.</td></tr>
+                            <tr><td colSpan={4}>
+                                <EmptyState icon={<Users size={22} strokeWidth={1.8} />} title="Chưa có tài khoản nào" hint="Tạo tài khoản đăng nhập cho quản trị viên và giáo viên." />
+                            </td></tr>
                         ) : (
-                            accounts.map((acc) => (
-                                <tr key={acc.id} className="hover:bg-[var(--bg-surface-hover)]">
+                            accounts.map((acc, idx) => (
+                                <tr key={acc.id} style={{ animationDelay: `${idx * 30}ms` }} className="animate-rise hover:bg-[var(--bg-surface-hover)] transition-colors">
                                     <td className="p-4 font-medium text-[var(--text-primary)]">{acc.username}</td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${acc.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${acc.role === 'ADMIN' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'bg-[var(--accent-soft)] text-[var(--accent)]'}`}>
                                             {acc.role}
                                         </span>
                                     </td>
@@ -138,7 +143,7 @@ export default function AccountsPage() {
                                     <td className="p-4 text-right space-x-2">
                                         <button
                                             onClick={() => { setSelectedAccount(acc); setIsModalOpen(true); }}
-                                            className="text-[var(--text-muted)] hover:text-blue-600 font-medium text-sm"
+                                            className="text-[var(--text-muted)] hover:text-[var(--accent-hover)] font-medium text-sm"
                                         >
                                             Sửa
                                         </button>

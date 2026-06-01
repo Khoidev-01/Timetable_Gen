@@ -49,12 +49,12 @@ export class AuthService {
 
         if (!user) return null;
 
-        // Compare password with bcrypt hash
+        // Compare password with bcrypt hash.
+        // Legacy plain-text fallback removed: all passwords are bcrypt-hashed
+        // (UsersService.create / changePassword always hash). If a legacy plain
+        // password row still exists, reset it via the admin Users screen.
         const isMatch = await bcrypt.compare(pass, user.password_hash);
-        if (!isMatch) {
-            // Fallback: plain text comparison for legacy data
-            if (user.password_hash !== pass) return null;
-        }
+        if (!isMatch) return null;
 
         return {
             id: user.id,
@@ -106,13 +106,10 @@ export class AuthService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new Error('User not found');
 
-        // Verify old password
+        // Verify old password (bcrypt only)
         const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
         if (!isMatch) {
-            // Fallback plain text check
-            if (user.password_hash !== oldPassword) {
-                throw new Error('Mật khẩu cũ không đúng');
-            }
+            throw new Error('Mật khẩu cũ không đúng');
         }
 
         const hashedNew = await bcrypt.hash(newPassword, 10);

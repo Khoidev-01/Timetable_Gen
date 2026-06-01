@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { CalendarDays, Bell, GraduationCap, Clock, CheckCircle, XCircle, Users } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import { Skeleton } from '../components/ui/States';
 
 const JS_DAY_TO_SYSTEM: Record<number, number> = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7 };
 const DAY_LABELS: Record<number, string> = { 2: 'Thứ 2', 3: 'Thứ 3', 4: 'Thứ 4', 5: 'Thứ 5', 6: 'Thứ 6', 7: 'Thứ 7' };
@@ -100,13 +101,14 @@ export default function TeacherDashboard() {
   return (
     <div className="space-y-5">
       {/* Welcome */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-6 text-white shadow-xl shadow-emerald-600/20">
-        <div className="flex items-center gap-3 mb-1">
-          <GraduationCap size={26} />
-          <h1 className="text-2xl font-bold">Cổng Giáo viên</h1>
+      <div className="relative overflow-hidden rounded-[var(--radius-lg)] bg-[var(--bg-sidebar)] p-6 text-white shadow-[var(--shadow-lg)]">
+        <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-emerald-500/25 blur-3xl" aria-hidden />
+        <div className="relative flex items-center gap-3 mb-1">
+          <GraduationCap size={26} strokeWidth={1.8} />
+          <h1 className="text-2xl font-bold tracking-tight">Cổng Giáo viên</h1>
         </div>
-        <p className="text-emerald-100 text-sm">
-          {user ? `Xin chào, ${user.full_name || user.username}!` : 'Chúc Thầy/Cô một ngày giảng dạy hiệu quả!'}
+        <p className="relative text-white/70 text-sm">
+          {user ? `Xin chào, ${user.full_name || user.username}.` : 'Chúc Thầy/Cô một ngày giảng dạy hiệu quả.'}
         </p>
         {user?.teacher_profile?.homeroom_classes?.length > 0 && (
           <div className="mt-3 inline-flex items-center gap-2 bg-white/20 rounded-lg px-3 py-1.5">
@@ -120,16 +122,26 @@ export default function TeacherDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Today's Schedule */}
-        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden">
+        <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] border border-[var(--border-default)] overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-default)]">
             <CalendarDays size={16} className="text-emerald-500" />
             <h3 className="font-semibold text-sm text-[var(--text-primary)]">Lịch dạy {todayLabel}</h3>
           </div>
           <div className="p-4">
             {loading ? (
-              <p className="text-[var(--text-muted)] text-sm italic">Đang tải...</p>
+              <div className="space-y-2">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-[var(--bg-surface-hover)]">
+                    <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-32" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : todaySlots.length === 0 ? (
-              <p className="text-[var(--text-muted)] text-sm italic">Không có tiết dạy hôm nay</p>
+              <p className="text-[var(--text-muted)] text-sm">Không có tiết dạy hôm nay.</p>
             ) : (
               <div className="space-y-2">
                 {todaySlots.map((s, i) => (
@@ -153,7 +165,7 @@ export default function TeacherDashboard() {
         <div className="space-y-4">
           {/* Pending busy requests */}
           {pendingCount > 0 && (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+            <div className="flex items-center gap-3 p-3 rounded-[var(--radius-md)] bg-amber-50 border border-amber-200">
               <Clock size={16} className="text-amber-500 flex-shrink-0" />
               <p className="text-sm text-amber-700 font-medium">
                 {pendingCount} yêu cầu bận đang chờ duyệt
@@ -162,18 +174,20 @@ export default function TeacherDashboard() {
           )}
 
           {/* Recent Notifications */}
-          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden">
+          <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] border border-[var(--border-default)] overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-default)]">
               <Bell size={16} className="text-amber-500" />
               <h3 className="font-semibold text-sm text-[var(--text-primary)]">Thông báo gần đây</h3>
             </div>
             <div>
               {loading ? (
-                <p className="px-4 py-4 text-[var(--text-muted)] text-sm italic">Đang tải...</p>
+                <div className="px-4 py-4 space-y-2">
+                  {[0, 1, 2].map(i => <Skeleton key={i} className="h-3.5 w-full" />)}
+                </div>
               ) : notifications.length === 0 ? (
-                <p className="px-4 py-4 text-[var(--text-muted)] text-sm italic">Không có thông báo mới</p>
+                <p className="px-4 py-4 text-[var(--text-muted)] text-sm">Không có thông báo mới</p>
               ) : notifications.map(n => (
-                <div key={n.id} className={`px-4 py-3 border-b border-[var(--border-light)] last:border-b-0 ${!n.is_read ? 'bg-blue-500/5' : ''}`}>
+                <div key={n.id} className={`px-4 py-3 border-b border-[var(--border-light)] last:border-b-0 ${!n.is_read ? 'bg-emerald-500/[0.07]' : ''}`}>
                   <div className="flex items-start gap-2">
                     {n.title.includes('✅') || n.status === 'APPROVED' ? (
                       <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
@@ -187,7 +201,7 @@ export default function TeacherDashboard() {
                       <p className="text-xs text-[var(--text-muted)] line-clamp-1 mt-0.5">{n.message}</p>
                       <p className="text-[10px] text-[var(--text-muted)] opacity-60 mt-0.5">{timeAgo(n.created_at)}</p>
                     </div>
-                    {!n.is_read && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0 mt-1" />}
+                    {!n.is_read && <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full flex-shrink-0 mt-1" />}
                   </div>
                 </div>
               ))}

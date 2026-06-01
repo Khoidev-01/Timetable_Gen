@@ -6,6 +6,7 @@ import AdminSidebar from '../components/admin/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import { Bell, LogOut, User, Settings, Check, FileSpreadsheet, Calendar, MessageSquare, Clock, Monitor } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import { Toaster } from '@/lib/toast';
 
 interface Notification {
   id: string;
@@ -126,7 +127,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!user) return null;
 
   return (
-    <div className="flex h-screen w-screen bg-[var(--bg-base)] overflow-hidden transition-colors">
+    <div className="flex h-[100dvh] w-screen bg-[var(--bg-base)] overflow-hidden transition-colors">
+      <div className="grain-overlay" aria-hidden />
+      <Toaster />
       <AdminSidebar onLogout={handleLogout} />
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
@@ -155,14 +158,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-[28rem] rounded-xl border border-[var(--border-default)]
+                <div className="absolute right-0 top-full mt-2 w-[28rem] rounded-[var(--radius-md)] border border-[var(--border-default)]
                   bg-[var(--bg-surface)] shadow-2xl z-50 overflow-hidden">
                   {/* Header */}
                   <div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center justify-between">
                     <h3 className="font-bold text-sm text-[var(--text-primary)]">Thông báo</h3>
                     {unreadCount > 0 && (
                       <button onClick={markAllAsRead}
-                        className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-400 font-medium">
+                        className="flex items-center gap-1 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] font-medium">
                         <Check size={12} /> Đọc tất cả
                       </button>
                     )}
@@ -173,7 +176,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <button
                       onClick={() => setActiveCategory(null)}
                       className={`px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors
-                        ${!activeCategory ? 'bg-blue-500 text-white' : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface-hover)]'}`}
+                        ${!activeCategory ? 'bg-[var(--accent)] text-[var(--accent-contrast)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface-hover)]'}`}
                     >
                       Tất cả
                     </button>
@@ -182,7 +185,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         key={key}
                         onClick={() => setActiveCategory(activeCategory === key ? null : key)}
                         className={`px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors
-                          ${activeCategory === key ? 'bg-blue-500 text-white' : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface-hover)]'}`}
+                          ${activeCategory === key ? 'bg-[var(--accent)] text-[var(--accent-contrast)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface-hover)]'}`}
                       >
                         {cfg.label}
                       </button>
@@ -206,7 +209,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             onClick={() => !notif.is_read && markAsRead(notif.id)}
                             className={`px-4 py-3 flex gap-3 border-b border-[var(--border-light)] cursor-pointer
                               hover:bg-[var(--bg-surface-hover)] transition-colors
-                              ${!notif.is_read ? 'bg-blue-500/5' : ''}`}
+                              ${!notif.is_read ? 'bg-[var(--accent-soft)]' : ''}`}
                           >
                             <div className={`mt-0.5 flex-shrink-0 ${cfg.color}`}>
                               <Icon size={18} />
@@ -217,7 +220,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                   {notif.title}
                                 </p>
                                 {!notif.is_read && (
-                                  <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />
+                                  <span className="w-2 h-2 bg-[var(--accent)] rounded-full flex-shrink-0 mt-1.5" />
                                 )}
                               </div>
                               <p className="text-xs text-[var(--text-muted)] mt-0.5 line-clamp-2">{notif.message}</p>
@@ -236,15 +239,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => { setShowProfileMenu(!showProfileMenu); setShowNotifications(false); }}
-                className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600
-                  flex items-center justify-center text-white text-sm font-bold shadow-sm
-                  hover:from-blue-600 hover:to-violet-700 transition-all cursor-pointer"
+                className="tactile w-8 h-8 rounded-[var(--radius-sm)] bg-[var(--accent)]
+                  flex items-center justify-center text-[var(--accent-contrast)] text-sm font-semibold shadow-[var(--shadow-sm)]
+                  hover:bg-[var(--accent-hover)] cursor-pointer"
               >
                 {user.username[0].toUpperCase()}
               </button>
 
               {showProfileMenu && (
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-[var(--border-default)]
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-[var(--radius-md)] border border-[var(--border-default)]
                   bg-[var(--bg-surface)] shadow-xl z-50 overflow-hidden">
                   <div className="px-4 py-3 border-b border-[var(--border-default)]">
                     <p className="font-bold text-sm text-[var(--text-primary)]">{user.username}</p>

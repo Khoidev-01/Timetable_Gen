@@ -3,6 +3,13 @@ import * as crypto from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService, TimeSlot } from './constraint.service';
+import {
+    BLOCK_CODES,
+    PRIORITY_CODES,
+    isBlock,
+    isOutdoor,
+    isSessionExempt,
+} from './subject-rules';
 
 @Injectable()
 export class AlgorithmService {
@@ -242,12 +249,11 @@ export class AlgorithmService {
         // Track total slots per class-day (for fill-to-5 logic)
         const classDayTotals = new Map<string, number>(); // "classId-day" → count
 
-        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
-        const blockCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
-        const priorityCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
+        const blockCodes = BLOCK_CODES;
+        const priorityCodes = PRIORITY_CODES;
 
         const trackBlock = (classId: string, day: number, period: number, code: string) => {
-            if (!blockCodes.some(b => code.includes(b))) return;
+            if (!isBlock(code)) return;
             const sess = period <= 5 ? 0 : 1;
             const hk = `${classId}-${day}-${sess}`;
             if (!classDaySessionBlock.has(hk)) classDaySessionBlock.set(hk, new Map());
@@ -627,6 +633,64 @@ export class AlgorithmService {
         }
         this.logger.log(`Phase 2 done in ${Date.now() - startP2}ms. Total slots: ${solution.slots.length}`);
         this.phase2c_CompactMainSession(solution, data);
+        this.phase2d_AssignLabRooms(solution, data);
+    }
+
+    /**
+     * Assign dedicated lab rooms to practice slots (TIN→IT lab, LY/HOA/SINH→
+     * their lab). Labs are SHARED across classes, so we track per (room,day,
+     * period) occupancy and pick the first free lab from ConstraintService
+     * .getValidRooms(); if none is free we keep the class's fixed room as a
+     * fallback. Non-practice slots keep their fixed room. This is the step that
+     * actually honours teaching_assignments.period_type === PRACTICE — it was
+     * previously ignored entirely.
+     */
+    private phase2d_AssignLabRooms(solution: any, data: any) {
+        const startD = Date.now();
+        const subjectById = new Map<number, any>();
+        data.subjects.forEach((s: any) => subjectById.set(s.id, s));
+
+        // Which (class, subject) pairs have a PRACTICE assignment → need a lab.
+        const practicePairs = new Set<string>();
+        for (const a of data.assignments) {
+            if (a.period_type === 'PRACTICE') practicePairs.add(`${a.class_id}-${a.subject_id}`);
+        }
+        // Also treat catalog practice subjects (e.g. TIN) as needing a lab.
+        const labOccupied = new Set<string>(); // "roomId-day-period"
+        const gradeOf = (cls: any) => {
+            const m = cls.name?.match(/\d+/);
+            return m ? parseInt(m[0]) : 0;
+        };
+        const classById = new Map<string, any>();
+        data.classes.forEach((c: any) => classById.set(c.id, c));
+
+        let assigned = 0;
+        for (const slot of solution.slots) {
+            if (slot.isLocked) continue;
+            const subj = subjectById.get(slot.subjectId);
+            if (!subj) continue;
+            const code = (subj.code || '').toUpperCase();
+            // Yard subjects already have roomId=undefined and use the yard.
+            if (isOutdoor(code)) continue;
+            const needsLab = subj.is_practice || practicePairs.has(`${slot.classId}-${slot.subjectId}`);
+            if (!needsLab) continue;
+
+            const cls = classById.get(slot.classId);
+            if (!cls) continue;
+            const session = slot.period <= 5 ? 'SANG' : 'CHIEU';
+            const candidates = this.constraintService.getValidRooms(
+                gradeOf(cls), session, slot.period, 'THUC_HANH', code,
+            );
+            const free = candidates.find(rid => !labOccupied.has(`${rid}-${slot.day}-${slot.period}`));
+            if (free !== undefined) {
+                slot.roomId = free;
+                labOccupied.add(`${free}-${slot.day}-${slot.period}`);
+                assigned++;
+            } else if (candidates.length > 0) {
+                this.logger.warn(`[Lab] No free lab for ${code} ${cls.name} at day ${slot.day} period ${slot.period}; kept fixed room.`);
+            }
+        }
+        this.logger.log(`Phase 2d lab-rooms done in ${Date.now() - startD}ms. Assigned ${assigned} practice slots to labs.`);
     }
 
     // Post-process: compact main-session slots toward early periods (no holes at P1, P2…)
@@ -642,6 +706,31 @@ export class AlgorithmService {
                 for (const s of solution.slots) {
                     if (s.classId === cls.id && s.day === day) slotsByPeriod.set(s.period, s);
                 }
+                // Block-subject periods already present in this class-day (for R3 guard)
+                const blockPeriodsByCode = (excludePeriod: number) => {
+                    const arr: number[] = [];
+                    for (const [p, s] of slotsByPeriod) {
+                        if (p === excludePeriod) continue;
+                        if (isBlock(this.constraintService.getSubjectCode(s.subjectId))) arr.push(p);
+                    }
+                    return arr;
+                };
+                const makesThreeConsecutive = (periods: number[], added: number) => {
+                    const arr = [...periods, added].sort((a, b) => a - b);
+                    for (let k = 0; k <= arr.length - 3; k++) {
+                        if (arr[k + 1] === arr[k] + 1 && arr[k + 2] === arr[k] + 2) return true;
+                    }
+                    return false;
+                };
+                const hasPairPartner = (cand: any) => {
+                    // True if cand currently forms an adjacent same-subject pair (moving would break SC4)
+                    for (const [p, s] of slotsByPeriod) {
+                        if (s === cand) continue;
+                        if (s.subjectId === cand.subjectId && Math.abs(p - cand.period) === 1) return true;
+                    }
+                    return false;
+                };
+
                 for (let target = mainStart; target <= mainEnd; target++) {
                     if (slotsByPeriod.has(target)) continue;
                     if (day === 5 && target === 5) continue;     // T5 P5 blocked
@@ -655,6 +744,11 @@ export class AlgorithmService {
                         const conflict = solution.slots.some((o: any) =>
                             o !== cand && o.teacherId === cand.teacherId && o.day === day && o.period === target);
                         if (conflict) continue;
+                        // Guard: don't introduce a 3-consecutive block-subject run (HC) at target
+                        const candCode = this.constraintService.getSubjectCode(cand.subjectId);
+                        if (isBlock(candCode) && makesThreeConsecutive(blockPeriodsByCode(later), target)) continue;
+                        // Guard: don't break an existing adjacent pair (SC4)
+                        if (hasPairPartner(cand)) continue;
                         // Move
                         slotsByPeriod.delete(later);
                         cand.period = target;
@@ -672,9 +766,8 @@ export class AlgorithmService {
         this.logger.log('Phase 3: Full Constraint Optimization...');
         const startTime = Date.now();
         const slots = solution.slots;
-        const heavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH', 'LY', 'VAT_LY', 'HOA', 'HOA_HOC'];
-        const blockCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
-        const thursdayHeavyCodes = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
+        const blockCodes = BLOCK_CODES;
+        const thursdayHeavyCodes = BLOCK_CODES;
 
         // Build class session map: classId → 0 (morning) or 1 (afternoon)
         const classMainSession = new Map<string, number>();
@@ -685,11 +778,13 @@ export class AlgorithmService {
         // ── Build O(1) indexes ──
         const teacherAt = new Map<string, Set<number>>();
         const classAt = new Map<string, Set<number>>();
+        const roomAt = new Map<string, Set<number>>();
         const classSlotsIdx = new Map<string, number[]>();
         const teacherSlotsIdx = new Map<string, number[]>(); // teacherId → [indices]
 
         const tKey = (tid: string, d: number, p: number) => `${tid}-${d}-${p}`;
         const cKey = (cid: string, d: number, p: number) => `${cid}-${d}-${p}`;
+        const rKey = (rid: number, d: number, p: number) => `${rid}-${d}-${p}`;
 
         const addIdx = (s: any, i: number) => {
             const tk = tKey(s.teacherId, s.day, s.period);
@@ -698,10 +793,18 @@ export class AlgorithmService {
             const ck = cKey(s.classId, s.day, s.period);
             if (!classAt.has(ck)) classAt.set(ck, new Set());
             classAt.get(ck)!.add(i);
+            if (s.roomId !== undefined && s.roomId !== null) {
+                const rk = rKey(s.roomId, s.day, s.period);
+                if (!roomAt.has(rk)) roomAt.set(rk, new Set());
+                roomAt.get(rk)!.add(i);
+            }
         };
         const rmIdx = (s: any, i: number) => {
             teacherAt.get(tKey(s.teacherId, s.day, s.period))?.delete(i);
             classAt.get(cKey(s.classId, s.day, s.period))?.delete(i);
+            if (s.roomId !== undefined && s.roomId !== null) {
+                roomAt.get(rKey(s.roomId, s.day, s.period))?.delete(i);
+            }
         };
 
         for (let i = 0; i < slots.length; i++) {
@@ -725,18 +828,23 @@ export class AlgorithmService {
             // HC: Class conflict
             const cs = classAt.get(cKey(s.classId, s.day, s.period));
             if (cs && cs.size > 1) cost += 200;
+            // HC3: Room conflict (two classes in the same physical room) — only
+            // meaningful for shared labs; classrooms are 1:1 with a class.
+            if (s.roomId !== undefined && s.roomId !== null) {
+                const rs = roomAt.get(rKey(s.roomId, s.day, s.period));
+                if (rs && rs.size > 1) cost += 200;
+            }
             // HC: Teacher busy
             if (this.constraintService.isTeacherBusy(s.teacherId, s.day, s.period)) cost += 200;
             // HC: Thursday restriction (4 periods/session, block P5 & P10)
             if (s.day === 5 && [5,10].includes(s.period)) cost += 200;
             // HC: GDTC/GDQP time
-            if (code.includes('GDTC') || code.includes('GDQP') || code.includes('QUOC_PHONG')) {
+            if (isOutdoor(code)) {
                 if (s.period <= 5 ? s.period > 3 : s.period < 8) cost += 150;
             }
-            // HC: Non-academic subjects can be in opposite session; academic subjects must be in main session
-            const oppositeAllowed = ['GDTC', 'GDQP', 'CHAO_CO', 'SH_CUOI', 'SHCN'];
-            const isOppositeAllowed = oppositeAllowed.some(oc => code.includes(oc));
-            if (!isOppositeAllowed) {
+            // HC8: academic subjects must be in main session; GDTC/GDQP/HDTN/GDDP
+            // and special activities are exempt (shared isSessionExempt).
+            if (!isSessionExempt(code)) {
                 const mainSess = classMainSession.get(s.classId) ?? 0; // 0=morning, 1=afternoon
                 const slotSess = s.period <= 5 ? 0 : 1;
                 if (slotSess !== mainSess) cost += 500; // HARD: wrong session
@@ -1073,6 +1181,14 @@ export class AlgorithmService {
             }
             log(`[DEBUG] Expanding template across ${numWeeks} weeks`);
 
+            // Remember existing timetables for this semester so we can prune them
+            // once the new one is saved (avoid unbounded accumulation of
+            // ~1800 slots × numWeeks per run).
+            const oldTimetables = await this.prisma.generatedTimetable.findMany({
+                where: { semester_id: semesterId },
+                select: { id: true },
+            });
+
             const timetable = await this.prisma.generatedTimetable.create({
                 data: {
                     name: `TKB ${new Date().toLocaleString('vi-VN')}`,
@@ -1108,6 +1224,14 @@ export class AlgorithmService {
                 log(`[DEBUG] Inserted ${batch.count} slots (${solution.slots.length} × ${numWeeks} weeks).`);
             } else {
                 log('[DEBUG] No slots to insert!');
+            }
+
+            // Prune previous timetables for this semester (slots cascade-delete).
+            if (oldTimetables.length > 0) {
+                const removed = await this.prisma.generatedTimetable.deleteMany({
+                    where: { id: { in: oldTimetables.map(t => t.id) } },
+                });
+                log(`[DEBUG] Pruned ${removed.count} previous timetable(s) for this semester.`);
             }
 
             return { success: true, id: timetable.id };

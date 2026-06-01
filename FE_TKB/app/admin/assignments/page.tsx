@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { toast } from '@/lib/toast';
 import AssignmentModal from '../../components/admin/AssignmentModal';
 import { API_URL } from '@/lib/api';
+import { TableSkeleton, EmptyState } from '../../components/ui/States';
+import { ClipboardList } from 'lucide-react';
 
 interface Semester {
   id: string;
@@ -180,11 +183,11 @@ export default function AssignmentsPage() {
     const startDate = parseDDMMYYYY(newYearStart);
     const endDate = parseDDMMYYYY(newYearEnd);
     if (!startDate || !endDate) {
-      alert('Ngày không hợp lệ. Vui lòng nhập đúng định dạng dd/mm/yyyy.');
+      toast('Ngày không hợp lệ. Vui lòng nhập đúng định dạng dd/mm/yyyy.', "error");
       return;
     }
     if (endDate <= startDate) {
-      alert('Ngày kết thúc phải sau ngày bắt đầu.');
+      toast('Ngày kết thúc phải sau ngày bắt đầu.', "error");
       return;
     }
 
@@ -205,7 +208,7 @@ export default function AssignmentsPage() {
       });
 
       if (!response.ok) {
-        alert('Không thể tạo năm học.');
+        toast('Không thể tạo năm học.', "error");
         return;
       }
 
@@ -215,7 +218,7 @@ export default function AssignmentsPage() {
       setNewYearEnd('');
       await fetchYears();
     } catch (error) {
-      alert('Lỗi kết nối khi tạo năm học.');
+      toast('Lỗi kết nối khi tạo năm học.', "error");
     }
   };
 
@@ -339,10 +342,10 @@ export default function AssignmentsPage() {
       );
 
       await fetchAssignments(selectedSemesterId);
-      alert('Đã lưu thay đổi thành công.');
+      toast('Đã lưu thay đổi thành công.', "success");
     } catch (error) {
       console.error(error);
-      alert('Không thể lưu thay đổi. Vui lòng thử lại.');
+      toast('Không thể lưu thay đổi. Vui lòng thử lại.', "error");
     } finally {
       setIsSaving(false);
     }
@@ -382,7 +385,7 @@ export default function AssignmentsPage() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error(error);
-      alert('Không thể tải file mẫu Excel.');
+      toast('Không thể tải file mẫu Excel.', "error");
     }
   };
 
@@ -392,7 +395,7 @@ export default function AssignmentsPage() {
 
   const handleDeleteAll = async () => {
     if (!selectedSemesterId) return;
-    if (isDirty) { alert('Vui lòng lưu hoặc hủy thay đổi trước khi xóa toàn bộ.'); return; }
+    if (isDirty) { toast('Vui lòng lưu hoặc hủy thay đổi trước khi xóa toàn bộ.', "error"); return; }
     if (!confirm(`Xóa TOÀN BỘ ${assignments.length} phân công của học kỳ này? Hành động này không thể hoàn tác.`)) return;
     if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
     try {
@@ -401,10 +404,10 @@ export default function AssignmentsPage() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) { await fetchAssignments(selectedSemesterId); alert('Đã xóa toàn bộ phân công.'); }
-      else alert('Lỗi khi xóa toàn bộ.');
+      if (res.ok) { await fetchAssignments(selectedSemesterId); toast('Đã xóa toàn bộ phân công.', "success"); }
+      else toast('Lỗi khi xóa toàn bộ.', "error");
     } catch (e) {
-      alert('Lỗi khi xóa toàn bộ.');
+      toast('Lỗi khi xóa toàn bộ.', "error");
     }
   };
 
@@ -493,7 +496,7 @@ export default function AssignmentsPage() {
           <div className="flex items-center gap-1.5">
             <label className="text-sm font-medium text-[var(--text-secondary)]">Năm học:</label>
             <select
-              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent)]"
               value={selectedYearId}
               onChange={(event) => {
                 const nextYear = years.find((item) => item.id === event.target.value);
@@ -511,7 +514,7 @@ export default function AssignmentsPage() {
           <div className="flex items-center gap-1.5">
             <label className="text-sm font-medium text-[var(--text-secondary)]">Học kỳ:</label>
             <select
-              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500"
+              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent)]"
               value={selectedSemesterId}
               onChange={(event) => setSelectedSemesterId(event.target.value)}
             >
@@ -524,7 +527,7 @@ export default function AssignmentsPage() {
           </div>
           <button
             onClick={() => setIsYearModalOpen(true)}
-            className="flex items-center gap-1 rounded-lg bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-200 transition-colors"
+            className="flex items-center gap-1 rounded-lg bg-[var(--accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors"
             title="Thêm năm học mới"
           >
             <span className="text-base leading-none">+</span> Thêm năm học
@@ -547,7 +550,7 @@ export default function AssignmentsPage() {
           <button
             onClick={() => setIsAutoAssignOpen(true)}
             disabled={!selectedYearId}
-            className="rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-1.5"
+            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-1.5"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
             Phân công tự động
@@ -573,7 +576,7 @@ export default function AssignmentsPage() {
               setIsAddModalOpen(true);
             }}
             disabled={!selectedSemesterId}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-white hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Thêm phân công
           </button>
@@ -588,7 +591,7 @@ export default function AssignmentsPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-sm">
+      <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-sm">
         <table className="w-full border-collapse text-left">
           <thead className="border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] font-semibold text-[var(--text-primary)]">
             <tr>
@@ -601,15 +604,11 @@ export default function AssignmentsPage() {
           </thead>
           <tbody className="divide-y divide-[var(--border-light)] text-[var(--text-secondary)]">
             {isLoading ? (
-              <tr>
-                <td colSpan={5} className="py-8 text-center">
-                  Đang tải dữ liệu...
-                </td>
-              </tr>
+              <TableSkeleton rows={6} cols={5} />
             ) : assignments.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center">
-                  Chưa có phân công nào
+                <td colSpan={5}>
+                  <EmptyState icon={<ClipboardList size={22} strokeWidth={1.8} />} title="Chưa có phân công nào" hint="Nhập phân công thủ công hoặc tải file Excel tổng năm học lên." />
                 </td>
               </tr>
             ) : (
@@ -634,20 +633,20 @@ export default function AssignmentsPage() {
                       <span className="ml-2 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">TH</span>
                     )}
                     {assignment.period_type === 'SPECIAL' && (
-                      <span className="ml-2 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">ĐB</span>
+                      <span className="ml-2 rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent)]">ĐB</span>
                     )}
                     {assignment.period_type === 'THEORY' && (
-                      <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">LT</span>
+                      <span className="ml-2 rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent)]">LT</span>
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="rounded bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
+                    <span className="rounded bg-[var(--accent-soft)] px-2 py-1 text-xs font-bold text-[var(--accent)]">
                       {assignment.total_periods}
                     </span>
                   </td>
                   <td className="space-x-2 px-6 py-4 text-right">
                     <button
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      className="text-sm font-medium text-[var(--accent)] hover:text-[var(--accent-hover)]"
                       onClick={() => {
                         setEditingAssignment(assignment);
                         setIsAddModalOpen(true);
@@ -682,7 +681,7 @@ export default function AssignmentsPage() {
           <button
             onClick={handleBatchCommit}
             disabled={isSaving}
-            className="rounded-full bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+            className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--accent-hover)]"
           >
             {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
           </button>
@@ -691,7 +690,7 @@ export default function AssignmentsPage() {
 
       {importResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl rounded-xl bg-[var(--bg-surface)] shadow-xl">
+          <div className="w-full max-w-3xl rounded-[var(--radius-md)] bg-[var(--bg-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b border-[var(--border-default)] px-6 py-4">
               <h3 className="text-lg font-bold text-[var(--text-primary)]">
                 {importResult.isError ? 'Import Excel thất bại' : 'Import Excel hoàn tất'}
@@ -717,13 +716,13 @@ export default function AssignmentsPage() {
                       <span className="text-[var(--text-secondary)]">Giáo viên:</span>
                       <span className="font-semibold text-emerald-400">+{importResult.summary.teachers.created}</span>
                       <span className="text-[var(--text-secondary)]">/</span>
-                      <span className="font-semibold text-blue-400">↻{importResult.summary.teachers.updated}</span>
+                      <span className="font-semibold text-[var(--accent)]">↻{importResult.summary.teachers.updated}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--text-secondary)]">Lớp:</span>
                       <span className="font-semibold text-emerald-400">+{importResult.summary.classes.created}</span>
                       <span className="text-[var(--text-secondary)]">/</span>
-                      <span className="font-semibold text-blue-400">↻{importResult.summary.classes.updated}</span>
+                      <span className="font-semibold text-[var(--accent)]">↻{importResult.summary.classes.updated}</span>
                     </div>
                     <div className="col-span-2 flex justify-between border-t border-[var(--border-default)] pt-2 mt-1">
                       <span className="text-[var(--text-secondary)]">Phân công:</span>
@@ -776,7 +775,7 @@ export default function AssignmentsPage() {
 
       {isYearModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-xl bg-[var(--bg-surface)] shadow-xl">
+          <div className="w-full max-w-md overflow-hidden rounded-[var(--radius-md)] bg-[var(--bg-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-6 py-4">
               <h3 className="text-lg font-bold text-[var(--text-primary)]">Thêm năm học mới</h3>
               <button onClick={() => setIsYearModalOpen(false)} className="text-gray-400 hover:text-[var(--text-secondary)]">
@@ -807,7 +806,7 @@ export default function AssignmentsPage() {
                     placeholder="dd/mm/yyyy"
                     maxLength={10}
                     className={`w-full rounded-lg border bg-[var(--bg-surface)] p-2 text-[var(--text-primary)] transition-colors ${
-                      startError ? 'border-red-400 focus:ring-red-400' : 'border-[var(--border-default)] focus:ring-blue-500'
+                      startError ? 'border-red-400 focus:ring-red-400' : 'border-[var(--border-default)] focus:ring-[var(--accent)]'
                     }`}
                     value={newYearStart}
                     onChange={(event) => setNewYearStart(formatDateInput(event.target.value))}
@@ -826,7 +825,7 @@ export default function AssignmentsPage() {
                     placeholder="dd/mm/yyyy"
                     maxLength={10}
                     className={`w-full rounded-lg border bg-[var(--bg-surface)] p-2 text-[var(--text-primary)] transition-colors ${
-                      endError ? 'border-red-400 focus:ring-red-400' : 'border-[var(--border-default)] focus:ring-blue-500'
+                      endError ? 'border-red-400 focus:ring-red-400' : 'border-[var(--border-default)] focus:ring-[var(--accent)]'
                     }`}
                     value={newYearEnd}
                     onChange={(event) => setNewYearEnd(formatDateInput(event.target.value))}
@@ -837,20 +836,20 @@ export default function AssignmentsPage() {
                   }
                 </div>
               </div>
-              <p className="text-xs text-blue-500 italic">
+              <p className="text-xs text-[var(--accent)] italic">
                 📘 Theo GDPT 2018: Năm học bắt đầu 05/09 và kết thúc 31/05 năm sau.
               </p>
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setIsYearModalOpen(false)}
-                  className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 font-medium text-[var(--text-secondary)] hover:bg-gray-200"
+                  className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 font-medium text-[var(--text-secondary)] hover:bg-[var(--border-default)]"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700"
+                  className="rounded-lg bg-[var(--accent)] px-4 py-2 font-bold text-white hover:bg-[var(--accent-hover)]"
                 >
                   Tạo mới
                 </button>
@@ -884,13 +883,13 @@ export default function AssignmentsPage() {
 
             const data = await response.json();
             if (!response.ok) {
-              alert(data.message || 'Lỗi phân công tự động');
+              toast(data.message || 'Lỗi phân công tự động', "error");
               return;
             }
             setAutoAssignResult(data);
           } catch (err) {
             console.error(err);
-            alert('Lỗi kết nối server');
+            toast('Lỗi kết nối server', "error");
           } finally {
             setIsAutoAssigning(false);
           }
@@ -900,7 +899,7 @@ export default function AssignmentsPage() {
       {/* Auto-assign modal */}
       {isAutoAssignOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[var(--bg-surface)] p-6 shadow-2xl">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[var(--radius-lg)] bg-[var(--bg-surface)] p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <span className="text-2xl">🤖</span> Phân công tự động
@@ -919,9 +918,9 @@ export default function AssignmentsPage() {
             {!autoAssignResult ? (
               <div className="space-y-6">
                 {/* Step 1: Download template */}
-                <div className="rounded-xl border border-[var(--border-default)] p-5">
+                <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] p-5">
                   <h3 className="font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">1</span>
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-bold text-white">1</span>
                     Tải mẫu Excel nhập danh sách GV
                   </h3>
                   <p className="text-sm text-[var(--text-secondary)] mb-3">
@@ -948,7 +947,7 @@ export default function AssignmentsPage() {
                 </div>
 
                 {/* Step 2: Upload and run */}
-                <div className="rounded-xl border border-[var(--border-default)] p-5">
+                <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] p-5">
                   <h3 className="font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-600 text-xs font-bold text-white">2</span>
                     Upload file và chạy thuật toán
@@ -973,7 +972,7 @@ export default function AssignmentsPage() {
                 </div>
 
                 {/* Info */}
-                <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800">
+                <div className="rounded-[var(--radius-md)] bg-[var(--accent-soft)] border border-[var(--accent)]/30 p-4 text-sm text-[var(--accent)]">
                   <p className="font-semibold mb-1">ℹ️ Quy trình</p>
                   <ol className="list-decimal list-inside space-y-1">
                     <li>Hệ thống đọc danh sách GV từ file Excel</li>
@@ -986,7 +985,7 @@ export default function AssignmentsPage() {
             ) : (
               <div className="space-y-5">
                 {/* Summary */}
-                <div className="rounded-xl bg-green-50 border border-green-200 p-4">
+                <div className="rounded-[var(--radius-md)] bg-green-50 border border-green-200 p-4">
                   <h3 className="font-bold text-green-800 mb-2">✅ Kết quả phân công</h3>
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div className="text-center">
@@ -998,8 +997,8 @@ export default function AssignmentsPage() {
                       <div className="text-red-500">Chưa phân công</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-700">{autoAssignResult.summary.totalDemands}</div>
-                      <div className="text-blue-600">Tổng nhu cầu</div>
+                      <div className="text-2xl font-bold text-[var(--accent)]">{autoAssignResult.summary.totalDemands}</div>
+                      <div className="text-[var(--accent)]">Tổng nhu cầu</div>
                     </div>
                   </div>
                 </div>
@@ -1053,7 +1052,7 @@ export default function AssignmentsPage() {
                     onClick={() => {
                       setAutoAssignResult(null);
                     }}
-                    className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 font-medium text-[var(--text-secondary)] hover:bg-gray-200"
+                    className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 font-medium text-[var(--text-secondary)] hover:bg-[var(--border-default)]"
                   >
                     ← Chạy lại
                   </button>
@@ -1071,7 +1070,7 @@ export default function AssignmentsPage() {
                       a.click();
                       URL.revokeObjectURL(url);
                     }}
-                    className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700 flex items-center gap-2"
+                    className="rounded-lg bg-[var(--accent)] px-4 py-2 font-bold text-white hover:bg-[var(--accent-hover)] flex items-center gap-2"
                   >
                     📥 Xuất Excel phân công
                   </button>

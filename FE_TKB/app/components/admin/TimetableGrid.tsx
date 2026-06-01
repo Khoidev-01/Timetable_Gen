@@ -92,8 +92,8 @@ const SlotContent = ({ slot, viewMode, isOverlay = false }: { slot: ScheduleSlot
 
     return (
         <div
-            className={`flex flex-col gap-0.5 items-center justify-center h-full w-full rounded-md p-1 border transition-all shadow-sm
-            ${isOverlay ? 'scale-105 z-50 ring-2 ring-blue-400' : 'hover:brightness-95 hover:shadow-md'}`}
+            className={`flex flex-col gap-0.5 items-center justify-center h-full w-full rounded-[var(--radius-sm)] p-1 border transition-all shadow-[var(--shadow-sm)]
+            ${isOverlay ? 'scale-105 z-50 ring-2 ring-[var(--accent)]' : 'hover:brightness-[0.97] hover:shadow-[var(--shadow-md)]'}`}
             style={{ backgroundColor: bgColor, borderColor, borderWidth: '1px', borderLeftWidth: '4px' }}
         >
             <span className="font-extrabold text-[var(--text-primary)] text-[13px] leading-tight text-center drop-shadow-sm uppercase tracking-wide">
@@ -131,7 +131,7 @@ const DraggableSlot = ({ slot, viewMode, isEditable, onToggleLock }: { slot: Sch
                     className={`absolute top-1 right-1 p-1 rounded-full shadow-sm transition-all z-10
                         ${slot.is_locked
                             ? 'bg-red-100 text-red-600 opacity-100'
-                            : 'bg-[var(--bg-surface)] text-gray-400 opacity-0 group-hover:opacity-100 hover:text-blue-600 hover:bg-blue-50'}`}
+                            : 'bg-[var(--bg-surface)] text-[var(--text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--accent)] hover:bg-[var(--accent-soft)]'}`}
                     title={slot.is_locked ? 'Mở khóa' : 'Khóa'}
                 >
                     {slot.is_locked ? (
@@ -254,7 +254,7 @@ export default function TimetableGrid({ schedule, viewMode, selectedEntityId, on
                 {slot ? (
                     <DraggableSlot slot={slot} viewMode={viewMode} isEditable={isEditable} onToggleLock={onToggleLock} />
                 ) : (
-                    <div className="h-full w-full flex items-center justify-center text-gray-200 text-xs">-</div>
+                    <div className="h-full w-full flex items-center justify-center text-[var(--text-muted)]/30 text-lg select-none">·</div>
                 )}
             </DroppableCell>
         );
@@ -289,7 +289,7 @@ export default function TimetableGrid({ schedule, viewMode, selectedEntityId, on
                                 </tr>
                             ))}
 
-                            <tr className="bg-gray-200 h-1"><td colSpan={8}></td></tr>
+                            <tr className="h-1"><td colSpan={8} className="bg-[var(--border-default)]"></td></tr>
 
                             {periods.map((p, index) => (
                                 <tr key={`afternoon-${p}`}>

@@ -26,3 +26,7 @@ Thumbs.db
 *.sql
 *.tmp
 *.bak
+
+# tasteskill local skill files
+.agents/
+skills-lock.json

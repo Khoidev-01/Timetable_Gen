@@ -48,31 +48,31 @@ export default function SubjectModal({ isOpen, onClose, onSave, initialData }: S
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-[var(--bg-surface)] rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="px-6 py-4 border-b border-[var(--border-light)] flex justify-between items-center bg-[var(--bg-surface-hover)]">
+            <div className="bg-[var(--bg-surface)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] w-full max-w-md overflow-hidden animate-rise">
+                <div className="px-6 py-4 border-b border-[var(--border-default)] flex justify-between items-center bg-[var(--bg-surface-hover)]">
                     <h3 className="text-lg font-bold text-[var(--text-primary)]">
-                        {initialData ? 'Update Subject' : 'Add New Subject'}
+                        {initialData ? 'Sửa môn học' : 'Thêm môn học'}
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-[var(--text-secondary)]">✕</button>
+                    <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Subject Code</label>
-                        <input className="w-full px-3 py-2 border rounded-lg"
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Mã môn</label>
+                        <input className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                             required
                             value={formData.code}
                             onChange={e => setFormData({ ...formData, code: e.target.value })}
-                            placeholder="e.g. MATH"
+                            placeholder="VD: TOAN"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Subject Name</label>
-                        <input className="w-full px-3 py-2 border rounded-lg"
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Tên môn</label>
+                        <input className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                             required
                             value={formData.name}
                             onChange={e => setFormData({ ...formData, name: e.target.value })}
-                            placeholder="e.g. Mathematics"
+                            placeholder="VD: Toán"
                         />
                     </div>
 
@@ -80,15 +80,15 @@ export default function SubjectModal({ isOpen, onClose, onSave, initialData }: S
                         <input
                             type="checkbox"
                             id="is_special"
-                            className="w-4 h-4 text-blue-600 rounded"
+                            className="w-4 h-4 text-[var(--accent)] rounded"
                             checked={formData.is_special}
                             onChange={e => setFormData({ ...formData, is_special: e.target.checked })}
                         />
-                        <label htmlFor="is_special" className="text-sm font-medium text-[var(--text-secondary)]">Special Subject (e.g. PE, Defense)</label>
+                        <label htmlFor="is_special" className="text-sm font-medium text-[var(--text-secondary)]">Môn đặc biệt (Chào cờ, Sinh hoạt...)</label>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Display Color</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Màu hiển thị</label>
                         <div className="flex gap-2 items-center">
                             <input type="color" className="h-10 w-20 border rounded cursor-pointer"
                                 value={formData.color}
@@ -99,10 +99,10 @@ export default function SubjectModal({ isOpen, onClose, onSave, initialData }: S
                     </div>
 
                     <div className="pt-4 flex justify-end gap-3 border-t border-[var(--border-light)] mt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--bg-surface-hover)] rounded-lg hover:bg-gray-200 text-[var(--text-secondary)]">Cancel</button>
-                        <button type="submit" disabled={isLoading} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 text-white flex items-center gap-2">
-                            {isLoading && <span className="animate-spin text-white">⏳</span>}
-                            Save
+                        <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--bg-surface-hover)] rounded-[var(--radius-md)] hover:bg-[var(--border-default)] text-[var(--text-secondary)] font-medium tactile">Hủy</button>
+                        <button type="submit" disabled={isLoading} className="px-4 py-2 bg-[var(--accent)] rounded-[var(--radius-md)] hover:bg-[var(--accent-hover)] tactile text-[var(--accent-contrast)] font-semibold flex items-center gap-2 disabled:opacity-60">
+                            {isLoading && <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+                            {initialData ? "Lưu thay đổi" : "Tạo môn"}
                         </button>
                     </div>
                 </form>

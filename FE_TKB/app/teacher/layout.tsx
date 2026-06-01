@@ -7,6 +7,7 @@ import { LayoutDashboard, CalendarDays, Clock, KeyRound, LogOut, PanelLeftClose,
 import AppLogo from '../components/AppLogo';
 import ThemeToggle from '../components/ThemeToggle';
 import { API_URL } from '@/lib/api';
+import { Toaster } from '@/lib/toast';
 
 const teacherMenuItems = [
   { name: 'Tổng quan', href: '/teacher', icon: LayoutDashboard },
@@ -58,11 +59,15 @@ function TeacherSidebar({ onLogout }: { onLogout: () => void }) {
             const Icon = item.icon;
             return (
               <Link key={item.href} href={item.href} title={collapsed ? item.name : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150
+                aria-current={isActive ? 'page' : undefined}
+                className={`relative flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] tactile
                   ${isActive
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 font-medium'
-                    : 'text-[var(--text-sidebar)] hover:bg-white/8 hover:text-white'}
+                    ? 'bg-emerald-600 text-white font-medium shadow-[var(--shadow-md)]'
+                    : 'text-[var(--text-sidebar)] hover:bg-white/[0.06] hover:text-white'}
                   ${collapsed ? 'justify-center' : ''}`}>
+                {isActive && !collapsed && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-white" />
+                )}
                 <Icon size={20} strokeWidth={isActive ? 2.2 : 1.8} />
                 {!collapsed && <span className="text-sm">{item.name}</span>}
               </Link>
@@ -72,7 +77,7 @@ function TeacherSidebar({ onLogout }: { onLogout: () => void }) {
 
         <div className="p-2 border-t border-white/10">
           <button onClick={onLogout} title={collapsed ? 'Đăng xuất' : undefined}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] transition-colors
               text-red-400 hover:bg-red-500/15 hover:text-red-300 ${collapsed ? 'justify-center' : ''}`}>
             <LogOut size={20} strokeWidth={1.8} />
             {!collapsed && <span className="text-sm">Đăng xuất</span>}
@@ -155,7 +160,9 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   if (!user) return null;
 
   return (
-    <div className="flex h-screen w-screen bg-[var(--bg-base)] overflow-hidden transition-colors">
+    <div className="flex h-[100dvh] w-screen bg-[var(--bg-base)] overflow-hidden transition-colors">
+      <div className="grain-overlay" aria-hidden />
+      <Toaster />
       <TeacherSidebar onLogout={handleLogout} />
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <header className="h-14 bg-[var(--bg-surface)] border-b border-[var(--border-default)]
@@ -185,13 +192,13 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-[var(--border-default)]
+                <div className="absolute right-0 top-full mt-2 w-80 rounded-[var(--radius-md)] border border-[var(--border-default)]
                   bg-[var(--bg-surface)] shadow-2xl z-50 overflow-hidden">
                   <div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center justify-between">
                     <h3 className="font-bold text-sm text-[var(--text-primary)]">Thông báo</h3>
                     {unreadCount > 0 && (
                       <button onClick={markAllAsRead}
-                        className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-400 font-medium">
+                        className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-500 font-medium">
                         <Check size={12} /> Đọc tất cả
                       </button>
                     )}
@@ -207,14 +214,14 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
                         onClick={() => !notif.is_read && markAsRead(notif.id)}
                         className={`px-4 py-3 flex gap-3 border-b border-[var(--border-light)] cursor-pointer
                           hover:bg-[var(--bg-surface-hover)] transition-colors
-                          ${!notif.is_read ? 'bg-blue-500/5' : ''}`}
+                          ${!notif.is_read ? 'bg-emerald-500/[0.07]' : ''}`}
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <p className={`text-sm font-semibold truncate ${!notif.is_read ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
                               {notif.title}
                             </p>
-                            {!notif.is_read && <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />}
+                            {!notif.is_read && <span className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0 mt-1.5" />}
                           </div>
                           <p className="text-xs text-[var(--text-muted)] mt-0.5 line-clamp-2">{notif.message}</p>
                           <p className="text-[10px] text-[var(--text-muted)] mt-1 opacity-60">{timeAgo(notif.created_at)}</p>
@@ -226,8 +233,8 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
               )}
             </div>
 
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600
-              flex items-center justify-center text-white text-sm font-bold shadow-sm">
+            <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-emerald-600
+              flex items-center justify-center text-white text-sm font-semibold shadow-[var(--shadow-sm)]">
               {user.username[0].toUpperCase()}
             </div>
           </div>

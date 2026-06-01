@@ -234,7 +234,7 @@ export default function TimetablePage() {
         setResult({ fitness_score: fitness, bestSchedule: schedule, fitnessDetails: data.fitnessDetails, fitnessViolations: data.fitnessViolations });
         setTotalWeeks(data.totalWeeks ?? 1);
         setSemesterStartDate(data.semesterStartDate ?? null);
-        setLogs((previous) => [...previous, `Đã tải ${schedule.length} tiết học — Tuần ${week}/${data.totalWeeks ?? 1}.`]);
+        setLogs((previous) => [...previous, `Đã tải ${schedule.length} tiết học · Tuần ${week}/${data.totalWeeks ?? 1}.`]);
         setIsGenerating(false);
       }
     } catch (error) {
@@ -451,7 +451,7 @@ export default function TimetablePage() {
     const weekStart = new Date(start.getTime() + (week - 1) * 7 * 24 * 3600 * 1000);
     const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 3600 * 1000);
     const fmt = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`;
-    return `${fmt(weekStart)} – ${fmt(weekEnd)}`;
+    return `${fmt(weekStart)} - ${fmt(weekEnd)}`;
   };
 
   const selectedYear = years.find((item) => item.id === selectedYearId);
@@ -472,7 +472,7 @@ export default function TimetablePage() {
 
       <h1 className="text-2xl font-bold text-[var(--text-primary)]">Xếp thời khóa biểu</h1>
 
-      <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-sm">
+      <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-sm">
         <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
           <div>
             <div className="mb-2 flex items-center justify-between">
@@ -496,7 +496,7 @@ export default function TimetablePage() {
                 </button>
                 <button
                   onClick={openCreateYearModal}
-                  className="rounded bg-blue-100 px-2 py-1 text-xs font-bold text-blue-600 hover:bg-blue-200"
+                  className="rounded bg-[var(--accent-soft)] px-2 py-1 text-xs font-bold text-[var(--accent)] hover:bg-[var(--accent-soft)]"
                 >
                   + Thêm
                 </button>
@@ -538,9 +538,14 @@ export default function TimetablePage() {
             <button
               onClick={handleStart}
               disabled={!selectedSemesterId || isGenerating}
-              className="flex-1 rounded-lg bg-purple-600 px-4 py-2.5 font-bold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="tactile flex-1 inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--accent)] px-4 py-2.5 font-semibold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] shadow-[var(--shadow-sm)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isGenerating ? 'Đang xử lý...' : 'Bắt đầu'}
+              {isGenerating ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : 'Bắt đầu xếp lịch'}
             </button>
             <button
               onClick={handleClear}
@@ -577,7 +582,7 @@ export default function TimetablePage() {
       </div>
 
       {result?.bestSchedule && (
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-sm">
+        <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-sm">
           <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div className="flex-1">
               <h2 className="text-xl font-bold text-[var(--text-primary)]">Thời khóa biểu hoàn chỉnh</h2>
@@ -602,7 +607,7 @@ export default function TimetablePage() {
               {result?.fitnessDetails && result.fitnessDetails.length > 0 && (
                 <details className="mt-3 rounded-lg border border-red-200 bg-red-50/50">
                   <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100/50">
-                    📋 Tổng hợp vi phạm ({result.fitnessDetails.length} loại) — Bấm để mở
+                    📋 Tổng hợp vi phạm ({result.fitnessDetails.length} loại). Bấm để mở
                   </summary>
                   <ul className="px-4 pb-3 text-xs space-y-1">
                     {result.fitnessDetails.map((detail: string, idx: number) => (
@@ -614,15 +619,15 @@ export default function TimetablePage() {
 
               {/* Detailed Violations */}
               {result?.fitnessViolations && result.fitnessViolations.length > 0 && (
-                <details className="mt-2 rounded-lg border border-gray-300 bg-gray-50/50">
-                  <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100/50">
-                    🔍 Chi tiết từng vi phạm ({result.fitnessViolations.length} mục) — Bấm để mở
+                <details className="mt-2 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-hover)]/50">
+                  <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]">
+                    🔍 Chi tiết từng vi phạm ({result.fitnessViolations.length} mục). Bấm để mở
                   </summary>
                   <div className="max-h-64 overflow-y-auto px-3 pb-3">
                     {/* HARD violations */}
                     {result.fitnessViolations.filter((v: any) => v.type === 'HARD').length > 0 && (
                       <div className="mb-2">
-                        <div className="text-xs font-bold text-red-600 mb-1 sticky top-0 bg-gray-50 py-1">
+                        <div className="text-xs font-bold text-red-600 mb-1 sticky top-0 bg-[var(--bg-surface)] py-1">
                           ⛔ Ràng buộc CỨNG ({result.fitnessViolations.filter((v: any) => v.type === 'HARD').length})
                         </div>
                         {result.fitnessViolations.filter((v: any) => v.type === 'HARD').map((v: any, idx: number) => (
@@ -635,7 +640,7 @@ export default function TimetablePage() {
                     {/* SOFT violations */}
                     {result.fitnessViolations.filter((v: any) => v.type === 'SOFT').length > 0 && (
                       <div>
-                        <div className="text-xs font-bold text-yellow-600 mb-1 sticky top-0 bg-gray-50 py-1">
+                        <div className="text-xs font-bold text-yellow-600 mb-1 sticky top-0 bg-[var(--bg-surface)] py-1">
                           ⚠️ Ràng buộc MỀM ({result.fitnessViolations.filter((v: any) => v.type === 'SOFT').length})
                         </div>
                         {result.fitnessViolations.filter((v: any) => v.type === 'SOFT').map((v: any, idx: number) => (
@@ -705,16 +710,16 @@ export default function TimetablePage() {
 
               <div className="flex items-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] p-1">
                 <button
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    displayMode === 'WEEK' ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  className={`px-3 py-1.5 text-sm font-medium rounded-[var(--radius-sm)] transition-colors ${
+                    displayMode === 'WEEK' ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[var(--shadow-sm)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                   onClick={() => setDisplayMode('WEEK')}
                 >
                   Lịch Tuần
                 </button>
                 <button
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    displayMode === 'MONTH' ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  className={`px-3 py-1.5 text-sm font-medium rounded-[var(--radius-sm)] transition-colors ${
+                    displayMode === 'MONTH' ? 'bg-[var(--accent-soft)] text-[var(--accent)] shadow-[var(--shadow-sm)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                   onClick={() => setDisplayMode('MONTH')}
                 >
@@ -724,16 +729,16 @@ export default function TimetablePage() {
 
               <div className="flex items-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] p-1">
                 <button
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    viewMode === 'CLASS' ? 'bg-blue-600 text-white shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  className={`px-3 py-1.5 text-sm font-medium rounded-[var(--radius-sm)] transition-colors ${
+                    viewMode === 'CLASS' ? 'bg-[var(--accent)] text-[var(--accent-contrast)] shadow-[var(--shadow-sm)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                   onClick={() => setViewMode('CLASS')}
                 >
                   Xem theo lớp
                 </button>
                 <button
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    viewMode === 'TEACHER' ? 'bg-blue-600 text-white shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  className={`px-3 py-1.5 text-sm font-medium rounded-[var(--radius-sm)] transition-colors ${
+                    viewMode === 'TEACHER' ? 'bg-[var(--accent)] text-[var(--accent-contrast)] shadow-[var(--shadow-sm)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                   onClick={() => setViewMode('TEACHER')}
                 >
@@ -788,7 +793,7 @@ export default function TimetablePage() {
 
       {isYearModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-xl bg-[var(--bg-surface)] shadow-xl">
+          <div className="w-full max-w-md overflow-hidden rounded-[var(--radius-md)] bg-[var(--bg-surface)] shadow-xl">
             <div className="flex items-center justify-between border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] px-6 py-4">
               <h3 className="text-lg font-bold text-[var(--text-primary)]">{editingYearId ? 'Sửa năm học' : 'Thêm năm học mới'}</h3>
               <button onClick={() => setIsYearModalOpen(false)} className="text-gray-400 hover:text-[var(--text-secondary)]">
@@ -835,13 +840,13 @@ export default function TimetablePage() {
                 <button
                   type="button"
                   onClick={() => setIsYearModalOpen(false)}
-                  className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 font-medium text-[var(--text-secondary)] hover:bg-gray-200"
+                  className="rounded-lg bg-[var(--bg-surface-hover)] px-4 py-2 font-medium text-[var(--text-secondary)] hover:bg-[var(--border-default)]"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700"
+                  className="rounded-lg bg-[var(--accent)] px-4 py-2 font-bold text-white hover:bg-[var(--accent-hover)]"
                 >
                   {editingYearId ? 'Lưu thay đổi' : 'Tạo mới'}
                 </button>
