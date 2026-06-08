@@ -25,6 +25,7 @@
 15. [Tổng hợp Design Pattern toàn dự án](#15-tổng-hợp-design-pattern-toàn-dự-án)
 16. [Thiết kế Database — schema, quan hệ, ràng buộc, index](#16-thiết-kế-database--schema-quan-hệ-ràng-buộc-index)
 17. [Thiết kế Backend — NestJS, module, DI, lifecycle](#17-thiết-kế-backend--nestjs-module-di-lifecycle)
+18. [Triển khai Production — Coolify + Traefik + Let's Encrypt](#18-triển-khai-production--coolify--traefik--lets-encrypt)
 
 ---
 
@@ -1911,6 +1912,247 @@ export class NotificationModule {}
 
 ---
 
+## 18. Triển khai Production — Coolify + Traefik + Let's Encrypt
+
+> Phần này mô tả **chính xác** hạ tầng production đang chạy, xác minh trực tiếp trên server. **Không** chứa secret thật — mật khẩu/khóa ghi dạng `<placeholder>`, cấu hình ở Coolify UI / `.env` trên server, không commit vào repo.
+
+### 18.1. Tổng quan hạ tầng thật
+
+| Thành phần | Giá trị thực tế |
+| :--- | :--- |
+| **VPS** | Ubuntu 24.04 LTS, Docker 27.0.3 |
+| **IP công khai** | `46.225.118.187` (A record trỏ tới đây) |
+| **PaaS** | Coolify v4.0 (self-hosted, container `coolify` cổng 8000) |
+| **Reverse proxy** | Traefik v3.6 (container `coolify-proxy`, cổng 80/443/8080) |
+| **Buildpack** | Docker Compose (build từ `docker-compose.yaml` của repo) |
+| **Git source** | branch `main`, repo GitHub (Coolify webhook auto-deploy) |
+| **Domain** | mua tại **matbao.com**: `gettimetable.cloud` |
+| **TLS** | Let's Encrypt tự động (Traefik `certresolver=letsencrypt`) |
+
+Bảng tên miền → service:
+
+| Domain | Service | Container nội bộ | Cổng |
+| :--- | :--- | :--- | :--- |
+| `https://gettimetable.cloud` | Frontend (Next.js) | `frontend` | 3000 |
+| `https://api.gettimetable.cloud` | Backend API (NestJS) | `backend` | 4000 |
+| (nội bộ) | PostgreSQL 17 | `postgres` | 5432 |
+| (nội bộ) | Redis 7 | `redis` | 6379 |
+
+### 18.2. Sơ đồ luồng request production
+
+```
+            Internet (HTTPS)
+                 │
+    gettimetable.cloud  /  api.gettimetable.cloud
+                 │  DNS A record → 46.225.118.187 (matbao.com)
+                 ▼
+        ┌─────────────────────┐
+        │  Traefik v3.6        │ :80 → redirect 302 → :443
+        │  (coolify-proxy)     │ TLS Let's Encrypt, gzip middleware
+        └──────┬──────────┬────┘
+               │ Host=    │ Host=
+               │ gettime… │ api.gettime…
+               ▼          ▼
+        ┌──────────┐  ┌──────────┐
+        │ frontend │  │ backend  │  ← Docker network nội bộ Coolify
+        │  :3000   │  │  :4000   │
+        └──────────┘  └────┬─────┘
+                           │ tên service nội bộ
+                  ┌────────┴────────┐
+                  ▼                 ▼
+            ┌──────────┐      ┌──────────┐
+            │ postgres │      │  redis   │
+            │  :5432   │      │  :6379   │
+            └──────────┘      └──────────┘
+```
+
+> **Traefik định tuyến bằng `Host` header** (không bằng cổng). Cùng một IP, cùng cổng 443, Traefik đọc SNI/Host để chọn `gettimetable.cloud` → frontend hoặc `api.gettimetable.cloud` → backend. Đây là **host-based routing** — chìa khóa để 1 server phục vụ nhiều domain.
+
+### 18.3. Cơ chế routing — Traefik labels do Coolify sinh
+
+Coolify **tự động gắn label Traefik** lên mỗi container khi cấu hình domain. Label thật trên container `frontend`:
+
+```
+traefik.enable=true
+traefik.http.routers.http-0-…-frontend.rule=Host(`gettimetable.cloud`) && PathPrefix(`/`)
+traefik.http.routers.http-0-…-frontend.middlewares=redirect-to-https
+traefik.http.routers.https-0-…-frontend.rule=Host(`gettimetable.cloud`) && PathPrefix(`/`)
+traefik.http.routers.https-0-…-frontend.tls=true
+traefik.http.routers.https-0-…-frontend.tls.certresolver=letsencrypt
+traefik.http.routers.https-0-…-frontend.middlewares=gzip
+traefik.http.services.frontend.loadbalancer.server.port=3000
+```
+
+Container `backend` tương tự với `Host(`api.gettimetable.cloud`)`. Ý nghĩa từng label:
+- **2 router (http + https)**: router `http` (cổng 80) gắn middleware `redirect-to-https` → mọi truy cập HTTP bị đẩy sang HTTPS (xác minh: `curl http://…` trả `302 → https://…`).
+- **`tls.certresolver=letsencrypt`**: Traefik tự xin + gia hạn chứng chỉ Let's Encrypt cho domain. Không cần cấu hình SSL tay.
+- **`middlewares=gzip`**: nén response.
+- **`loadbalancer.server.port=3000`**: Traefik forward tới cổng nội bộ container.
+
+### 18.4. Cấu hình DNS tại matbao.com
+
+Domain mua ở **matbao.com**, cần tạo 2 bản ghi trỏ về IP server:
+
+| Loại | Tên (Host) | Giá trị | Mục đích |
+| :--- | :--- | :--- | :--- |
+| `A` | `@` (hoặc `gettimetable.cloud`) | `46.225.118.187` | Frontend |
+| `A` | `api` | `46.225.118.187` | Backend API |
+
+> **Vì sao 2 A record cùng IP:** cả frontend lẫn backend chạy trên **một** server, Traefik phân biệt bằng Host header (§18.2). `api.gettimetable.cloud` là **subdomain** → bản ghi `A` tên `api`. Có thể dùng `CNAME api → gettimetable.cloud` thay cho A record thứ 2 (kết quả tương đương).
+>
+> Sau khi tạo record, chờ DNS lan truyền (vài phút tới 48h). Kiểm tra: `nslookup gettimetable.cloud` phải trả `46.225.118.187`. Khi DNS đã trỏ đúng, Traefik mới xin được chứng chỉ Let's Encrypt (Let's Encrypt verify quyền sở hữu domain qua HTTP-01 challenge → domain phải resolve về đúng server).
+
+### 18.5. Build pipeline — Docker multi-stage
+
+Coolify clone repo rồi build mỗi service bằng Dockerfile multi-stage (giảm kích thước image production).
+
+**Backend** [BE_TKB/Dockerfile](BE_TKB/Dockerfile) — 3 stage:
+
+```dockerfile
+# Stage 1: deps — cài node_modules (cache layer)
+FROM node:22-alpine AS deps
+RUN apk add --no-cache openssl          # Prisma cần openssl
+RUN npm ci
+
+# Stage 2: builder — generate Prisma client + build TS
+FROM node:22-alpine AS builder
+RUN npx prisma generate
+RUN npm run build                        # → dist/
+
+# Stage 3: runner — chỉ copy artifact cần thiết
+FROM node:22-alpine AS runner
+ENV NODE_ENV=production
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+CMD ["sh", "scripts/startup.sh"]
+```
+
+> **Vì sao multi-stage:** stage cuối (`runner`) **không** chứa source TS, devDependencies, cache build — chỉ `dist/` + `node_modules` + prisma. Image nhỏ hơn nhiều, ít bề mặt tấn công. `apk add openssl` lặp ở mỗi stage vì Prisma engine cần nó runtime.
+
+**Frontend** [FE_TKB/Dockerfile](FE_TKB/Dockerfile) — Next.js standalone:
+
+```dockerfile
+FROM node:22-alpine AS builder
+ARG NEXT_PUBLIC_API_URL                  # ← build-time, KHÔNG phải runtime
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+RUN npm run build                        # → .next/standalone
+
+FROM node:22-alpine AS runner
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+CMD ["node", "server.js"]               # standalone server tự chứa
+```
+
+> **⚠️ Bẫy `NEXT_PUBLIC_*` — quan trọng nhất khi deploy Next.js:** biến `NEXT_PUBLIC_API_URL` được **đốt vào bundle lúc BUILD**, không đọc runtime. Trên server thật nó = `https://api.gettimetable.cloud` (xác minh trong image FE). Hệ quả: **đổi domain API → phải REBUILD image** (Redeploy), không phải Restart. Restart chỉ chạy lại container với bundle cũ → vẫn gọi domain cũ. Đây là lỗi deploy Next.js phổ biến nhất.
+
+### 18.6. Startup script — khởi động backend container
+
+[BE_TKB/scripts/startup.sh](BE_TKB/scripts/startup.sh) chạy mỗi lần container backend start:
+
+```sh
+#!/bin/sh
+set -e
+echo "Syncing database schema..."
+npx prisma db push --skip-generate --accept-data-loss || echo "Warning: continuing..."
+echo "Seeding admin user if not exists..."
+node scripts/seed-admin.js || echo "Warning: continuing..."
+echo "Starting application..."
+exec node dist/src/main.js
+```
+
+3 bước, theo thứ tự:
+1. **`prisma db push`**: đồng bộ schema với DB (tạo/sửa bảng theo `schema.prisma`). `--accept-data-loss` cho phép thay đổi phá hủy — tiện cho dev/beta nhưng **rủi ro production** (mất dữ liệu khi đổi cột). Production trưởng thành nên dùng `prisma migrate deploy` thay thế.
+2. **`seed-admin.js`**: tạo tài khoản admin mặc định nếu chưa có (idempotent — chạy lại không tạo trùng).
+3. **`exec node dist/src/main.js`**: `exec` thay process shell bằng Node → Node thành PID 1, nhận signal (SIGTERM) đúng cách khi Docker stop.
+
+> **`|| echo continuing`**: lỗi `db push`/`seed` không làm sập container (graceful) — app vẫn cố start. `set -e` ở đầu nhưng các bước rủi ro được bọc `||` nên không exit.
+
+### 18.7. Biến môi trường production (cấu hình ở Coolify UI)
+
+Set tại Coolify → tab **Environment Variables**, KHÔNG commit `.env` vào repo. Giá trị thật trên server (secret redact):
+
+| Biến | Giá trị production | Ghi chú |
+| :--- | :--- | :--- |
+| `POSTGRES_USER` | `postgres` | |
+| `POSTGRES_PASSWORD` | `<redacted>` | **đổi định kỳ** |
+| `POSTGRES_DB` | `tkb_db` | |
+| `DATABASE_URL` | `postgresql://…@postgres:5432/tkb_db` | host = tên service `postgres` |
+| `REDIS_HOST` | `redis` | tên service nội bộ |
+| `REDIS_PORT` | `6379` | |
+| `JWT_SECRET` | `<redacted>` | ≥32 ký tự |
+| `CORS_ORIGIN` | `https://gettimetable.cloud` | whitelist FE |
+| `NEXT_PUBLIC_API_URL` | `https://api.gettimetable.cloud` | **build-time** (§18.5) |
+| `PORT` | `4000` (BE) / `3000` (FE) | |
+
+> **Domain nội bộ vs công khai:** `DATABASE_URL` dùng host `postgres` (tên service trong Docker network), KHÔNG phải `localhost` hay IP. Các container cùng network Coolify gọi nhau bằng tên service. Chỉ frontend↔backend đi qua domain công khai (vì FE chạy ở browser người dùng).
+
+### 18.8. Quy trình deploy đầy đủ — từ code tới live
+
+```
+1. [Local] git push origin main
+              │
+2. [GitHub]  webhook → báo Coolify có commit mới
+              │  (hoặc bấm "Redeploy" thủ công trên Coolify UI)
+              ▼
+3. [Coolify] git clone branch main (commit SOURCE_COMMIT)
+              │
+4.           docker compose build  ← build 4 service từ docker-compose.yaml
+              │   ├─ backend: multi-stage (deps→builder→runner)
+              │   └─ frontend: inject NEXT_PUBLIC_API_URL lúc build
+              ▼
+5.           docker compose up -d  ← start theo thứ tự depends_on + healthcheck
+              │   postgres (healthy) → redis (healthy) → backend (healthy) → frontend
+              ▼
+6. [backend] startup.sh: prisma db push → seed-admin → node main.js
+              ▼
+7. [Traefik] phát hiện container mới (label) → cập nhật route + xin/gia hạn TLS
+              ▼
+8. ✅ https://gettimetable.cloud live
+```
+
+**Các bước cấu hình lần đầu (one-time setup):**
+1. Trỏ DNS 2 A record tại matbao.com về `46.225.118.187` (§18.4).
+2. Trên Coolify: tạo Project → Resource → chọn **Docker Compose** buildpack, kết nối GitHub repo branch `main`.
+3. Đặt domain: `gettimetable.cloud` cho frontend, `api.gettimetable.cloud` cho backend (Coolify tự sinh label Traefik + bật TLS).
+4. Nhập Environment Variables (§18.7).
+5. Bấm **Deploy**. Chờ build + healthcheck pass.
+6. Kiểm tra: `curl -I https://gettimetable.cloud` trả `200`, HTTP redirect `302` sang HTTPS.
+
+### 18.9. Vận hành & troubleshoot
+
+**Thao tác thường dùng (Coolify UI):**
+- **Redeploy**: build lại từ commit mới nhất — dùng khi đổi code hoặc đổi `NEXT_PUBLIC_*`.
+- **Restart**: chạy lại container với image cũ — KHÔNG rebuild (không đổi được build-time env).
+- **Logs**: xem log realtime từng service.
+- **Terminal**: exec vào container (`psql -U postgres tkb_db` để thao tác DB).
+- **Rollback**: quay về deployment cũ.
+
+**Kiểm tra trạng thái qua SSH (read-only):**
+```bash
+docker ps --format '{{.Names}}\t{{.Status}}'        # các container + health
+docker logs backend-<uuid> --tail 100               # log backend
+docker inspect <container> --format '{{.State.Health.Status}}'
+```
+
+**Sự cố thường gặp:**
+
+| Triệu chứng | Nguyên nhân | Khắc phục |
+| :--- | :--- | :--- |
+| FE gọi API sai domain / CORS | `NEXT_PUBLIC_API_URL` sai, hoặc chỉ Restart không Rebuild | **Redeploy** FE sau khi sửa biến |
+| 502 Bad Gateway | Backend chưa healthy (start mất ~60s do `prisma db push`) | Chờ `start_period`, xem log backend |
+| SSL không cấp | DNS chưa trỏ đúng IP | Kiểm tra `nslookup`, chờ propagate rồi Redeploy |
+| DB connect fail | `DATABASE_URL` dùng `localhost` thay vì `postgres` | Sửa host = tên service `postgres` |
+| Mất dữ liệu sau deploy | `prisma db push --accept-data-loss` xóa cột | Chuyển sang `prisma migrate deploy` |
+
+### 18.10. Ghi chú bảo mật deploy
+
+- **Secret KHÔNG vào repo**: mọi mật khẩu/khóa đặt ở Coolify Environment Variables, không commit `.env`.
+- **DB/Redis không expose ra ngoài** trong production (chỉ Docker network nội bộ); cổng `5435`/`6381` trong `docker-compose.yml` là cho dev local.
+- **Đổi mật khẩu mặc định**: admin seed `123456` và mật khẩu DB phải đổi ngay sau deploy đầu.
+- **`--accept-data-loss`** chỉ phù hợp giai đoạn beta; production ổn định nên migrate có kiểm soát.
+
+---
+
 ## Phụ lục — Bản đồ đọc code theo chủ đề
 
 | Muốn hiểu... | Đọc file | Mục tài liệu này |
@@ -1922,9 +2164,12 @@ export class NotificationModule {}
 | Queue & worker | [algorithm.producer.ts](BE_TKB/src/worker/algorithm.producer.ts) | §12 |
 | Import/Export Excel | [excel.service.ts](BE_TKB/src/excel/excel.service.ts), [excel.utils.ts](BE_TKB/src/excel/excel.utils.ts) | §13 |
 | Kéo-thả & state FE | [TimetableGrid.tsx](FE_TKB/app/components/admin/TimetableGrid.tsx), [scheduleSlice.ts](FE_TKB/lib/features/schedule/scheduleSlice.ts) | §14 |
+| Thiết kế DB | [schema.prisma](BE_TKB/prisma/schema.prisma) | §16 |
+| Kiến trúc Backend | [app.module.ts](BE_TKB/src/app.module.ts), [main.ts](BE_TKB/src/main.ts), [prisma.service.ts](BE_TKB/src/prisma/prisma.service.ts) | §17 |
+| Triển khai production | [docker-compose.yml](docker-compose.yml), [BE_TKB/Dockerfile](BE_TKB/Dockerfile), [FE_TKB/Dockerfile](FE_TKB/Dockerfile), [startup.sh](BE_TKB/scripts/startup.sh) | §18 |
 
 ---
 
 **Phiên bản tài liệu**: 1.0
-**Phạm vi**: kỹ thuật code, thuật toán, cấu trúc dữ liệu, design pattern, công nghệ.
+**Phạm vi**: kỹ thuật code, thuật toán, cấu trúc dữ liệu, design pattern, công nghệ, thiết kế DB/Backend, triển khai production.
 **Bổ trợ**: [PROJECT.md](PROJECT.md) (tra cứu nhanh API/schema/setup).
