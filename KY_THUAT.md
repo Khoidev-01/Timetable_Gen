@@ -23,6 +23,8 @@
 13. [Pipeline Excel — parse, alias, validate, transaction](#13-pipeline-excel--parse-alias-validate-transaction)
 14. [Frontend — Drag & Drop, Redux, optimistic update](#14-frontend--drag--drop-redux-optimistic-update)
 15. [Tổng hợp Design Pattern toàn dự án](#15-tổng-hợp-design-pattern-toàn-dự-án)
+16. [Thiết kế Database — schema, quan hệ, ràng buộc, index](#16-thiết-kế-database--schema-quan-hệ-ràng-buộc-index)
+17. [Thiết kế Backend — NestJS, module, DI, lifecycle](#17-thiết-kế-backend--nestjs-module-di-lifecycle)
 
 ---
 
@@ -1600,6 +1602,312 @@ UI không chờ server → cảm giác mượt. DB đồng bộ sau. Đây là *
 │ → lưu trữ chính      │   │ → job queue + cache  │
 └──────────────────────┘   └──────────────────────┘
 ```
+
+---
+
+## 16. Thiết kế Database — schema, quan hệ, ràng buộc, index
+
+Nguồn chân lý duy nhất: [schema.prisma](BE_TKB/prisma/schema.prisma). PostgreSQL 17, ORM Prisma 5. Schema chia **8 nhóm logic** theo comment block, mỗi nhóm một vai trò nghiệp vụ.
+
+### 16.1. Triết lý thiết kế tổng thể
+
+| Nguyên tắc | Thể hiện trong schema |
+| :--- | :--- |
+| **Tách INPUT khỏi OUTPUT** | `teaching_assignments` (input: ai dạy gì) ≠ `timetable_slots` (output: xếp vào đâu) |
+| **Phân tầng cấu hình → tài nguyên → kết quả** | Group 1 (năm/kỳ) → Group 2-4 (phòng/môn/GV/lớp) → Group 5 (phân công) → Group 6 (TKB) |
+| **Khóa tự nhiên cho thực thể nghiệp vụ** | `Subject.code`, `Teacher.code`, `User.username` đều `@unique` — định danh người-đọc-được |
+| **UUID cho thực thể, autoincrement cho danh mục** | Lớp/GV/TKB dùng UUID; phòng/môn dùng `Int autoincrement` |
+| **Snake_case cột, PascalCase model** | `@@map("teacher_constraints")` map model `TeacherConstraint` → bảng snake_case |
+
+### 16.2. Vì sao UUID cho thực thể, Int cho danh mục
+
+Lựa chọn kiểu khóa **không đồng nhất** — có chủ đích:
+
+```prisma
+model Class   { id String @id @default(uuid()) }       // thực thể nghiệp vụ
+model Subject { id Int    @id @default(autoincrement()) }  // danh mục cố định
+model Room    { id Int    @id @default(autoincrement()) }
+```
+
+> **Lý do:**
+> - **UUID cho Class/Teacher/Timetable/Assignment**: các thực thể này được tạo động, tham chiếu chéo nhiều, và xuất hiện trong URL/API. UUID **không đoán được** (chống enumeration attack), **không lộ số lượng** (id=5 → biết có ≤5 bản ghi), và **sinh được phía client** không cần round-trip DB (thuật toán dùng `crypto.randomUUID()` cho slot mới — xem §3.6).
+> - **Int autoincrement cho Subject/Room**: danh mục nhỏ, cố định (17 môn, ~35 phòng), tra cứu cực nhiều trong thuật toán. Int khóa **nhẹ hơn** (4 byte vs 16 byte UUID), index nhanh hơn, và làm key của `Map<number, ...>` rẻ hơn `Map<string,...>`. `getValidRooms` trả `number[]`, `subjectId` là number xuyên suốt `TimeSlot`.
+
+Đánh đổi này tối ưu cả bảo mật (thực thể) lẫn hiệu năng (danh mục nóng).
+
+### 16.3. Bản đồ quan hệ (Entity-Relationship)
+
+```
+AcademicYear ──1:N── Semester ──1:N── TeachingAssignment ──N:1── Subject
+                        │                      │                    
+                        │                      ├──N:1── Class ──N:1── Room (fixed_room)
+                        │                      └──N:1── Teacher        Class ──N:1── Teacher (GVCN)
+                        │
+                        ├──1:N── GeneratedTimetable ──1:N── TimetableSlot ──┬─N:1── Class
+                        │                                                    ├─N:1── Subject
+                        │                                                    ├─N:1── Teacher
+                        │                                                    └─N:1── Room (nullable)
+                        └──1:N── TeacherBusyRequest ──N:1── Teacher
+
+Teacher ──1:N── TeacherConstraint        User ──1:1── Teacher (teacher_profile, nullable)
+```
+
+Điểm cốt lõi của mô hình:
+- **Semester là trục thời gian**: mọi dữ liệu vận hành (phân công, TKB, lịch bận) treo dưới một học kỳ → cô lập dữ liệu theo kỳ, query luôn lọc `semester_id`.
+- **TimetableSlot là bảng hội tụ (junction)**: gom 4 FK (class/subject/teacher/room) + tọa độ (day/period/week) → mỗi dòng là "một tiết học cụ thể tại một thời điểm cụ thể".
+- **User ⟷ Teacher tách đôi**: tài khoản đăng nhập (`User`) tách khỏi hồ sơ chuyên môn (`Teacher`). Admin có `User` nhưng `teacher_profile_id = null`. Quan hệ 1:1 optional.
+
+### 16.4. Ba ràng buộc unique tổ hợp — lưới an toàn chống xung đột
+
+Thiết kế quan trọng nhất của schema nằm ở `TimetableSlot` [schema.prisma:277-279](BE_TKB/prisma/schema.prisma#L277-L279):
+
+```prisma
+@@unique([timetable_id, class_id,   day, period, week], name: "unique_class_slot")
+@@unique([timetable_id, teacher_id, day, period, week], name: "unique_teacher_slot")
+@@unique([timetable_id, room_id,    day, period, week], name: "unique_room_slot")
+```
+
+> **Đây là phiên bản DB của string-key index ở §3.2.** Ba unique constraint ánh xạ trực tiếp 3 ràng buộc cứng:
+> - `unique_class_slot` ⟺ HC2 (một lớp không học 2 môn cùng lúc)
+> - `unique_teacher_slot` ⟺ HC1 (một GV không dạy 2 lớp cùng lúc)
+> - `unique_room_slot` ⟺ HC3 (một phòng không chứa 2 lớp cùng lúc)
+>
+> **Vai trò "backstop"**: thuật toán *phải* tự đảm bảo no-conflict trước khi lưu (qua index O(1)). Nhưng nếu có bug lọt lưới, DB **từ chối insert** dòng vi phạm → throw. Phòng thủ 2 lớp: logic ứng dụng + ràng buộc lưu trữ. Không bao giờ tin một mình tầng ứng dụng.
+
+**Vì sao có `week` trong khóa:** TKB lưu nhân bản theo tuần (§10.3). Cùng một tiết "T2P1 lớp 10A1" tồn tại ở tuần 1, 2, 3... nên khóa phải gồm `week` để không chặn nhầm các tuần khác nhau. Thiếu `week` → chỉ lưu được 1 tuần.
+
+**`room_id` nullable & unique:** PostgreSQL coi `NULL` là **distinct** trong unique index → nhiều slot `room_id=NULL` (chào cờ, GDTC ngoài sân) cùng (day,period,week) **không** vi phạm `unique_room_slot`. Đúng mong muốn: tiết không phòng thì không xét trùng phòng.
+
+### 16.5. Chi tiết từng nhóm bảng & quyết định thiết kế
+
+**Group 1 — System (`academic_years`, `semesters`):**
+- `AcademicYear.weeks` default 35 (năm học VN). Khi tạo năm → tự sinh HK1+HK2.
+- `Semester.is_current` (boolean) + `term_order` — đánh dấu kỳ đang hoạt động. `setCurrent` đảm bảo chỉ một kỳ `is_current=true`.
+- `Semester.start_date/end_date` **nullable** — dùng tính `numWeeks` lúc save TKB (§10.3); thiếu thì fallback `weeks/2`.
+
+**Group 2 — Resources (`rooms`, `subjects`):**
+- `Room.type` enum 7 giá trị (CLASSROOM, LAB_*, YARD, MULTI_PURPOSE) — phân loại để `getValidRooms` chọn đúng phòng.
+- `Room.floor` — quyết định gán phòng theo khối+buổi (khối 12 sáng → tầng 1).
+- `Subject.is_special` (chào cờ/SHCN) + `is_practice` (cần lab) — 2 cờ điều khiển nhánh logic Phase 1 và Phase 2d.
+- `Subject.color` hex — render ô lịch ở FE, lưu ở DB để admin tùy biến.
+
+**Group 3 — Human Resources (`users`, `teachers`, `teacher_constraints`):**
+- `Teacher.teachable_grades` lưu **JSON string** `"[10,11,12]"` — đánh đổi: tránh bảng nối phụ cho dữ liệu ít đọc, parse khi cần.
+- `Teacher.max_periods_per_week` + `workload_reduction` — định mức tiết (chuẩn Bộ GD), dùng ở auto-assign.
+- `TeacherConstraint.period` là **1-5 tương đối** (≠ slot 1-10) — nguồn bug kinh điển, xem §2.4.
+- `TeacherConstraint` có `onDelete: Cascade` — xóa GV → xóa sạch lịch bận, không để mồ côi.
+
+**Group 4 — Organization (`classes`, `curriculum_combinations`):**
+- `Class.main_session` (0/1) — tham số hóa quy ước buổi học (§2.5).
+- `Class.fixed_room_id` + `homeroom_teacher_id` đều **nullable optional** FK — lớp có thể chưa gán phòng/GVCN.
+- `CurriculumCombination` có `@@unique([code, grade_level])` — cùng mã tổ hợp khác khối là 2 bản ghi khác nhau (tổ hợp THPT 2018).
+
+**Group 5 — Assignments (`teaching_assignments`) — INPUT:**
+- Bảng **quan trọng nhất** — input của thuật toán. Mỗi dòng: (kỳ, lớp, GV, môn, tổng tiết).
+- `period_type` enum (THEORY/PRACTICE/SPECIAL) — PRACTICE kích hoạt gán lab ở Phase 2d.
+- `required_room_type` nullable — chỉ set khi PRACTICE.
+- `block_config` "2+1" — gợi ý cách xé tiết (cặp 2 + lẻ 1).
+
+**Group 6 — Timetable (`generated_timetables`, `timetable_slots`) — OUTPUT:**
+- Header-detail: 1 `GeneratedTimetable` ↔ N `TimetableSlot`, `onDelete: Cascade` (xóa header → xóa hết slot).
+- `fitness_score` Float nullable — điểm chất lượng, hiển thị + so sánh bản.
+- `is_official` — đánh dấu bản chốt chính thức.
+- `is_locked` trên slot — điểm bất động cho lock preservation (§4.4).
+
+**Group 7 — Busy Requests (`teacher_busy_requests`):**
+- Khác `TeacherConstraint` (lịch bận cố định): đây là **yêu cầu nghỉ theo tuần cụ thể** có quy trình duyệt.
+- `status` enum (PENDING/APPROVED/REJECTED) + `reviewed_by`/`reviewed_at`/`rejection_note` — workflow phê duyệt của admin.
+- `week_number` — nghỉ tuần nào (khác constraint áp mọi tuần).
+
+**Group 8 — Notifications (`notifications`):**
+- `user_id` **nullable** — `NULL` = broadcast cho mọi admin (§ thông minh: 1 dòng phục vụ nhiều người nhận).
+- `metadata` kiểu `Json?` — payload linh hoạt không cần đổi schema khi thêm loại thông báo.
+
+### 16.6. Chiến lược đánh index
+
+Chỉ index nơi **đọc nóng**, tránh phí ghi:
+
+```prisma
+// teacher_constraints — kiểm tra GV bận, gọi hàng trăm nghìn lần trong thuật toán
+@@index([teacher_id, day_of_week, period])
+
+// teacher_busy_requests — admin lọc yêu cầu theo GV+kỳ+trạng thái
+@@index([teacher_id, semester_id, status])
+
+// notifications — danh sách thông báo chưa đọc, sắp theo thời gian
+@@index([user_id, is_read, created_at])
+```
+
+> **Composite index theo thứ tự cột = thứ tự lọc.** `[teacher_id, day_of_week, period]` tối ưu cho truy vấn lọc `teacher_id` trước, rồi `day`, rồi `period` — đúng pattern `isTeacherBusy`. Thứ tự cột trong composite index **không hoán đổi tùy ý**: cột lọc bằng (`=`) đứng trước, cột lọc khoảng/sắp xếp đứng sau. `notifications` index kết thúc bằng `created_at` vì query sắp xếp theo nó.
+>
+> **Không index** các FK ít query trực tiếp (tránh chi phí maintain index khi insert hàng loạt slot). `createMany` 32k slot/lần — mỗi index thừa làm chậm insert.
+
+### 16.7. Hành vi xóa & toàn vẹn tham chiếu
+
+| Quan hệ | onDelete | Lý do |
+| :--- | :--- | :--- |
+| `TimetableSlot → GeneratedTimetable` | Cascade | Xóa TKB → slot vô nghĩa, xóa luôn |
+| `TeacherConstraint → Teacher` | Cascade | Xóa GV → lịch bận mồ côi, xóa luôn |
+| `TeacherBusyRequest → Teacher/Semester` | Cascade | Yêu cầu mất ngữ cảnh khi GV/kỳ biến mất |
+| `TeachingAssignment → Teacher/Class/Subject` | (mặc định Restrict) | **Chặn** xóa GV/lớp/môn nếu còn phân công — bảo vệ input |
+| `GeneratedTimetable → Semester` | (Restrict) | Chặn xóa kỳ nếu còn TKB |
+
+> **Cascade vs Restrict — chọn theo hướng phụ thuộc:** dữ liệu **dẫn xuất** (slot, lịch bận) cascade theo cha. Dữ liệu **nền tảng** (GV, lớp, môn, kỳ) được Restrict bảo vệ — không cho xóa khi còn thứ tham chiếu, tránh làm vỡ phân công/TKB đang dùng. `AcademicYearService.delete` chủ động kiểm tra ràng buộc này trước khi xóa.
+
+---
+
+## 17. Thiết kế Backend — NestJS, module, DI, lifecycle
+
+Code gốc: [app.module.ts](BE_TKB/src/app.module.ts), [main.ts](BE_TKB/src/main.ts), [prisma.service.ts](BE_TKB/src/prisma/prisma.service.ts).
+
+### 17.1. Vì sao NestJS — kiến trúc module hóa
+
+NestJS áp **kiến trúc Angular-style cho backend**: module đóng gói domain, DI container quản lý vòng đời, decorator khai báo. Lợi ích cho dự án này:
+- **Ranh giới domain rõ**: 15 feature module, mỗi cái tự chứa (controller + service + module file).
+- **Test được**: service nhận dependency qua constructor → mock dễ.
+- **Tổ chức scale**: thêm tính năng = thêm module, không đụng code cũ.
+
+### 17.2. Bootstrap — điểm khởi động ứng dụng
+
+[main.ts](BE_TKB/src/main.ts) — toàn bộ cấu hình toàn cục:
+
+```ts
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(new ValidationPipe());          // validate mọi DTO toàn cục
+
+  // CORS: whitelist từ biến môi trường, fallback allow-all cho dev
+  const corsOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',').map(o => o.trim()).filter(Boolean);
+  if (corsOrigins.length > 0) {
+    app.enableCors({ origin: corsOrigins, credentials: true });   // production
+  } else {
+    app.enableCors();                                            // dev: allow-all
+  }
+  await app.listen(process.env.PORT ?? 4000);
+}
+```
+
+> **`ValidationPipe` toàn cục**: mọi request body có DTO sẽ tự validate qua `class-validator` decorator. Sai kiểu → 400 tự động, không cần check tay trong controller. Đây là **cross-cutting concern** đặt một chỗ.
+>
+> **CORS có điều kiện**: đọc `CORS_ORIGINS` (comma-separated). Có giá trị → whitelist + cho credentials (production an toàn). Trống → allow-all (dev tiện). Một dòng config phục vụ cả 2 môi trường mà không hardcode.
+
+### 17.3. Root module — sơ đồ phụ thuộc
+
+[app.module.ts](BE_TKB/src/app.module.ts) import 15 module + cấu hình BullMQ:
+
+```ts
+@Module({
+  imports: [
+    PrismaModule,                          // DB — nền tảng, mọi module cần
+    BullModule.forRoot({                   // Redis connection cho queue
+      connection: { host: REDIS_HOST, port: REDIS_PORT }
+    }),
+    SystemModule, ResourcesModule, UsersModule, OrganizationModule,
+    AssignmentsModule, TimetablesModule, AlgorithmModule, WorkerModule,
+    AuthModule, ExcelModule, ConstraintsModule, NotificationModule,
+    AutoAssignModule, BusyScheduleModule,
+  ],
+})
+export class AppModule {}
+```
+
+`BullModule.forRoot` — pattern **forRoot** (cấu hình toàn cục một lần) so với **registerQueue** (đăng ký queue cụ thể ở WorkerModule). Tách config connection khỏi khai báo queue.
+
+### 17.4. Tầng kiến trúc Controller → Service → Prisma
+
+Mỗi domain theo 3 tầng nghiêm ngặt:
+
+```
+HTTP Request
+   │
+   ▼
+┌──────────────┐   @Controller — route, parse param/body, gọi service
+│  Controller  │   KHÔNG chứa business logic
+└──────┬───────┘
+       ▼
+┌──────────────┐   @Injectable Service — toàn bộ logic nghiệp vụ
+│   Service    │   transaction, validate ngữ cảnh, gọi Prisma
+└──────┬───────┘
+       ▼
+┌──────────────┐   PrismaService — truy vấn DB type-safe
+│   Prisma     │   singleton, connection pool
+└──────────────┘
+```
+
+> **Vì sao controller mỏng:** controller chỉ là "lớp dịch" HTTP↔nghiệp vụ. Đặt logic ở service để: (1) tái dùng giữa nhiều controller, (2) test không cần giả lập HTTP, (3) gọi chéo service-to-service (vd `AlgorithmService` gọi `ConstraintService`). Controller dày là anti-pattern khó test.
+
+### 17.5. Dependency Injection — IoC container
+
+NestJS tự khởi tạo và tiêm dependency qua constructor:
+
+```ts
+@Injectable()
+export class AlgorithmService {
+    constructor(
+        private prisma: PrismaService,            // tiêm tự động
+        private constraintService: ConstraintService
+    ) {}
+}
+```
+
+> **Inversion of Control**: service **không tự tạo** dependency (`new PrismaService()`) mà **khai báo cần gì** ở constructor; container tra registry, tạo (hoặc tái dùng singleton), tiêm vào. Lợi ích: (1) một `PrismaService` dùng chung toàn app (1 connection pool), (2) đổi implementation chỉ sửa provider, (3) test inject mock. Đây là xương sống khiến code rời rạc mà ghép được.
+
+### 17.6. PrismaService — singleton + lifecycle hook
+
+[prisma.service.ts](BE_TKB/src/prisma/prisma.service.ts) — ngắn nhưng tinh tế:
+
+```ts
+@Injectable()
+export class PrismaService extends PrismaClient implements OnModuleInit {
+    async onModuleInit() {
+        await this.$connect();      // kết nối DB khi module khởi tạo xong
+    }
+}
+```
+
+> **Kế thừa `PrismaClient`**: `PrismaService` *là* một PrismaClient (extends), nên gọi thẳng `this.prisma.teacher.findMany()`. Bọc trong `@Injectable` để DI quản lý như singleton → **một** client cho cả app, một connection pool.
+>
+> **`OnModuleInit` lifecycle hook**: NestJS gọi `onModuleInit()` sau khi DI dựng xong module. Kết nối DB ở đây (không phải constructor) đảm bảo `$connect()` chạy đúng thời điểm vòng đời, async an toàn. Đây là **lifecycle pattern** của NestJS — hook vào các giai đoạn (init/destroy) để quản lý tài nguyên.
+
+### 17.7. Cross-module dependency — forwardRef phá vòng tròn
+
+`AlgorithmModule` và `WorkerModule` phụ thuộc lẫn nhau (Algorithm cần Worker để enqueue; Worker cần Algorithm để chạy). NestJS giải bằng `forwardRef`:
+
+```ts
+// AlgorithmModule
+imports: [forwardRef(() => WorkerModule), ...]
+// WorkerModule
+imports: [forwardRef(() => AlgorithmModule), ...]
+```
+
+> **Circular dependency** là vấn đề thật khi 2 module cần nhau. `forwardRef(() => X)` bảo NestJS "hoãn resolve X tới khi cả 2 dựng xong" → phá vòng khởi tạo. Dùng tiết kiệm (dấu hiệu coupling), nhưng ở đây hợp lý: producer/consumer vốn 2 mặt của một luồng.
+
+### 17.8. Global module — NotificationService dùng khắp nơi
+
+`NotificationModule` đánh dấu `@Global()` → service của nó dùng được ở mọi module **không cần import lặp**:
+
+```ts
+@Global()
+@Module({ providers: [NotificationService], exports: [NotificationService] })
+export class NotificationModule {}
+```
+
+> **Đánh đổi `@Global`**: tiện (Excel, Algorithm, BusySchedule đều bắn thông báo mà không import) nhưng giấu dependency. Dùng cho **dịch vụ ngang hàng thực sự dùng khắp nơi** (logging, notification, config). Lạm dụng → mất tính tường minh của module. Chọn đúng case: notification là cross-cutting điển hình.
+
+### 17.9. Tổng kết kỹ thuật Backend
+
+| Kỹ thuật NestJS | Vị trí | Mục đích |
+| :--- | :--- | :--- |
+| Global `ValidationPipe` | main.ts | Validate DTO tự động toàn cục |
+| CORS có điều kiện | main.ts | Một config cho dev + production |
+| Module-per-domain | 15 module | Đóng gói, scale, test |
+| Constructor DI | mọi service | Tiêm dependency, singleton |
+| `extends PrismaClient` | PrismaService | Client dùng chung, connection pool |
+| `OnModuleInit` hook | PrismaService | Kết nối DB đúng lifecycle |
+| `forwardRef` | Algorithm↔Worker | Phá circular dependency |
+| `@Global()` | NotificationModule | Service cross-cutting |
+| `forRoot` vs `registerQueue` | BullMQ | Tách config khỏi khai báo queue |
 
 ---
 
