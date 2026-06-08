@@ -6,9 +6,18 @@ BE_TKB/dist/
 BE_TKB/dist_patch/
 FE_TKB/.next/
 
+# Docs build output (local-only: large binaries + contains tokens)
+docx_build/
+
 # Python cache (docx_build tooling)
 __pycache__/
 *.pyc
+
+# Token / secret scratch files
+*.env
+!.env.example
+realtokens.env
+tokens.env
 
 # Environment
 .env
