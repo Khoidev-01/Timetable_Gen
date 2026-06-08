@@ -7,12 +7,26 @@ import * as bcrypt from 'bcrypt';
 export class UsersService {
     constructor(private prisma: PrismaService) { }
 
+    // Explicit field selection so password_hash NEVER leaves the service in a
+    // list/detail response. (Auth flows read the hash via their own queries.)
+    private static readonly SAFE_SELECT = {
+        id: true,
+        username: true,
+        role: true,
+        teacher_profile_id: true,
+        created_at: true,
+        teacher_profile: true,
+    } as const;
+
     async findAll() {
-        return this.prisma.user.findMany({ include: { teacher_profile: true } });
+        return this.prisma.user.findMany({ select: UsersService.SAFE_SELECT });
     }
 
     async findOne(id: string) {
-        const user = await this.prisma.user.findUnique({ where: { id }, include: { teacher_profile: true } });
+        const user = await this.prisma.user.findUnique({
+            where: { id },
+            select: UsersService.SAFE_SELECT,
+        });
         if (!user) throw new NotFoundException('User not found');
         return user;
     }
@@ -30,7 +44,7 @@ export class UsersService {
                 password_hash: hashedPassword,
                 ...(teacher_profile_id ? { teacher_profile_id } : {}),
             },
-            include: { teacher_profile: true }
+            select: UsersService.SAFE_SELECT,
         });
     }
 
@@ -45,12 +59,13 @@ export class UsersService {
         return this.prisma.user.update({
             where: { id },
             data: payload,
-            include: { teacher_profile: true }
+            select: UsersService.SAFE_SELECT,
         });
     }
 
     async remove(id: string) {
-        return this.prisma.user.delete({ where: { id } });
+        await this.prisma.user.delete({ where: { id } });
+        return { success: true };
     }
 
     async removeAll(exceptId?: string) {

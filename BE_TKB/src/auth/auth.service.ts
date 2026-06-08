@@ -5,10 +5,13 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { getCaptchaSecret } from './jwt.config';
 
 @Injectable()
 export class AuthService {
-    private readonly SECRET = process.env.JWT_SECRET || 'MY_CAPTCHA_SECRET_KEY';
+    // Captcha HMAC key — domain-separated from the JWT signing secret so a
+    // leaked captcha hash never reveals the token-signing key.
+    private readonly SECRET = getCaptchaSecret();
 
     constructor(
         private prisma: PrismaService,

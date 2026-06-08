@@ -3,6 +3,7 @@ import { Controller, Post, Body, Get, Patch, Res, Req, BadRequestException, Unau
 import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
 import type { Response, Request } from 'express';
+import { LoginDto, ChangePasswordDto } from './dto/auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -18,7 +19,7 @@ export class AuthController {
     }
 
     @Post('login')
-    async login(@Body() body: any) {
+    async login(@Body() body: LoginDto) {
         // 1. Verify Captcha
         const isValid = this.authService.validateCaptcha(body.captchaCode, body.captchaSessionId);
         if (!isValid) {
@@ -44,7 +45,7 @@ export class AuthController {
     }
 
     @Patch('change-password')
-    async changePassword(@Req() req: Request, @Body() body: any) {
+    async changePassword(@Req() req: Request, @Body() body: ChangePasswordDto) {
         const user = this.extractUser(req);
         try {
             return await this.authService.changePassword(user.sub, body.oldPassword, body.newPassword);

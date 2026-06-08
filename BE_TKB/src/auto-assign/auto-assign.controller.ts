@@ -11,9 +11,13 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
+import { UseGuards } from '@nestjs/common';
 import { AutoAssignService } from './auto-assign.service';
 import { buildAttachmentDisposition } from '../excel/excel.utils';
+import { AdminGuard } from '../auth/admin.guard';
 
+// Auto-assignment (runs an algorithm + writes assignments) is admin-only.
+@UseGuards(AdminGuard)
 @Controller('auto-assign')
 export class AutoAssignController {
   constructor(private readonly autoAssignService: AutoAssignService) {}

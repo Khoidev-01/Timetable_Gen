@@ -1,10 +1,15 @@
-import { Controller, Post, Body, Get, Param, Query, Res } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, Res, UseGuards } from '@nestjs/common';
 import { AlgorithmService } from './algorithm.service';
 import { AlgorithmProducer } from '../worker/algorithm.producer';
 import { ExportService } from './export.service';
 import type { Response } from 'express';
 import { buildAttachmentDisposition } from '../excel/excel.utils';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AdminGuard } from '../auth/admin.guard';
 
+// Reads (status/result/export) require login; running/mutating the timetable
+// requires ADMIN.
+@UseGuards(JwtAuthGuard)
 @Controller('algorithm')
 export class AlgorithmController {
     constructor(
@@ -13,6 +18,7 @@ export class AlgorithmController {
         private readonly exportService: ExportService
     ) { }
 
+    @UseGuards(AdminGuard)
     @Post('start')
     async startOptimization(@Body() body: { semesterId: string }) {
         return this.algorithmProducer.startOptimization(body.semesterId);
@@ -42,15 +48,19 @@ export class AlgorithmController {
         res.end(payload.buffer);
     }
 
+    @UseGuards(AdminGuard)
     @Post('move-slot')
     async moveSlot(@Body() body: { slotId: string, newDay: number, newPeriod: number, newRoomId?: number }) {
         return this.algorithmService.moveSlot(body);
     }
+
+    @UseGuards(AdminGuard)
     @Post('toggle-lock')
     async toggleLock(@Body() body: { slotId: string }) {
         return this.algorithmService.toggleLock(body.slotId);
     }
 
+    @UseGuards(AdminGuard)
     @Post('clear/:semesterId')
     async clearSchedule(@Param('semesterId') semesterId: string) {
         return this.algorithmService.clearSchedule(semesterId);

@@ -3,7 +3,12 @@ node_modules/
 
 # Build output
 BE_TKB/dist/
+BE_TKB/dist_patch/
 FE_TKB/.next/
+
+# Python cache (docx_build tooling)
+__pycache__/
+*.pyc
 
 # Environment
 .env
@@ -26,6 +31,7 @@ Thumbs.db
 *.sql
 *.tmp
 *.bak
+.qa_*
 
 # tasteskill local skill files
 .agents/

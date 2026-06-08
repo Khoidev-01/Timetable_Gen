@@ -1,10 +1,17 @@
 
-import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomService } from './room.service';
 import { SubjectService } from './subject.service';
 import { TeacherService } from './teacher.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AdminGuard } from '../auth/admin.guard';
+import { CreateRoomDto, UpdateRoomDto } from './dto/room.dto';
+import { CreateSubjectDto, UpdateSubjectDto } from './dto/subject.dto';
+import { CreateTeacherDto, UpdateTeacherDto } from './dto/teacher.dto';
 
+// Read routes require a valid login; every mutation requires ADMIN.
+@UseGuards(JwtAuthGuard)
 @Controller('resources')
 export class ResourcesController {
     constructor(
@@ -28,27 +35,28 @@ export class ResourcesController {
 
     // ROOMS
     @Get('rooms') getRooms() { return this.roomService.findAll(); }
-    @Post('rooms') createRoom(@Body() body: any) { return this.roomService.create(body); }
-    @Put('rooms/:id') updateRoom(@Param('id') id: string, @Body() body: any) { return this.roomService.update(+id, body); }
-    @Delete('rooms/all') deleteAllRooms() { return this.roomService.deleteAll(); }
-    @Delete('rooms/:id') deleteRoom(@Param('id') id: string) { return this.roomService.delete(+id); }
+    @UseGuards(AdminGuard) @Post('rooms') createRoom(@Body() body: CreateRoomDto) { return this.roomService.create(body); }
+    @UseGuards(AdminGuard) @Put('rooms/:id') updateRoom(@Param('id') id: string, @Body() body: UpdateRoomDto) { return this.roomService.update(+id, body); }
+    @UseGuards(AdminGuard) @Delete('rooms/all') deleteAllRooms() { return this.roomService.deleteAll(); }
+    @UseGuards(AdminGuard) @Delete('rooms/:id') deleteRoom(@Param('id') id: string) { return this.roomService.delete(+id); }
 
     // SUBJECTS
     @Get('subjects') getSubjects() { return this.subjectService.findAll(); }
-    @Post('subjects') createSubject(@Body() body: any) { return this.subjectService.create(body); }
-    @Put('subjects/:id') updateSubject(@Param('id') id: string, @Body() body: any) { return this.subjectService.update(+id, body); }
-    @Delete('subjects/all') deleteAllSubjects() { return this.subjectService.deleteAll(); }
-    @Delete('subjects/:id') deleteSubject(@Param('id') id: string) { return this.subjectService.delete(+id); }
+    @UseGuards(AdminGuard) @Post('subjects') createSubject(@Body() body: CreateSubjectDto) { return this.subjectService.create(body); }
+    @UseGuards(AdminGuard) @Put('subjects/:id') updateSubject(@Param('id') id: string, @Body() body: UpdateSubjectDto) { return this.subjectService.update(+id, body); }
+    @UseGuards(AdminGuard) @Delete('subjects/all') deleteAllSubjects() { return this.subjectService.deleteAll(); }
+    @UseGuards(AdminGuard) @Delete('subjects/:id') deleteSubject(@Param('id') id: string) { return this.subjectService.delete(+id); }
 
     // TEACHERS
     @Get('teachers') getTeachers() { return this.teacherService.findAll(); }
     @Get('teachers/:id') getTeacher(@Param('id') id: string) { return this.teacherService.findOne(id); }
-    @Post('teachers') createTeacher(@Body() body: any) { return this.teacherService.create(body); }
-    @Put('teachers/:id') updateTeacher(@Param('id') id: string, @Body() body: any) { return this.teacherService.update(id, body); }
-    @Delete('teachers/all') deleteAllTeachers() { return this.teacherService.deleteAll(); }
-    @Delete('teachers/:id') deleteTeacher(@Param('id') id: string) { return this.teacherService.delete(id); }
+    @UseGuards(AdminGuard) @Post('teachers') createTeacher(@Body() body: CreateTeacherDto) { return this.teacherService.create(body); }
+    @UseGuards(AdminGuard) @Put('teachers/:id') updateTeacher(@Param('id') id: string, @Body() body: UpdateTeacherDto) { return this.teacherService.update(id, body); }
+    @UseGuards(AdminGuard) @Delete('teachers/all') deleteAllTeachers() { return this.teacherService.deleteAll(); }
+    @UseGuards(AdminGuard) @Delete('teachers/:id') deleteTeacher(@Param('id') id: string) { return this.teacherService.delete(id); }
 
     // TEACHER CONSTRAINTS
+    @UseGuards(AdminGuard)
     @Put('teachers/:id/constraints')
     updateTeacherConstraints(@Param('id') id: string, @Body() body: any) {
         return this.teacherService.updateConstraints(id, body);

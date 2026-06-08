@@ -1,13 +1,18 @@
-import { Controller, Get, Patch, Param, Body, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, NotFoundException, UseGuards, Logger } from '@nestjs/common';
 import { TeacherService } from './teacher.service';
 import { NotificationService } from '../notifications/notification.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 /**
  * Vietnamese alias routes for teacher endpoints.
- * FE uses /giao-vien/:id for teacher data access.
+ * FE uses /giao-vien/:id for teacher data access. All routes require a valid
+ * login (a teacher manages their own profile / busy time here).
  */
+@UseGuards(JwtAuthGuard)
 @Controller('giao-vien')
 export class TeacherAliasController {
+    private readonly logger = new Logger(TeacherAliasController.name);
+
     constructor(
         private readonly teacherService: TeacherService,
         private readonly notificationService: NotificationService,
@@ -110,7 +115,7 @@ export class TeacherAliasController {
                 busySlots.length,
             );
         } catch (e) {
-            console.error('Failed to create notification:', e);
+            this.logger.warn(`Không tạo được thông báo lịch bận: ${e}`);
         }
 
         return { success: true, message: 'Đã cập nhật lịch bận' };

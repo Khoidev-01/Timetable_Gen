@@ -1,8 +1,18 @@
 
-import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
 import { AcademicYearService } from './academic-year.service';
 import { SemesterService } from './semester.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AdminGuard } from '../auth/admin.guard';
+import {
+    CreateAcademicYearDto,
+    UpdateAcademicYearDto,
+    CreateSemesterDto,
+    UpdateSemesterDto,
+} from './dto/system.dto';
 
+// Reads require login; year/semester mutations require ADMIN.
+@UseGuards(JwtAuthGuard)
 @Controller('system')
 export class SystemController {
     constructor(
@@ -15,16 +25,19 @@ export class SystemController {
         return this.yearService.findAll();
     }
 
+    @UseGuards(AdminGuard)
     @Post('years')
-    createYear(@Body() body: any) {
+    createYear(@Body() body: CreateAcademicYearDto) {
         return this.yearService.create(body);
     }
 
+    @UseGuards(AdminGuard)
     @Put('years/:id')
-    updateYear(@Param('id') id: string, @Body() body: any) {
+    updateYear(@Param('id') id: string, @Body() body: UpdateAcademicYearDto) {
         return this.yearService.update(id, body);
     }
 
+    @UseGuards(AdminGuard)
     @Delete('years/:id')
     deleteYear(@Param('id') id: string) {
         return this.yearService.delete(id);
@@ -40,21 +53,25 @@ export class SystemController {
         return this.semesterService.findAll();
     }
 
+    @UseGuards(AdminGuard)
     @Post('semesters')
-    createSemester(@Body() body: any) {
+    createSemester(@Body() body: CreateSemesterDto) {
         return this.semesterService.create(body);
     }
 
+    @UseGuards(AdminGuard)
     @Put('semesters/:id')
-    updateSemester(@Param('id') id: string, @Body() body: any) {
+    updateSemester(@Param('id') id: string, @Body() body: UpdateSemesterDto) {
         return this.semesterService.update(id, body);
     }
 
+    @UseGuards(AdminGuard)
     @Put('semesters/:id/set-current')
     setCurrentSemester(@Param('id') id: string) {
         return this.semesterService.setCurrent(id);
     }
 
+    @UseGuards(AdminGuard)
     @Delete('semesters/:id')
     deleteSemester(@Param('id') id: string) {
         return this.semesterService.delete(id);

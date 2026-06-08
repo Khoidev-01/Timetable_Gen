@@ -1,6 +1,7 @@
 
 import { Module, forwardRef } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { AuthModule } from '../auth/auth.module';
 import { AlgorithmController } from './algorithm.controller';
 import { AlgorithmService } from './algorithm.service';
 import { SystemModule } from '../system/system.module';
@@ -14,6 +15,7 @@ import { ConstraintService } from './constraint.service';
 @Module({
   imports: [
     PrismaModule,
+    AuthModule,
     SystemModule,
     ResourcesModule,
     AssignmentsModule,

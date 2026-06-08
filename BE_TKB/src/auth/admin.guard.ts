@@ -24,7 +24,12 @@ export class AdminGuard implements CanActivate {
         if (!authHeader) {
             throw new UnauthorizedException('Thiếu Authorization header');
         }
-        const token = authHeader.replace(/^Bearer\s+/i, '');
+        // Require the RFC 6750 "Bearer <token>" scheme — a bare token is rejected.
+        const match = /^Bearer\s+(.+)$/i.exec(authHeader);
+        if (!match) {
+            throw new UnauthorizedException('Authorization header phải có dạng "Bearer <token>"');
+        }
+        const token = match[1].trim();
         let payload: JwtPayload;
         try {
             payload = this.jwtService.verify<JwtPayload>(token);

@@ -1,4 +1,5 @@
-import { Controller, Get, Patch, Param, Body } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { AdminGuard } from '../auth/admin.guard';
 
 interface ConstraintConfigItem {
     id: string;
@@ -29,6 +30,7 @@ const DEFAULT_CONSTRAINTS: ConstraintConfigItem[] = [
 
 let constraintStore = [...DEFAULT_CONSTRAINTS];
 
+@UseGuards(AdminGuard)
 @Controller('cau-hinh-rang-buoc')
 export class ConstraintConfigController {
 

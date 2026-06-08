@@ -12,9 +12,13 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import type { Express } from 'express';
 import { memoryStorage } from 'multer';
+import { UseGuards } from '@nestjs/common';
 import { ExcelService } from './excel.service';
 import { buildAttachmentDisposition } from './excel.utils';
+import { AdminGuard } from '../auth/admin.guard';
 
+// Bulk data import/export is an admin-only operation.
+@UseGuards(AdminGuard)
 @Controller('excel')
 export class ExcelController {
   constructor(private readonly excelService: ExcelService) {}

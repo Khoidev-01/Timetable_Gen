@@ -1,13 +1,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-    BLOCK_CODES,
-    PRIORITY_CODES,
-    isBlock,
-    isOutdoor,
-    isSessionExempt,
-} from './subject-rules';
+import { isBlock, isOutdoor, isSessionExempt } from './subject-rules';
 
 export interface TimeSlot {
     id?: string;
@@ -53,15 +47,45 @@ export class ConstraintService {
         teachers.forEach(t => {
             this.teacherMap.set(t.id, t);
             this.teacherMapByName.set(t.code, t);
-            // Cache constraints from TeacherConstraint table
-            this.teacherConstraints.set(t.id, t.constraints || []);
+            // Cache constraints from TeacherConstraint table (always-on busy slots).
+            // Copy the array so we can safely append APPROVED busy-requests below.
+            this.teacherConstraints.set(t.id, [...(t.constraints || [])]);
         });
+
+        // ── Merge APPROVED TeacherBusyRequest into the busy cache ──
+        // Without this, an admin could approve a leave request yet the algorithm
+        // would still schedule that teacher into the slot — making the whole
+        // approval workflow cosmetic. The scheduler works on a single template
+        // week, so we project per-week requests onto the template (ignoring
+        // week_number): if a teacher is off on a (day, period), we keep that
+        // (day, period) free for them across the template. TeacherBusyRequest
+        // stores ABSOLUTE periods 1-10, whereas the TeacherConstraint cache uses
+        // RELATIVE 1-5 + session — so convert before appending.
+        const approvedLeaves = await this.prisma.teacherBusyRequest.findMany({
+            where: { semester_id: semesterId, status: 'APPROVED' },
+            select: { teacher_id: true, day_of_week: true, period: true },
+        });
+        let mergedLeaves = 0;
+        for (const lv of approvedLeaves) {
+            const session = lv.period <= 5 ? 0 : 1;
+            const relativePeriod = lv.period <= 5 ? lv.period : lv.period - 5;
+            const list = this.teacherConstraints.get(lv.teacher_id);
+            if (!list) continue; // teacher not loaded (shouldn't happen)
+            const already = list.some(
+                c => c.day_of_week === lv.day_of_week && c.period === relativePeriod &&
+                    c.session === session && c.type === 'BUSY',
+            );
+            if (!already) {
+                list.push({ day_of_week: lv.day_of_week, period: relativePeriod, session, type: 'BUSY' });
+                mergedLeaves++;
+            }
+        }
 
         // Build subject code lookup: subjectId -> code
         this.subjectCodeMap.clear();
         subjects.forEach(s => this.subjectCodeMap.set(s.id, s.code));
 
-        this.logger.log(`Loaded ${rooms.length} rooms, ${subjects.length} subjects, ${teachers.length} teachers.`);
+        this.logger.log(`Loaded ${rooms.length} rooms, ${subjects.length} subjects, ${teachers.length} teachers, +${mergedLeaves} approved leave slots.`);
 
         // Cache class sessions
         const classes = await this.prisma.class.findMany();
@@ -378,23 +402,6 @@ export class ConstraintService {
             if (slotSess !== mainSess) violations++;
         }
         return violations;
-    }
-
-    // SC03: Morning Priority
-    private checkMorningPriority(classSchedule: Map<string, TimeSlot[]>): number {
-        let penalty = 0;
-
-        for (const [_, slots] of classSchedule) {
-            for (const s of slots) {
-                const subjCode = this.getSubjectCode(s.subjectId);
-                if (PRIORITY_CODES.some(p => subjCode.includes(p))) {
-                    if (s.period > 3 && s.period <= 5) {
-                        penalty++;
-                    }
-                }
-            }
-        }
-        return penalty;
     }
 
     // SC04: Block 2 check — đếm số pair còn thiếu, bỏ qua slot "lẻ" tất yếu của môn số tiết lẻ

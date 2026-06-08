@@ -1,6 +1,6 @@
 
 import * as crypto from 'crypto';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService, TimeSlot } from './constraint.service';
 import {
@@ -30,10 +30,25 @@ export class AlgorithmService {
         try {
             log(`[DEBUG] Starting Algorithm for Semester: ${semesterId}`);
 
+            // 0. Guard: the semester must exist and have teaching assignments.
+            // Previously a bogus/empty semesterId still created an empty header
+            // row (junk timetable) and reported success. Fail fast instead.
+            const semesterExists = await this.prisma.semester.findUnique({
+                where: { id: semesterId },
+                select: { id: true },
+            });
+            if (!semesterExists) {
+                throw new Error(`Học kỳ không tồn tại: ${semesterId}`);
+            }
+
             // 0. Load Cache & Data
             await this.constraintService.initialize(semesterId);
             const data = await this.loadData(semesterId);
             log(`[DEBUG] Data Loaded: ${data.classes.length} Classes, ${data.subjects.length} Subjects.`);
+
+            if (!data.assignments || data.assignments.length === 0) {
+                throw new Error('Học kỳ chưa có phân công giảng dạy — không có gì để xếp.');
+            }
 
             // 1. Initialize Solution
             const solution = this.initializeSolution(data);
@@ -1181,14 +1196,6 @@ export class AlgorithmService {
             }
             log(`[DEBUG] Expanding template across ${numWeeks} weeks`);
 
-            // Remember existing timetables for this semester so we can prune them
-            // once the new one is saved (avoid unbounded accumulation of
-            // ~1800 slots × numWeeks per run).
-            const oldTimetables = await this.prisma.generatedTimetable.findMany({
-                where: { semester_id: semesterId },
-                select: { id: true },
-            });
-
             const timetable = await this.prisma.generatedTimetable.create({
                 data: {
                     name: `TKB ${new Date().toLocaleString('vi-VN')}`,
@@ -1226,11 +1233,15 @@ export class AlgorithmService {
                 log('[DEBUG] No slots to insert!');
             }
 
-            // Prune previous timetables for this semester (slots cascade-delete).
-            if (oldTimetables.length > 0) {
-                const removed = await this.prisma.generatedTimetable.deleteMany({
-                    where: { id: { in: oldTimetables.map(t => t.id) } },
-                });
+            // Prune EVERY other timetable of this semester (slots cascade-delete),
+            // keeping only the one we just created. This is robust against junk
+            // headers left behind by earlier failed/racing runs — a snapshot of
+            // "old ids taken before create" could miss those. Result: exactly one
+            // timetable per semester after every successful run.
+            const removed = await this.prisma.generatedTimetable.deleteMany({
+                where: { semester_id: semesterId, id: { not: timetable.id } },
+            });
+            if (removed.count > 0) {
                 log(`[DEBUG] Pruned ${removed.count} previous timetable(s) for this semester.`);
             }
 
@@ -1244,10 +1255,67 @@ export class AlgorithmService {
     async moveSlot(data: { slotId: string, newDay: number, newPeriod: number }) {
         const { slotId, newDay, newPeriod } = data;
 
+        // ── Validate the target coordinate BEFORE touching the DB ──
+        // Previously moveSlot accepted any (day, period) — including Thursday
+        // P5/P10 (hard-blocked) or an out-of-range period — letting the UI hand
+        // the admin an invalid drop that silently created a hard violation.
+        if (!Number.isInteger(newDay) || newDay < 2 || newDay > 7) {
+            throw new BadRequestException('Thứ không hợp lệ (phải từ 2 đến 7).');
+        }
+        if (!Number.isInteger(newPeriod) || newPeriod < 1 || newPeriod > 10) {
+            throw new BadRequestException('Tiết không hợp lệ (phải từ 1 đến 10).');
+        }
+        // HC7: Thursday is half-day (bán trú) — P5 and P10 are blocked.
+        if (newDay === 5 && (newPeriod === 5 || newPeriod === 10)) {
+            throw new BadRequestException('Thứ 5 không có tiết 5 và tiết 10 (lịch bán trú).');
+        }
+
         const sourceSlot = await this.prisma.timetableSlot.findUnique({
-            where: { id: slotId }
+            where: { id: slotId },
+            include: { timetable: { select: { semester_id: true } } },
         });
-        if (!sourceSlot) throw new Error('Slot not found');
+        if (!sourceSlot) throw new BadRequestException('Không tìm thấy tiết học.');
+
+        // Ensure the constraint caches (subject codes, class sessions, teacher
+        // busy times incl. approved leaves) are populated for this semester — the
+        // validations below read them and moveSlot can be called cold (no prior
+        // runAlgorithm in this process).
+        await this.constraintService.initialize(sourceSlot.timetable.semester_id);
+
+        // HC8: academic subjects must stay in the class's main session. Moving a
+        // culture subject across the morning/afternoon boundary is rejected;
+        // session-exempt subjects (GDTC/GDQP/HDTN/GDDP/special) may cross.
+        const subjectCode = this.constraintService.getSubjectCode(sourceSlot.subject_id);
+        if (!isSessionExempt(subjectCode)) {
+            const mainSess = this.constraintService.classSessionMap.get(sourceSlot.class_id);
+            const newSess = newPeriod <= 5 ? 0 : 1;
+            if (mainSess !== undefined && newSess !== mainSess) {
+                throw new BadRequestException(
+                    `Môn ${subjectCode} phải học buổi ${mainSess === 0 ? 'sáng' : 'chiều'} (không thể chuyển buổi).`,
+                );
+            }
+        }
+
+        // HC4: teacher's approved busy time / registered constraint at the target.
+        if (this.constraintService.isTeacherBusy(sourceSlot.teacher_id, newDay, newPeriod)) {
+            throw new BadRequestException('Giáo viên đã đăng ký bận (hoặc nghỉ đã duyệt) tại ô này.');
+        }
+
+        // HC1: the same teacher must not already be teaching ANOTHER class at the
+        // target (day, period, week) within this timetable.
+        const teacherClash = await this.prisma.timetableSlot.findFirst({
+            where: {
+                timetable_id: sourceSlot.timetable_id,
+                teacher_id: sourceSlot.teacher_id,
+                day: newDay,
+                period: newPeriod,
+                week: sourceSlot.week,
+                NOT: { id: sourceSlot.id, class_id: sourceSlot.class_id },
+            },
+        });
+        if (teacherClash) {
+            throw new BadRequestException('Giáo viên đã có lớp khác vào đúng tiết này.');
+        }
 
         // Find swap target within same week
         const targetSlot = await this.prisma.timetableSlot.findFirst({
