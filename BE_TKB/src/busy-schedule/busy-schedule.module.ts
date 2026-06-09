@@ -4,9 +4,10 @@ import { BusyScheduleController } from './busy-schedule.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationModule } from '../notifications/notification.module';
 import { AuthModule } from '../auth/auth.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
-    imports: [PrismaModule, NotificationModule, AuthModule],
+    imports: [PrismaModule, NotificationModule, AuthModule, AiModule],
     controllers: [BusyScheduleController],
     providers: [BusyScheduleService],
 })

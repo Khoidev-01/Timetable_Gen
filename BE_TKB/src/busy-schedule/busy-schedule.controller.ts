@@ -64,4 +64,16 @@ export class BusyScheduleController {
     resolve(@Body() body: { timetableSlotId: string; substituteTeacherId: string }) {
         return this.service.resolveConflict(body.timetableSlotId, body.substituteTeacherId);
     }
+
+    @UseGuards(AdminGuard)
+    @Post('conflicts/suggest-ai')
+    suggestAi(@Body() body: { timetableSlotId: string }) {
+        return this.service.suggestAiSwaps(body.timetableSlotId);
+    }
+
+    @UseGuards(AdminGuard)
+    @Post('conflicts/swap')
+    swap(@Body() body: { slotAId: string; slotBId: string }) {
+        return this.service.swapTeachers(body.slotAId, body.slotBId);
+    }
 }

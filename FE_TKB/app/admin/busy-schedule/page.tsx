@@ -18,6 +18,15 @@ interface Conflict {
   className: string; subjectName: string; reason: string;
   suggestions: { id: string; full_name: string; code: string }[];
 }
+interface AiOption {
+  optionId: string;
+  type: 'REPLACE' | 'SWAP';
+  teacherIn: { id: string; full_name: string; code: string };
+  teacherOut?: { id: string; full_name: string; code: string };
+  swapSlot?: { id: string; subjectName: string; className: string; day: number; period: number };
+  rationale?: string;
+  warning?: string;
+}
 
 export default function BusySchedulePage() {
   const [tab, setTab] = useState<'pending' | 'done' | 'conflicts'>('pending');
@@ -29,6 +38,10 @@ export default function BusySchedulePage() {
   const [rejectDialog, setRejectDialog] = useState<{ id: string; note: string } | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [resolving, setResolving] = useState<string | null>(null);
+  // AI chat box (góc dưới phải)
+  const [chatConflict, setChatConflict] = useState<Conflict | null>(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatResult, setChatResult] = useState<{ options: AiOption[]; aiError?: string } | null>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -95,6 +108,39 @@ export default function BusySchedulePage() {
     });
     setResolving(null);
     showToast('Đã cập nhật GV thay thế');
+    if (chatConflict?.timetableSlotId === timetableSlotId) setChatConflict(null);
+    fetchConflicts();
+  };
+
+  const openAiChat = async (conflict: Conflict) => {
+    setChatConflict(conflict);
+    setChatResult(null);
+    setChatLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/busy-schedule/conflicts/suggest-ai`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+        body: JSON.stringify({ timetableSlotId: conflict.timetableSlotId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Lỗi gọi AI');
+      setChatResult(data);
+    } catch (e: any) {
+      setChatResult({ options: [], aiError: e?.message || 'Lỗi gọi AI' });
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const applySwap = async (slotAId: string, slotBId: string, key: string) => {
+    setResolving(key);
+    const res = await fetch(`${API_URL}/busy-schedule/conflicts/swap`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      body: JSON.stringify({ slotAId, slotBId }),
+    });
+    setResolving(null);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d?.message || 'Hoán đổi thất bại', false); return; }
+    showToast('Đã hoán đổi giáo viên');
+    setChatConflict(null);
     fetchConflicts();
   };
 
@@ -250,6 +296,16 @@ export default function BusySchedulePage() {
                       ❌ Không tìm được GV thay thế phù hợp. Cần xử lý thủ công
                     </div>
                   )}
+
+                  {/* ── AI swap suggester (mở chat box góc dưới) ── */}
+                  <div className="pt-2 border-t border-[var(--border-default)]">
+                    <button
+                      onClick={() => openAiChat(c)}
+                      disabled={chatLoading && chatConflict?.timetableSlotId === c.timetableSlotId}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--accent)]/40 text-sm font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-50 transition-colors">
+                      🤖 Hỏi trợ lý AI gợi ý hoán đổi
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -278,6 +334,91 @@ export default function BusySchedulePage() {
                 Xác nhận từ chối
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI Chat Box (góc dưới phải) ── */}
+      {chatConflict && (
+        <div className="fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] max-h-[70vh] flex flex-col rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)] bg-[var(--accent)] rounded-t-[var(--radius-md)]">
+            <div className="flex items-center gap-2 text-white">
+              <span className="text-lg">🤖</span>
+              <span className="font-bold text-sm">Trợ lý AI xếp lịch</span>
+            </div>
+            <button onClick={() => setChatConflict(null)}
+              className="text-white/80 hover:text-white text-xl leading-none">×</button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 text-sm">
+            {/* Câu hỏi context */}
+            <div className="rounded-lg bg-[var(--bg-surface-hover)] p-3 text-[var(--text-secondary)]">
+              Giáo viên <strong className="text-[var(--text-primary)]">{chatConflict.teacher.full_name}</strong> bận{' '}
+              <strong>Tuần {chatConflict.weekNumber}</strong> · {DAY_LABELS[chatConflict.dayOfWeek]} Tiết {chatConflict.period},
+              đang dạy <strong>{chatConflict.subjectName}</strong> lớp <strong>{chatConflict.className}</strong>.
+              Tìm phương án hoán đổi giúp tôi.
+            </div>
+
+            {chatLoading && (
+              <div className="flex items-center gap-2 text-[var(--text-muted)]">
+                <span className="animate-pulse">🤖</span> Đang phân tích thời khóa biểu...
+              </div>
+            )}
+
+            {chatResult && (
+              <>
+                {chatResult.aiError && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+                    ⚠️ {chatResult.aiError}. Dưới đây là các phương án hợp lệ (chưa xếp hạng AI):
+                  </div>
+                )}
+                {chatResult.options.length === 0 ? (
+                  <div className="rounded-lg bg-[var(--bg-surface-hover)] p-3 text-[var(--text-muted)]">
+                    Rất tiếc, không tìm được phương án hoán đổi hợp lệ cho tiết này. Bạn cần xử lý thủ công.
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-[var(--text-secondary)]">
+                      Mình gợi ý {chatResult.options.length} phương án sau:
+                    </div>
+                    {chatResult.options.map((o, idx) => {
+                      const key = o.type === 'SWAP' ? `swap-${o.swapSlot?.id}` : `${chatConflict.timetableSlotId}-${o.teacherIn.id}`;
+                      return (
+                        <div key={o.optionId} className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-hover)] p-3 space-y-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-[var(--accent)]">Phương án {idx + 1}</span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${o.type === 'REPLACE' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                              {o.type === 'REPLACE' ? 'Dạy thay' : 'Hoán đổi 2 chiều'}
+                            </span>
+                          </div>
+                          <div className="text-[var(--text-primary)]">
+                            {o.type === 'REPLACE' ? (
+                              <>Để <strong>{o.teacherIn.full_name}</strong> ({o.teacherIn.code}) dạy thay tiết này.</>
+                            ) : (
+                              <><strong>{o.teacherIn.full_name}</strong> ({o.teacherIn.code}) dạy tiết bận; đổi lại{' '}
+                                <strong>{o.teacherOut?.full_name}</strong> dạy <strong>{o.swapSlot?.subjectName}</strong> lớp{' '}
+                                <strong>{o.swapSlot?.className}</strong> ({DAY_LABELS[o.swapSlot!.day]} tiết {o.swapSlot!.period}).</>
+                            )}
+                          </div>
+                          {o.rationale && <div className="text-xs text-[var(--text-secondary)] italic">💡 {o.rationale}</div>}
+                          {o.warning && <div className="text-xs text-amber-600">⚠️ {o.warning}</div>}
+                          <button
+                            onClick={() => o.type === 'REPLACE'
+                              ? resolve(chatConflict.timetableSlotId, o.teacherIn.id, key)
+                              : applySwap(chatConflict.timetableSlotId, o.swapSlot!.id, key)}
+                            disabled={resolving === key}
+                            className="mt-1 w-full px-3 py-1.5 rounded-lg bg-[var(--accent)] text-white text-xs font-bold hover:opacity-90 disabled:opacity-50 transition">
+                            {resolving === key ? 'Đang áp dụng...' : '✓ Áp dụng phương án này'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}

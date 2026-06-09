@@ -1,14 +1,26 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notifications/notification.service';
+import { AiService, SwapOptionForAi } from '../ai/ai.service';
 
 const DAY_LABELS: Record<number, string> = { 2: 'Thứ 2', 3: 'Thứ 3', 4: 'Thứ 4', 5: 'Thứ 5', 6: 'Thứ 6', 7: 'Thứ 7' };
+
+/** A constraint-valid swap option (server-computed, before AI ranking). */
+interface SwapOption {
+    optionId: string;
+    type: 'REPLACE' | 'SWAP';
+    teacherIn: { id: string; full_name: string; code: string };
+    teacherOut?: { id: string; full_name: string; code: string };
+    /** For SWAP: the other slot whose teacher is swapped in. */
+    swapSlot?: { id: string; subjectName: string; className: string; day: number; period: number };
+}
 
 @Injectable()
 export class BusyScheduleService {
     constructor(
         private prisma: PrismaService,
         private notificationService: NotificationService,
+        private aiService: AiService,
     ) { }
 
     // ─── TEACHER ───────────────────────────────────────────────────────────────
@@ -228,6 +240,194 @@ export class BusyScheduleService {
         }
 
         return conflicts;
+    }
+
+    // ─── AI SWAP SUGGESTER ───────────────────────────────────────────────────────
+
+    /**
+     * Compute ALL constraint-valid swap options for a busy conflict slot, without
+     * calling AI. Two kinds:
+     *  - REPLACE (A→B): qualified teacher B (same subject in semester) free at the
+     *    busy slot teaches it instead.
+     *  - SWAP (A↔B): B takes the busy slot, A takes one of B's other slots in the
+     *    same week where A is qualified and free.
+     * Only `unique_teacher_slot` matters — slots stay in place, only teacher_id moves,
+     * so room/class uniqueness is untouched.
+     */
+    async computeSwapOptions(timetableSlotId: string): Promise<{ conflict: any; options: SwapOption[] }> {
+        const s1 = await this.prisma.timetableSlot.findUnique({
+            where: { id: timetableSlotId },
+            include: {
+                subject: { select: { name: true } },
+                class: { select: { name: true } },
+                teacher: { select: { id: true, full_name: true, code: true } },
+                timetable: { select: { id: true, semester_id: true } },
+            },
+        });
+        if (!s1) throw new NotFoundException('Không tìm thấy tiết học');
+
+        const timetableId = s1.timetable.id;
+        const semesterId = s1.timetable.semester_id;
+        const busyTeacherId = s1.teacher_id;
+        const { day, period, week } = s1;
+
+        // Matching approved busy request (for the conflict reason / context)
+        const busyReq = await this.prisma.teacherBusyRequest.findFirst({
+            where: { teacher_id: busyTeacherId, semester_id: semesterId, week_number: week, day_of_week: day, period, status: 'APPROVED' },
+            select: { reason: true },
+        });
+
+        // Load everything we need up front (per-week occupancy + qualifications)
+        const [slots, assignments, approvedBusy] = await Promise.all([
+            this.prisma.timetableSlot.findMany({
+                where: { timetable_id: timetableId, week },
+                include: {
+                    subject: { select: { name: true } },
+                    class: { select: { name: true } },
+                    teacher: { select: { id: true, full_name: true, code: true } },
+                },
+            }),
+            this.prisma.teachingAssignment.findMany({
+                where: { semester_id: semesterId },
+                select: { teacher_id: true, subject_id: true, teacher: { select: { id: true, full_name: true, code: true } } },
+            }),
+            this.prisma.teacherBusyRequest.findMany({
+                where: { semester_id: semesterId, week_number: week, status: 'APPROVED' },
+                select: { teacher_id: true, day_of_week: true, period: true },
+            }),
+        ]);
+
+        // subjectId -> qualified teachers; teacherId -> set of subjectIds; teacher meta
+        const teachersBySubject = new Map<number, Map<string, { id: string; full_name: string; code: string }>>();
+        const subjectsByTeacher = new Map<string, Set<number>>();
+        for (const a of assignments) {
+            if (!teachersBySubject.has(a.subject_id)) teachersBySubject.set(a.subject_id, new Map());
+            teachersBySubject.get(a.subject_id)!.set(a.teacher_id, a.teacher);
+            if (!subjectsByTeacher.has(a.teacher_id)) subjectsByTeacher.set(a.teacher_id, new Set());
+            subjectsByTeacher.get(a.teacher_id)!.add(a.subject_id);
+        }
+
+        const busyKey = (t: string, d: number, p: number) => `${t}|${d}|${p}`;
+        const busySet = new Set(approvedBusy.map(b => busyKey(b.teacher_id, b.day_of_week, b.period)));
+        const occupiedSet = new Set(slots.map(s => busyKey(s.teacher_id, s.day, s.period)));
+        const isBusy = (t: string, d: number, p: number) => busySet.has(busyKey(t, d, p));
+        const isOccupied = (t: string, d: number, p: number) => occupiedSet.has(busyKey(t, d, p));
+
+        const CAP = 12;
+        const options: SwapOption[] = [];
+
+        // ── REPLACE (A→B) ──
+        const qualified = teachersBySubject.get(s1.subject_id);
+        if (qualified) {
+            for (const [bid, b] of qualified) {
+                if (bid === busyTeacherId) continue;
+                if (isBusy(bid, day, period)) continue;       // B reported busy then
+                if (isOccupied(bid, day, period)) continue;   // B already teaches then → unique_teacher_slot
+                options.push({ optionId: `replace:${bid}`, type: 'REPLACE', teacherIn: b, teacherOut: s1.teacher });
+                if (options.filter(o => o.type === 'REPLACE').length >= CAP) break;
+            }
+        }
+
+        // ── SWAP (A↔B) ──
+        const aSubjects = subjectsByTeacher.get(busyTeacherId) ?? new Set<number>();
+        for (const s2 of slots) {
+            if (options.filter(o => o.type === 'SWAP').length >= CAP) break;
+            if (s2.id === s1.id) continue;
+            const bid = s2.teacher_id;
+            if (bid === busyTeacherId) continue;
+            if (!aSubjects.has(s2.subject_id)) continue;           // A qualified for S2's subject
+            if (isBusy(busyTeacherId, s2.day, s2.period)) continue; // A free at S2 time
+            if (isOccupied(busyTeacherId, s2.day, s2.period)) continue;
+            if (isBusy(bid, day, period)) continue;                 // B free at S1 time
+            if (isOccupied(bid, day, period)) continue;
+            options.push({
+                optionId: `swap:${s2.id}`,
+                type: 'SWAP',
+                teacherIn: s2.teacher,
+                teacherOut: s1.teacher,
+                swapSlot: { id: s2.id, subjectName: s2.subject.name, className: s2.class.name, day: s2.day, period: s2.period },
+            });
+        }
+
+        const conflict = {
+            teacherName: s1.teacher.full_name,
+            teacherCode: s1.teacher.code,
+            weekNumber: week,
+            dayLabel: DAY_LABELS[day] ?? String(day),
+            period,
+            subjectName: s1.subject.name,
+            className: s1.class.name,
+            reason: busyReq?.reason ?? '',
+        };
+
+        return { conflict, options };
+    }
+
+    /** Compute valid options, then ask the AI to rank the best 2 (graceful on AI failure). */
+    async suggestAiSwaps(timetableSlotId: string): Promise<{ options: any[]; aiError?: string }> {
+        const { conflict, options } = await this.computeSwapOptions(timetableSlotId);
+        if (options.length === 0) return { options: [] };
+
+        const aiInput = {
+            conflict,
+            options: options.map<SwapOptionForAi>(o => ({
+                optionId: o.optionId,
+                type: o.type,
+                summary:
+                    o.type === 'REPLACE'
+                        ? `Thay thế: ${o.teacherIn.full_name} (${o.teacherIn.code}) dạy thay tại tiết bận.`
+                        : `Hoán đổi: ${o.teacherIn.full_name} (${o.teacherIn.code}) dạy tiết bận; ${o.teacherOut?.full_name} dạy thay môn ${o.swapSlot?.subjectName} lớp ${o.swapSlot?.className} (${DAY_LABELS[o.swapSlot!.day]} tiết ${o.swapSlot!.period}).`,
+            })),
+        };
+
+        try {
+            const { picks } = await this.aiService.rankSwapOptions(aiInput);
+            const byId = new Map(options.map(o => [o.optionId, o]));
+            const ranked = picks
+                .map(p => {
+                    const opt = byId.get(p.optionId);
+                    return opt ? { ...opt, rationale: p.rationale, warning: p.warning } : null;
+                })
+                .filter(Boolean);
+            // Fallback: if AI returned nothing usable, surface the raw options
+            if (ranked.length === 0) return { options: options.slice(0, 4) };
+            return { options: ranked };
+        } catch (err: any) {
+            return { options: options.slice(0, 4), aiError: err?.message ?? 'Dịch vụ AI không khả dụng' };
+        }
+    }
+
+    /** Two-directional swap: exchange teacher_id between two slots, re-validated in a transaction. */
+    async swapTeachers(slotAId: string, slotBId: string) {
+        if (slotAId === slotBId) throw new BadRequestException('Hai tiết phải khác nhau');
+        return this.prisma.$transaction(async (tx) => {
+            const [a, b] = await Promise.all([
+                tx.timetableSlot.findUnique({ where: { id: slotAId } }),
+                tx.timetableSlot.findUnique({ where: { id: slotBId } }),
+            ]);
+            if (!a || !b) throw new NotFoundException('Không tìm thấy tiết học');
+            if (a.timetable_id !== b.timetable_id) throw new BadRequestException('Hai tiết không cùng thời khóa biểu');
+
+            // Re-check unique_teacher_slot for the post-swap positions (guard against
+            // the timetable changing between suggestion and apply).
+            const conflict = await tx.timetableSlot.findFirst({
+                where: {
+                    timetable_id: a.timetable_id,
+                    week: { in: [a.week, b.week] },
+                    id: { notIn: [a.id, b.id] },
+                    OR: [
+                        { teacher_id: b.teacher_id, day: a.day, period: a.period, week: a.week },
+                        { teacher_id: a.teacher_id, day: b.day, period: b.period, week: b.week },
+                    ],
+                },
+                select: { id: true },
+            });
+            if (conflict) throw new BadRequestException('Hoán đổi gây trùng tiết, thời khóa biểu đã thay đổi — vui lòng tải lại');
+
+            await tx.timetableSlot.update({ where: { id: a.id }, data: { teacher_id: b.teacher_id } });
+            await tx.timetableSlot.update({ where: { id: b.id }, data: { teacher_id: a.teacher_id } });
+            return { success: true };
+        });
     }
 
     async resolveConflict(timetableSlotId: string, substituteTeacherId: string) {
