@@ -249,7 +249,13 @@ export class ExcelService {
   async exportWorkbook(academicYearId: string): Promise<ExportPayload> {
     const context = await this.getYearContext(academicYearId);
     await this.ensureSubjectCatalog();
-    const data = await this.loadWorkbookData(context.hk1.id, context.hk2.id, context.year.name);
+    const data = await this.loadWorkbookData(
+      context.hk1.id,
+      context.hk2.id,
+      context.year.name,
+      this.weeksOfTerm(context.year.weeks, 1),
+      this.weeksOfTerm(context.year.weeks, 2),
+    );
     const buffer = await this.buildWorkbookBuffer(data);
 
     return {
@@ -266,12 +272,17 @@ export class ExcelService {
     const context = await this.getYearContext(academicYearId);
     const subjectMap = await this.ensureSubjectCatalog();
     const parsed = await this.parseWorkbook(buffer);
+    const hk1Weeks = this.weeksOfTerm(context.year.weeks, 1);
+    const hk2Weeks = this.weeksOfTerm(context.year.weeks, 2);
+
     const { warnings, preparedAssignments } = await this.validateWorkbook(
       context.year.name,
       parsed,
       subjectMap,
       context.hk1.id,
       context.hk2.id,
+      hk1Weeks,
+      hk2Weeks,
     );
 
     const summary = await this.prisma.$transaction(async (tx) => {
@@ -420,6 +431,8 @@ export class ExcelService {
     >,
     hk1Id: string,
     hk2Id: string,
+    hk1Weeks: number,
+    hk2Weeks: number,
   ): Promise<{ warnings: WorkbookMessage[]; preparedAssignments: PreparedAssignmentRow[] }> {
     const errors: WorkbookMessage[] = [];
     const warnings: WorkbookMessage[] = [];
@@ -635,7 +648,13 @@ export class ExcelService {
             ? {
                 semesterId: hk1Id,
                 teacherCode: item.teacherHk1Code,
-                totalPeriods: item.periodsHk1,
+                totalPeriods: this.toWeeklyPeriods(
+                  item.periodsHk1,
+                  hk1Weeks,
+                  item.rowNumber,
+                  WORKBOOK_SHEET_NAMES.assignments,
+                  warnings,
+                ),
               }
             : undefined,
         hk2:
@@ -643,7 +662,13 @@ export class ExcelService {
             ? {
                 semesterId: hk2Id,
                 teacherCode: item.teacherHk2Code,
-                totalPeriods: item.periodsHk2,
+                totalPeriods: this.toWeeklyPeriods(
+                  item.periodsHk2,
+                  hk2Weeks,
+                  item.rowNumber,
+                  WORKBOOK_SHEET_NAMES.assignments,
+                  warnings,
+                ),
               }
             : undefined,
       });
@@ -744,6 +769,8 @@ export class ExcelService {
     hk1Id: string,
     hk2Id: string,
     yearName: string,
+    hk1Weeks: number,
+    hk2Weeks: number,
   ): Promise<WorkbookBuildData> {
     const [teachers, classes, combinations, assignments] = await Promise.all([
       this.prisma.teacher.findMany({ orderBy: { code: 'asc' } }),
@@ -827,14 +854,15 @@ export class ExcelService {
       };
 
       if (assignment.semester_id === hk1Id) {
-        existing.periodsHk1 = assignment.total_periods;
+        // Stored per week, but the workbook column carries the whole-term total
+        existing.periodsHk1 = assignment.total_periods * hk1Weeks;
         existing.teacherHk1Code = assignment.teacher.code;
         existing.teacherHk1Name = assignment.teacher.full_name;
         existing.teacherHk1Load = assignment.teacher.max_periods_per_week;
       }
 
       if (assignment.semester_id === hk2Id) {
-        existing.periodsHk2 = assignment.total_periods;
+        existing.periodsHk2 = assignment.total_periods * hk2Weeks;
         existing.teacherHk2Code = assignment.teacher.code;
         existing.teacherHk2Name = assignment.teacher.full_name;
         existing.teacherHk2Load = assignment.teacher.max_periods_per_week;
@@ -1340,6 +1368,46 @@ export class ExcelService {
     }
 
     return { year, hk1, hk2 };
+  }
+
+  /**
+   * How many teaching weeks a term holds. The year total is split with the longer
+   * half going to term 1, matching the usual 18/17 split of a 35-week year.
+   */
+  private weeksOfTerm(yearWeeks: number, termOrder: number): number {
+    const weeks = yearWeeks > 0 ? yearWeeks : 35;
+    return termOrder === 1 ? Math.ceil(weeks / 2) : Math.floor(weeks / 2);
+  }
+
+  /**
+   * The workbook's `Tiết_HK1`/`Tiết_HK2` columns hold the periods for the whole term
+   * (Ngữ văn = 54 over 18 weeks), while the scheduler works in periods per week.
+   * Convert here, but tolerate files that already contain weekly figures: no subject
+   * runs for a whole term in 10 periods or fewer, so a small number is taken as-is.
+   */
+  private toWeeklyPeriods(
+    rawPeriods: number,
+    weeks: number,
+    rowNumber: number,
+    sheet: string,
+    warnings: WorkbookMessage[],
+  ): number {
+    const PLAUSIBLE_TERM_MINIMUM = 10;
+
+    if (rawPeriods <= PLAUSIBLE_TERM_MINIMUM) {
+      warnings.push({
+        sheet,
+        row: rowNumber,
+        column: 'Tiết_HK',
+        code: 'PERIODS_ASSUMED_WEEKLY',
+        message:
+          `Giá trị ${rawPeriods} quá nhỏ để là số tiết cả học kỳ nên được hiểu là số tiết/tuần. ` +
+          `Cột Tiết_HK1/HK2 cần nhập tổng số tiết của học kỳ (ví dụ Ngữ văn = 54).`,
+      });
+      return rawPeriods;
+    }
+
+    return Math.max(1, Math.round(rawPeriods / weeks));
   }
 
   private async ensureSubjectCatalog(prismaClient: PrismaService | PrismaTx = this.prisma) {

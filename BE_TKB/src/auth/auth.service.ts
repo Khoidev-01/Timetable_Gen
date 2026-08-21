@@ -1,21 +1,38 @@
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import * as svgCaptcha from 'svg-captcha';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import Redis from 'ioredis';
+
+const CAPTCHA_TTL_SECONDS = 300;
 
 @Injectable()
-export class AuthService {
-    private readonly SECRET = process.env.JWT_SECRET || 'MY_CAPTCHA_SECRET_KEY';
+export class AuthService implements OnModuleDestroy {
+    private readonly redis = new Redis({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+        maxRetriesPerRequest: 2,
+    });
 
     constructor(
         private prisma: PrismaService,
         private jwtService: JwtService
     ) { }
 
-    createCaptcha() {
+    async onModuleDestroy() {
+        await this.redis.quit().catch(() => undefined);
+    }
+
+    /**
+     * The answer is kept server-side under a random id. The previous design handed the
+     * client an HMAC of the answer and compared HMACs on submit, so the pair stayed
+     * valid for ever and could be replayed on every login attempt - which is the one
+     * thing a captcha exists to stop.
+     */
+    async createCaptcha() {
         const captcha = svgCaptcha.create({
             size: 4,
             noise: 2,
@@ -23,22 +40,31 @@ export class AuthService {
             background: '#f0f0f0'
         });
 
-        const hash = crypto.createHmac('sha256', this.SECRET)
-            .update(captcha.text.toLowerCase())
-            .digest('hex');
+        const sessionId = crypto.randomUUID();
+        await this.redis.set(
+            this.captchaKey(sessionId),
+            captcha.text.toLowerCase(),
+            'EX',
+            CAPTCHA_TTL_SECONDS,
+        );
 
-        return {
-            img: captcha.data,
-            sessionId: hash
-        };
+        return { img: captcha.data, sessionId };
     }
 
-    validateCaptcha(code: string, sessionId: string): boolean {
+    /** Single use: the answer is deleted whether or not it matched. */
+    async validateCaptcha(code: string, sessionId: string): Promise<boolean> {
         if (!code || !sessionId) return false;
-        const hash = crypto.createHmac('sha256', this.SECRET)
-            .update(code.toLowerCase())
-            .digest('hex');
-        return hash === sessionId;
+
+        const key = this.captchaKey(sessionId);
+        const expected = await this.redis.get(key);
+        await this.redis.del(key);
+
+        if (!expected) return false;
+        return expected === String(code).trim().toLowerCase();
+    }
+
+    private captchaKey(sessionId: string) {
+        return `captcha:${sessionId}`;
     }
 
     async validateUser(username: string, pass: string): Promise<any> {
@@ -49,12 +75,11 @@ export class AuthService {
 
         if (!user) return null;
 
-        // Compare password with bcrypt hash
+        // bcrypt only. The old code fell back to comparing the stored value as plain
+        // text, so any account whose hash was never migrated could be signed into with
+        // the hash itself read straight out of the database.
         const isMatch = await bcrypt.compare(pass, user.password_hash);
-        if (!isMatch) {
-            // Fallback: plain text comparison for legacy data
-            if (user.password_hash !== pass) return null;
-        }
+        if (!isMatch) return null;
 
         return {
             id: user.id,
@@ -101,13 +126,11 @@ export class AuthService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new Error('User not found');
 
-        // Verify old password
         const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
-        if (!isMatch) {
-            // Fallback plain text check
-            if (user.password_hash !== oldPassword) {
-                throw new Error('Mật khẩu cũ không đúng');
-            }
+        if (!isMatch) throw new Error('Mật khẩu cũ không đúng');
+
+        if (!newPassword || String(newPassword).length < 6) {
+            throw new Error('Mật khẩu mới phải có tối thiểu 6 ký tự');
         }
 
         const hashedNew = await bcrypt.hash(newPassword, 10);

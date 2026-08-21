@@ -40,18 +40,36 @@ Quy trình nghiệp vụ được chia thành 3 giai đoạn chính: **Đầu v�
     *   Hệ thống ghi nhận đây là **Ràng buộc Cứng** (Hard Constraint) để thuật toán tuyệt đối tránh.
 
 ### 3.2. Giai đoạn 2: Xếp lịch Tự động (Processing)
-Hệ thống sử dụng thuật toán lai (Hybrid Algorithm) kết hợp giữa Heuristic và Genetic Algorithm.
+Hệ thống dựng lời giải bằng heuristic rồi cải thiện bằng **tìm kiếm cục bộ có khởi động lại** (local search with restarts).
 
 1.  **Bước 1: Xếp các Tiết Cố định (Fixed Slots)**:
-    *   Các tiết như *Chào cờ* (Thứ 2, Tiết 1), *Sinh hoạt lớp* (Thứ 7, Tiết 5) được xếp trước tiên để cố định khung.
+    *   Đọc từ bảng `fixed_period_rules` — cấu hình được từ màn hình `/admin/fixed-periods`, không hardcode.
+    *   Mỗi quy tắc khai báo: môn · thứ · tiết · khối nào · buổi nào · ai dạy · có khoá không.
+    *   Bỏ qua quy tắc nếu giáo viên đã bận, để heuristic xếp bình thường thay vì tạo tiết bị loại lúc lưu.
 
-2.  **Bước 2: Xếp các Môn Đặc thù (Special Subjects)**:
-    *   Môn Thể dục/Quốc phòng xếp vào các buổi trái buổi hoặc các tiết cuối để tránh ảnh hưởng sức khỏe/vệ sinh.
-    *   Môn Thực hành (Tin, Lý, Hóa) cần xếp vào phòng chức năng (Lab) thay vì phòng học.
+2.  **Bước 2: Heuristic tham lam**:
+    *   Môn trái buổi (GDTC, GDQP) xếp thành khối liên tiếp ở buổi đối diện.
+    *   Kiểm tra ngay khi đặt: ô đã chiếm · giáo viên trùng giờ · giáo viên đã báo bận · vượt định mức tuần · hết phòng chức năng.
 
-3.  **Bước 3: Tối ưu hóa (Optimization Cycle)**:
-    *   Chạy thuật toán Di truyền (Genetic Algorithm) để "xáo trộn" và tìm ra phương án tối ưu nhất.
-    *   Liên tục đánh giá phương án bằng **Hàm mục tiêu (Fitness Function)**.
+3.  **Bước 3: Sửa chữa và dồn tiết**:
+    *   `repairMissingPeriods` quét lại phần heuristic không xếp được, có thể di dời một tiết chắn đường.
+    *   `consolidateBlocks` ghép các tiết lẻ cùng môn thành tiết đôi.
+    *   `compactClassSchedules` kéo tiết về đầu buổi để lớp không bị trống tiết giữa buổi.
+    *   `alignHomeroomToEndOfDay` đưa sinh hoạt về cuối buổi thực tế của lớp.
+
+4.  **Bước 4: Tìm kiếm cục bộ**:
+    *   Ba phép biến đổi: hoán vị hai tiết (kể cả **liên lớp**), di chuyển một tiết sang ô trống, và gom tiết của giáo viên về ít buổi hơn.
+    *   Chấp nhận nước đi làm điểm tăng **hoặc bằng** để thoát cao nguyên.
+    *   Dừng sớm khi không cải thiện được nữa.
+
+5.  **Bước 5: Chọn phương án tốt nhất**:
+    *   Chạy tối đa 12 lần, dừng sớm khi có phương án 0 lỗi cứng.
+    *   So sánh **từ điển**: ít lỗi cứng trước, điểm mềm sau — một TKB dùng được luôn thắng một TKB đẹp hơn nhưng không dùng được.
+
+6.  **Bước 6: Gán phòng**:
+    *   Chạy sau khi lưới ngừng thay đổi. Môn thực hành vào Lab đúng loại, GDTC ra sân, tiết thường ở phòng lớp.
+
+> **Lưu ý:** phiên bản trước mô tả đây là *Genetic Algorithm*. Không đúng — không có quần thể, lai ghép hay đột biến. Xem [REVIEW.md](REVIEW.md) mục 4.4.
 
 ### 3.3. Giai đoạn 3: Tinh chỉnh & Công bố (Output)
 1.  **Kiểm tra & Cảnh báo**:
@@ -86,39 +104,40 @@ Là các điều kiện về "chất lượng" và sự "thuận tiện". Vi ph�
 
 ## 5. CHIẾN LƯỢC THUẬT TOÁN (ALGORITHMIC STRATEGY)
 
-Để giải quyết bài toán, hệ thống sử dụng chiến lược **Hybrid Genetic Algorithm**:
+Hệ thống dùng **Heuristic dựng lời giải + Tìm kiếm cục bộ có khởi động lại** (không phải Genetic Algorithm).
 
-1.  **Khởi tạo (Initialization)**:
-    *   Sử dụng **Heuristic Greedy (Tham lam)** để tạo ra một quần thể TKB ban đầu có chất lượng tương đối (thỏa mãn các tiết cố định và phân phối cơ bản).
+### 5.1. Hàm mục tiêu
 
-2.  **Lai ghép & Đột biến (Crossover & Mutation)**:
-    *   Trao đổi các "gen" (cặp Lớp-Môn-Giáo viên) giữa các TKB cha mẹ.
-    *   Đột biến: Ngẫu nhiên di chuyển một tiết học sang ô trống khác để thoát khỏi cực trị địa phương (local optima).
+```
+Fitness = 1000 − (số lỗi cứng × 100) − tổng phạt mềm
+```
 
-3.  **Đánh giá (Evaluation)**:
-    *   Mỗi TKB được chấm điểm `Fitness = 1000 - Penalty`.
-    *   Penalty Cứng = -100 điểm/lỗi.
-    *   Penalty Mềm = -10 điểm/lỗi.
-    Dựa trên công thức hiện tại của hệ thống:
+**Ràng buộc cứng** — vi phạm là TKB không dùng được:
 
-    Fitness = 1000 - (Số lỗi cứng × 100)
-    Lỗi cứng (Hard Constraint): Là những lỗi khiến TKB không thể thực hiện được (Ví dụ: 1 giáo viên dạy 2 lớp cùng lúc, 1 lớp học 2 môn cùng lúc).
-    Vì vậy, mức điểm đánh giá TKB có thể dùng được là:
+| Ràng buộc | Kiểm tra khi đặt tiết |
+| :--- | :---: |
+| Giáo viên không dạy 2 lớp cùng giờ | ✅ |
+| Lớp không học 2 môn cùng giờ | ✅ |
+| Phòng không chứa 2 lớp cùng giờ | ✅ |
+| Không xếp vào ô giáo viên đã báo bận | ✅ |
+| Đủ số tiết theo phân công | ✅ |
+| Lớp không trống tiết giữa buổi | ✅ |
+| Giáo viên không vượt định mức tuần | ✅ |
+| Đủ phòng chức năng / sân thể dục | ✅ |
 
-    BẮT BUỘC PHẢI LÀ 1000 ĐIỂM
-    Giải thích:
+**Ràng buộc mềm** và trọng số: môn dồn cục (10) · môn nặng liên tiếp (20) · môn ưu tiên ở tiết cuối (15) · tiết đôi bị xé lẻ (10) · tiết trống giáo viên (5) · quá 4 tiết/buổi (10) · số buổi giáo viên phải đến trường (8) · dạy cả sáng lẫn chiều cùng ngày (12) · môn tư duy ngay sau Thể dục (10) · không có ngày nghỉ (15) · quá 4 tiết liên tiếp (8) · môn cách nhau quá 3 ngày (8) · quá 3 tiết buổi phụ (12).
 
-    Nếu điểm < 1000 (Ví dụ 900, 800...):
-    Có nghĩa là hệ thống vẫn còn ít nhất 1 lỗi vi phạm cứng.
-    TKB này không thể áp dụng thực tế vì sẽ xảy ra xung đột vật lý (2 người tranh nhau 1 phòng, hoặc 1 giáo viên phải phân thân).
-    Trạng thái lúc này là: INVALID (Không hợp lệ).
-    Nếu điểm = 1000:
-    Đồng nghĩa với 0 lỗi cứng.
-    TKB đã khả thi về mặt logic và vật lý.
-    Trạng thái lúc này là: VALID (Hợp lệ - Có thể ban hành).
-    Lưu ý: Trong tương lai, nếu hệ thống áp dụng thêm trừ điểm cho Lỗi mềm (Soft Constraints - Ví dụ: giáo viên bị trống tiết, môn học rải không đều...), thì thang điểm "dùng được" có thể thấp hơn 1000 (ví dụ > 800), miễn là Lỗi cứng = 0. Nhưng với thuật toán hiện tại của bạn, chỉ khi đạt tuyệt đối 1000/1000 thì TKB mới được coi là thành công.
+### 5.2. Ngưỡng đánh giá
 
----
+TKB **dùng được** khi **số lỗi cứng = 0**. Điểm mềm càng cao càng tốt nhưng không quyết định tính hợp lệ.
+
+Trên bộ dữ liệu mẫu (7 lớp · 21 giáo viên · 217 tiết), 5/5 lần chạy đạt 0 lỗi cứng, điểm dao động khoảng **−120 đến +150**, mỗi lần chạy 10–25 giây. Điểm khó đạt 1000 vì thang điểm bao gồm 13 tiêu chí chất lượng cùng lúc — chúng mâu thuẫn nhau và không thể thoả mãn đồng thời.
+
+### 5.3. Định mức và quy định tham chiếu
+
+- Định mức giáo viên THPT: **17 tiết/tuần** (Thông tư 05/2025/TT-BGDĐT)
+- Tiết chào cờ và sinh hoạt là nhiệm vụ chủ nhiệm, **không tính vào định mức giảng dạy**
+- Khoảng cách giữa hai tiết cùng môn không nên quá **3 ngày**
 
 ## 6. KẾT LUẬN
 Hệ thống không chỉ giải quyết bài toán xếp lịch cơ bản mà còn hướng tới trải nghiệm người dùng thông qua việc xử lý tinh tế các Ràng buộc Mềm. Kiến trúc nghiệp vụ tách biệt rõ ràng giữa Input - Logic - Output giúp hệ thống dễ dàng bảo trì và mở rộng thêm các quy tắc mới trong tương lai.

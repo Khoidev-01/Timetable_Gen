@@ -3,7 +3,11 @@ import { Controller, Post, Body, Get, Patch, Res, Req, BadRequestException, Unau
 import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
 import type { Response, Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
+import { Public } from './decorators/public.decorator';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Xác thực')
 @Controller('auth')
 export class AuthController {
     constructor(
@@ -11,16 +15,20 @@ export class AuthController {
         private jwtService: JwtService
     ) { }
 
+    @Public()
     @Post('captcha')
     async getCaptcha(@Res() res: Response) {
-        const captcha = this.authService.createCaptcha();
+        const captcha = await this.authService.createCaptcha();
         res.status(200).send(captcha);
     }
 
+    // Brute force protection: five attempts a minute from one address
+    @Throttle({ default: { ttl: 60_000, limit: 5 } })
+    @Public()
     @Post('login')
     async login(@Body() body: any) {
         // 1. Verify Captcha
-        const isValid = this.authService.validateCaptcha(body.captchaCode, body.captchaSessionId);
+        const isValid = await this.authService.validateCaptcha(body.captchaCode, body.captchaSessionId);
         if (!isValid) {
             throw new BadRequestException('Mã captcha không đúng');
         }

@@ -1,16 +1,49 @@
-import { Controller, Get, Patch, Param, Body, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, NotFoundException, ForbiddenException, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { TeacherService } from './teacher.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 /**
  * Vietnamese alias routes for teacher endpoints.
  * FE uses /giao-vien/:id for teacher data access.
  */
+@ApiTags('Giáo viên')
+@ApiBearerAuth('access-token')
 @Controller('giao-vien')
 export class TeacherAliasController {
-    constructor(private readonly teacherService: TeacherService) { }
+    constructor(
+        private readonly teacherService: TeacherService,
+        private readonly prisma: PrismaService,
+    ) { }
+
+    /**
+     * A teacher may only touch their own record. Without this the busy-time endpoint
+     * lets any signed-in teacher rewrite a colleague's availability, which then steers
+     * the whole timetable.
+     */
+    private async assertOwnership(req: Request, teacherId: string) {
+        const actor: any = (req as any).user;
+        if (!actor) throw new ForbiddenException('Chưa xác thực.');
+        if (actor.role === 'ADMIN') return;
+
+        const account = await this.prisma.user.findUnique({
+            where: { id: actor.id },
+            select: { teacher_profile_id: true },
+        });
+
+        if (account?.teacher_profile_id !== teacherId) {
+            throw new ForbiddenException('Chỉ được xem và sửa dữ liệu của chính mình.');
+        }
+    }
 
     @Get(':id')
-    async getTeacher(@Param('id') id: string) {
+    async getTeacher(@Param('id') id: string, @Req() req: Request) {
+        await this.assertOwnership(req, id);
+        return this.readTeacher(id);
+    }
+
+    private async readTeacher(id: string) {
         const teacher = await this.teacherService.findOne(id);
         // Map to FE-expected format with ngay_nghi_dang_ky from constraints
         const busySlots = (teacher.constraints || []).map((c: any) => ({
@@ -27,7 +60,8 @@ export class TeacherAliasController {
     }
 
     @Patch(':id')
-    async updateTeacher(@Param('id') id: string, @Body() body: any) {
+    async updateTeacher(@Param('id') id: string, @Body() body: any, @Req() req: Request) {
+        await this.assertOwnership(req, id);
         // Handle ngay_nghi_dang_ky update via constraints
         if (body.ngay_nghi_dang_ky !== undefined) {
             // Convert string array format "day_session" to constraints
@@ -69,7 +103,7 @@ export class TeacherAliasController {
 
                 await this.teacherService.updateConstraints(id, expanded.length > 0 ? expanded : constraints);
             }
-            return this.getTeacher(id);
+            return this.readTeacher(id);
         }
 
         // Regular field update
@@ -77,11 +111,12 @@ export class TeacherAliasController {
         if (Object.keys(rest).length > 0) {
             await this.teacherService.update(id, rest);
         }
-        return this.getTeacher(id);
+        return this.readTeacher(id);
     }
 
     @Patch(':id/busy-time')
-    async updateBusyTime(@Param('id') id: string, @Body() body: any) {
+    async updateBusyTime(@Param('id') id: string, @Body() body: any, @Req() req: Request) {
+        await this.assertOwnership(req, id);
         const { busySlots } = body;
         if (!Array.isArray(busySlots)) {
             return { success: false, message: 'busySlots must be an array' };

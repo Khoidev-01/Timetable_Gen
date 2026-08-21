@@ -33,6 +33,10 @@ const ROOM_SEED = [
   { name: '303', floor: 3, type: RoomType.LAB_BIO },
   { name: '314', floor: 3, type: RoomType.LAB_IT },
   { name: '315', floor: 3, type: RoomType.LAB_IT },
+  // Physical education needs open ground; without these the yard-capacity rule cannot
+  // be enforced and every GDTC period looks unconstrained
+  { name: 'Sân A', floor: 0, type: RoomType.YARD },
+  { name: 'Sân B', floor: 0, type: RoomType.YARD },
 ];
 
 async function main() {
@@ -44,7 +48,9 @@ async function main() {
     const academicYear = await seedAcademicYear();
     await seedAdminUser();
     await seedRooms();
+    await seedFixedPeriodRules();
     await importMockWorkbook(academicYear.id);
+    await assignHomeRooms();
 
     console.log(`Seed completed for academic year ${academicYear.name}.`);
   } finally {
@@ -56,6 +62,7 @@ async function resetDatabase() {
   console.log('Resetting local data...');
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
+      fixed_period_rules,
       timetable_slots,
       generated_timetables,
       teaching_assignments,
@@ -106,6 +113,67 @@ async function seedAdminUser() {
 async function seedRooms() {
   console.log('Creating baseline rooms...');
   await prisma.room.createMany({ data: ROOM_SEED });
+}
+
+/**
+ * Default fixed periods. Morning and afternoon classes each get their own set so that
+ * an afternoon class is not left without a chào cờ, and sinh hoạt lands at the end of
+ * its own session rather than at a period number that belongs to the other shift.
+ */
+async function seedFixedPeriodRules() {
+  console.log('Creating default fixed period rules...');
+
+  const rules = [
+    // --- Lớp học buổi sáng (tiết 1-5) ---
+    { name: 'Chào cờ đầu tuần', subject_code: 'CHAO_CO', day_of_week: 2, period: 1, main_session: 0, teacher_rule: 'HOMEROOM', sort_order: 1 },
+    { name: 'GVCN dạy tiết 2 Thứ 2', subject_code: 'GVCN_TEACHING', day_of_week: 2, period: 2, main_session: 0, teacher_rule: 'HOMEROOM', is_locked: false, sort_order: 2 },
+    { name: 'Sinh hoạt cuối tuần', subject_code: 'SH_CUOI_TUAN', day_of_week: 7, period: 5, main_session: 0, teacher_rule: 'HOMEROOM', sort_order: 3 },
+
+    // --- Lớp học buổi chiều (tiết 6-10) ---
+    { name: 'Chào cờ đầu tuần', subject_code: 'CHAO_CO', day_of_week: 2, period: 6, main_session: 1, teacher_rule: 'HOMEROOM', sort_order: 4 },
+    { name: 'GVCN dạy tiết 2 Thứ 2', subject_code: 'GVCN_TEACHING', day_of_week: 2, period: 7, main_session: 1, teacher_rule: 'HOMEROOM', is_locked: false, sort_order: 5 },
+    { name: 'Sinh hoạt cuối tuần', subject_code: 'SH_CUOI_TUAN', day_of_week: 7, period: 10, main_session: 1, teacher_rule: 'HOMEROOM', sort_order: 6 },
+  ];
+
+  await prisma.fixedPeriodRule.createMany({
+    data: rules.map((rule) => ({
+      ...rule,
+      teacher_rule: rule.teacher_rule as any,
+      is_locked: rule.is_locked ?? true,
+    })),
+  });
+}
+
+/**
+ * Vietnamese secondary schools keep each class in its own room and let the teachers
+ * move, so every class needs a home room. The workbook has no room column, so assign
+ * them here: grade 10 upstairs, grades 11 and 12 on the first floor.
+ */
+async function assignHomeRooms() {
+  console.log('Assigning home rooms to classes...');
+
+  const classrooms = await prisma.room.findMany({
+    where: { type: RoomType.CLASSROOM },
+    orderBy: { name: 'asc' },
+  });
+  const classes = await prisma.class.findMany({ orderBy: [{ grade_level: 'asc' }, { name: 'asc' }] });
+
+  const upstairs = classrooms.filter((room) => room.floor === 2);
+  const downstairs = classrooms.filter((room) => room.floor === 1);
+  let upstairsIndex = 0;
+  let downstairsIndex = 0;
+
+  for (const cls of classes) {
+    const pool = cls.grade_level === 10 ? upstairs : downstairs;
+    const index = cls.grade_level === 10 ? upstairsIndex++ : downstairsIndex++;
+    const room = pool[index];
+    if (!room) continue;
+
+    await prisma.class.update({
+      where: { id: cls.id },
+      data: { fixed_room_id: room.id },
+    });
+  }
 }
 
 async function importMockWorkbook(academicYearId: string) {

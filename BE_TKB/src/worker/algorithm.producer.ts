@@ -3,12 +3,14 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { AlgorithmService } from '../algorithm/algorithm.service'; // Direct access for now or use Prisma
 import { PrismaService } from '../prisma/prisma.service';
+import { ConstraintService } from '../algorithm/constraint.service';
 
 @Injectable()
 export class AlgorithmProducer {
     constructor(
         @InjectQueue('optimization') private optimizationQueue: Queue,
-        private prisma: PrismaService
+        private prisma: PrismaService,
+        private constraints: ConstraintService,
     ) { }
 
     async startOptimization(semesterId: string) {
@@ -35,13 +37,18 @@ export class AlgorithmProducer {
     }
 
     async getResult(semesterId: string) {
-        const latestTkb = await this.prisma.generatedTimetable.findFirst({
-            where: { semester_id: semesterId },
-            orderBy: { created_at: 'desc' },
-            include: {
-                slots: true
-            }
-        });
+        // Prefer the published timetable. Falling back to the newest draft is what let
+        // teachers see half-finished schedules the moment an admin pressed Run.
+        const latestTkb =
+            (await this.prisma.generatedTimetable.findFirst({
+                where: { semester_id: semesterId, is_official: true },
+                include: { slots: true },
+            })) ??
+            (await this.prisma.generatedTimetable.findFirst({
+                where: { semester_id: semesterId },
+                orderBy: { created_at: 'desc' },
+                include: { slots: true },
+            }));
 
         if (!latestTkb) return [];
 
@@ -96,8 +103,25 @@ export class AlgorithmProducer {
             };
         });
 
+        // Which periods are to blame for each hard violation, so the grid can point at
+        // them instead of leaving the user to hunt through the week by eye
+        await this.constraints.initialize(semesterId);
+        const offenders = this.constraints.locateHardViolations(
+            latestTkb.slots.map(s => ({
+                id: s.id,
+                day: s.day,
+                period: s.period,
+                classId: s.class_id,
+                subjectId: s.subject_id,
+                teacherId: s.teacher_id,
+                roomId: s.room_id ?? undefined,
+            })),
+        );
+
         return {
+            timetableId: latestTkb.id,
             bestSchedule,
+            offenders,
             fitness_score: latestTkb.fitness_score,
             is_official: latestTkb.is_official,
             generated_at: latestTkb.created_at

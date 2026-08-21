@@ -40,6 +40,7 @@ model Semester {
   academic_year         AcademicYear @relation(fields: [year_id], references: [id])
   teaching_assignments  TeachingAssignment[]
   generated_timetables  GeneratedTimetable[]
+  overlays              ScheduleOverlay[]
 
   @@map("semesters")
 }
@@ -121,6 +122,9 @@ model Teacher {
   department          String?
   status              String   @default("Dang_day")
   workload_reduction  Int      @default(0)
+  /// How heavily stair climbing counts for this teacher, in tenths. 10 = normal;
+  /// raise it for older teachers or anyone with a mobility difficulty.
+  mobility_weight     Int      @default(10)
   notes               String?
 
   user                User?
@@ -175,6 +179,46 @@ model Class {
   timetable_slots      TimetableSlot[]
 
   @@map("classes")
+}
+
+/// An admin override for one constraint's weight or on/off state.
+///
+/// Only the override lives here - the constraint's name, kind and default weight stay in
+/// `constraint-catalogue.ts` next to the code that applies them. Storing the text in the
+/// database as well would let the screen describe a constraint the solver no longer has.
+model ConstraintSetting {
+  key        String   @id
+  weight     Int
+  is_active  Boolean  @default(true)
+  updated_at DateTime @updatedAt
+
+  @@map("constraint_settings")
+}
+
+/// A period the school pins to a set time before the solver runs - chào cờ, sinh hoạt,
+/// GDĐP and so on. Replaces the rules that used to be hardcoded in the algorithm so a
+/// school can arrange its own fixed periods and lock them from the admin screen.
+model FixedPeriodRule {
+  id           String  @id @default(uuid())
+  name         String  // "Chào cờ đầu tuần"
+  subject_code String  // "CHAO_CO", or "GVCN_TEACHING" for the homeroom teacher's own lesson
+  day_of_week  Int     // 2-7
+  period       Int     // 1-10, absolute within the day
+  grade_level  Int?    // null = every grade
+  main_session Int?    // null = every session; 0 = morning classes, 1 = afternoon classes
+  teacher_rule TeacherRule @default(HOMEROOM)
+  is_locked    Boolean @default(true) // slot cannot be moved by the solver or by drag & drop
+  is_active    Boolean @default(true)
+  sort_order   Int     @default(0)
+
+  @@index([is_active, day_of_week, period])
+  @@map("fixed_period_rules")
+}
+
+enum TeacherRule {
+  HOMEROOM // giáo viên chủ nhiệm của lớp
+  BGH      // ban giám hiệu / giáo viên hệ thống
+  ASSIGNED // giáo viên đang được phân công dạy môn đó cho lớp
 }
 
 model CurriculumCombination {
@@ -233,12 +277,90 @@ model GeneratedTimetable {
   semester_id   String
   is_official   Boolean  @default(false)
   fitness_score Float?
+  /// Unguessable id for the read-only public link teachers reach by QR code.
+  /// Issued when the timetable is published; a draft has none.
+  public_token  String?  @unique
   created_at    DateTime @default(now())
 
   semester      Semester @relation(fields: [semester_id], references: [id])
   slots         TimetableSlot[]
+  change_logs   TimetableChangeLog[]
 
   @@map("generated_timetables")
+}
+
+/// Every manual change to a generated timetable. Without this the school has no way to
+/// answer "who moved this and why", and no way back if an edit turns out wrong.
+model TimetableChangeLog {
+  id           String   @id @default(uuid())
+  timetable_id String
+  slot_id      String?
+  actor_id     String?
+  actor_name   String
+  action       ChangeAction
+  description  String
+  /// Enough state to reverse the change: [{ slotId, day, period, isLocked }]
+  before       Json
+  after        Json
+  reverted     Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  timetable    GeneratedTimetable @relation(fields: [timetable_id], references: [id], onDelete: Cascade)
+
+  @@index([timetable_id, created_at])
+  @@map("timetable_change_logs")
+}
+
+enum ChangeAction {
+  MOVE
+  SWAP
+  CASCADE_SWAP
+  LOCK
+  UNLOCK
+  PUBLISH
+  REVERT
+}
+
+/// A dated change laid over the master timetable: a holiday, an absent teacher, an exam
+/// week. The master schedule is generated once a term and stays untouched; editing it
+/// directly is how a timetable becomes wrong by week three and abandoned by week six.
+model ScheduleOverlay {
+  id          String       @id @default(uuid())
+  semester_id String
+  type        OverlayType
+  scope       OverlayScope @default(SCHOOL)
+  /// Which class or teacher the overlay applies to, when the scope is not SCHOOL
+  scope_ref   String?
+  date_from   DateTime     @db.Date
+  date_to     DateTime     @db.Date
+  /// Higher priority overrides lower when two overlays touch the same period
+  priority    Int          @default(10)
+  /// What changes. For ABSENCE: { absentTeacherId, coverage: [{ slotId, mode, substituteTeacherId }] }
+  payload     Json
+  reason      String?
+  created_by  String?
+  created_at  DateTime     @default(now())
+
+  semester    Semester     @relation(fields: [semester_id], references: [id], onDelete: Cascade)
+
+  @@index([semester_id, date_from, date_to])
+  @@map("schedule_overlays")
+}
+
+enum OverlayType {
+  HOLIDAY   // nghỉ lễ
+  ABSENCE   // giáo viên nghỉ, có người dạy thay
+  EXAM_WEEK // tuần kiểm tra
+  EVENT     // hoạt động ngoại khóa
+  MAKEUP    // dạy bù
+  SWAP      // đổi tiết đã duyệt
+}
+
+enum OverlayScope {
+  SCHOOL
+  GRADE
+  CLASS
+  TEACHER
 }
 
 model TimetableSlot {

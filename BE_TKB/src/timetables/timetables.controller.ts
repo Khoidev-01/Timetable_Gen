@@ -1,7 +1,10 @@
 
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { TimetablesService } from './timetables.service';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Thời khóa biểu')
+@ApiBearerAuth('access-token')
 @Controller('timetables')
 export class TimetablesController {
     constructor(private readonly timetablesService: TimetablesService) { }

@@ -1,8 +1,13 @@
 
 import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
 import { ClassService } from './class.service';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Lớp học')
+@ApiBearerAuth('access-token')
 @Controller('organization')
+@Roles('ADMIN')
 export class OrganizationController {
     constructor(private readonly classService: ClassService) { }
 

@@ -14,8 +14,13 @@ import type { Express } from 'express';
 import { memoryStorage } from 'multer';
 import { ExcelService } from './excel.service';
 import { buildAttachmentDisposition } from './excel.utils';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Excel')
+@ApiBearerAuth('access-token')
 @Controller('excel')
+@Roles('ADMIN')
 export class ExcelController {
   constructor(private readonly excelService: ExcelService) {}
 

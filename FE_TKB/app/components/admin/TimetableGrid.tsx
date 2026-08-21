@@ -1,6 +1,9 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { DndContext, useDraggable, useDroppable, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
+import { API_URL } from '@/lib/api';
+
+interface MoveTarget { day: number; period: number; valid: boolean; reason?: string; deltaScore?: number }
 
 interface ScheduleSlot {
     id: string;
@@ -28,6 +31,9 @@ interface TimetableGridProps {
     selectedEntityId: string;
     onSlotMove?: (from: ScheduleSlot, to: { day: number, period: number, session: number }) => void;
     onToggleLock?: (slotId: string) => void;
+    onRequestSwap?: (slotId: string) => void;
+    /** Ids of periods responsible for a hard violation, so they can be pointed at. */
+    offenderIds?: Set<string>;
     isEditable?: boolean;
 }
 
@@ -81,7 +87,7 @@ const SlotContent = ({ slot, viewMode, isOverlay = false }: { slot: ScheduleSlot
 };
 
 // Draggable Slot Component
-const DraggableSlot = ({ slot, viewMode, isEditable, onToggleLock }: { slot: ScheduleSlot, viewMode: 'CLASS' | 'TEACHER', isEditable: boolean, onToggleLock?: (id: string) => void }) => {
+const DraggableSlot = ({ slot, viewMode, isEditable, onToggleLock, onRequestSwap, isOffender }: { slot: ScheduleSlot, viewMode: 'CLASS' | 'TEACHER', isEditable: boolean, onToggleLock?: (id: string) => void, onRequestSwap?: (id: string) => void, isOffender?: boolean }) => {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `drag-${slot.day}-${slot.session}-${slot.period}`,
         data: slot,
@@ -89,7 +95,13 @@ const DraggableSlot = ({ slot, viewMode, isEditable, onToggleLock }: { slot: Sch
     });
 
     return (
-        <div ref={setNodeRef} className={`${isEditable && !slot.is_locked ? 'cursor-move' : 'cursor-default'} h-full w-full relative group ${isDragging ? 'opacity-30' : 'opacity-100'}`}>
+        <div
+            ref={setNodeRef}
+            title={isOffender ? 'Tiết này đang gây lỗi cứng' : undefined}
+            className={`${isEditable && !slot.is_locked ? 'cursor-move' : 'cursor-default'} h-full w-full relative group
+                ${isDragging ? 'opacity-30' : 'opacity-100'}
+                ${isOffender ? 'rounded ring-2 ring-red-500 ring-offset-1' : ''}`}
+        >
             <div {...listeners} {...attributes} className="h-full w-full">
                 <SlotContent slot={slot} viewMode={viewMode} />
             </div>
@@ -115,31 +127,80 @@ const DraggableSlot = ({ slot, viewMode, isEditable, onToggleLock }: { slot: Sch
                     )}
                 </button>
             )}
+
+            {/* Chain swap: useful exactly when a direct move is refused */}
+            {isEditable && !slot.is_locked && onRequestSwap && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRequestSwap(slot.id);
+                    }}
+                    className="absolute top-1 left-1 z-10 rounded-full bg-white p-1 text-gray-400 opacity-0
+                        shadow-sm transition-all group-hover:opacity-100 hover:bg-purple-50 hover:text-purple-600"
+                    title="Tìm chu trình đổi tiết"
+                >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </button>
+            )}
         </div>
     );
 };
 
 // Droppable Cell Component
-const DroppableCell = ({ day, session, period, children }: { day: number, session: number, period: number, children: React.ReactNode }) => {
+const DroppableCell = ({
+    day,
+    session,
+    period,
+    children,
+    isValid,
+    hint,
+}: {
+    day: number;
+    session: number;
+    period: number;
+    children: React.ReactNode;
+    /** true: legal target · false: would break a rule · null: nothing being dragged */
+    isValid?: boolean | null;
+    /** The score change if dropped here, or why the cell refuses the slot. */
+    hint?: string;
+}) => {
     const { setNodeRef, isOver } = useDroppable({
         id: `drop-${day}-${session}-${period}`,
         data: { day, session, period }
     });
 
+    // Tinting every cell while a slot is in the air answers "where can this go?" in one
+    // glance. Before this the grid accepted any drop and only complained afterwards.
+    let tone = 'bg-white';
+    if (isValid === true) tone = isOver ? 'bg-emerald-100 ring-2 ring-emerald-500' : 'bg-emerald-50/70';
+    else if (isValid === false) tone = isOver ? 'bg-red-100 ring-2 ring-red-400' : 'bg-red-50/50';
+    else if (isOver) tone = 'bg-gray-100 ring-2 ring-gray-300';
+
     return (
         <td
             ref={setNodeRef}
-            className={`p-1 border border-gray-200 text-center relative h-20 align-top transition-colors 
-            ${isOver ? 'bg-emerald-50 ring-2 ring-emerald-500' : 'bg-white'}`}
+            className={`p-1 border border-gray-200 text-center relative h-20 align-top transition-colors ${tone}`}
         >
             {children}
+
+            {isOver && hint && (
+                <span
+                    className={`pointer-events-none absolute inset-x-1 bottom-1 z-30 block truncate rounded
+                        px-1 py-0.5 text-[10px] font-semibold text-white
+                        ${isValid ? 'bg-emerald-600' : 'bg-red-600'}`}
+                >
+                    {hint}
+                </span>
+            )}
         </td>
     );
 };
 
-export default function TimetableGrid({ schedule, viewMode, selectedEntityId, onSlotMove, onToggleLock, isEditable = true }: TimetableGridProps) {
+export default function TimetableGrid({ schedule, viewMode, selectedEntityId, onSlotMove, onToggleLock, onRequestSwap, offenderIds, isEditable = true }: TimetableGridProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [activeSlot, setActiveSlot] = useState<ScheduleSlot | null>(null);
+    // Legality of every cell for the slot currently in the air, keyed "day-period"
+    const [moveTargets, setMoveTargets] = useState<Map<string, MoveTarget> | null>(null);
 
     // Filter slots for the selected entity
     const filteredSlots = useMemo(() => {
@@ -160,11 +221,33 @@ export default function TimetableGrid({ schedule, viewMode, selectedEntityId, on
         return map;
     }, [filteredSlots]);
 
-    const handleDragStart = (event: DragStartEvent) => {
+    const handleDragStart = async (event: DragStartEvent) => {
         if (!isEditable) return;
         const { active } = event;
+        const dragged = active.data.current as ScheduleSlot;
         setActiveId(active.id as string);
-        setActiveSlot(active.data.current as ScheduleSlot);
+        setActiveSlot(dragged);
+        setMoveTargets(null);
+        if (!dragged?.id) return;
+
+        // Ask which cells this period may legally land on, so the grid can colour them
+        // while the slot is still being dragged instead of refusing the drop afterwards
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/algorithm/move-targets/${dragged.id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) return;
+
+            const body = await response.json();
+            const map = new Map<string, MoveTarget>();
+            for (const target of body.targets as MoveTarget[]) {
+                map.set(`${target.day}-${target.period}`, target);
+            }
+            setMoveTargets(map);
+        } catch (error) {
+            console.error(error);
+        }
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -186,10 +269,17 @@ export default function TimetableGrid({ schedule, viewMode, selectedEntityId, on
         }
         setActiveId(null);
         setActiveSlot(null);
+        setMoveTargets(null);
     };
 
     const days = [2, 3, 4, 5, 6, 7];
     const periods = [1, 2, 3, 4, 5];
+
+    const formatDelta = (delta?: number) => {
+        if (delta === undefined) return undefined;
+        if (delta === 0) return 'không đổi điểm';
+        return `${delta > 0 ? '+' : ''}${delta} điểm`;
+    };
 
     const renderCell = (day: number, session: number, period: number) => {
         // Fix: Backend uses 1-10 for periods. Frontend displays 1-5 per session.
@@ -197,11 +287,20 @@ export default function TimetableGrid({ schedule, viewMode, selectedEntityId, on
         const lookupPeriod = session === 1 ? period + 5 : period;
 
         const slot = slotMap.get(`${day}-${session}-${lookupPeriod}`);
+        const target = moveTargets?.get(`${day}-${lookupPeriod}`);
+        const isDraggingThis = activeSlot?.day === day && activeSlot?.period === lookupPeriod;
 
         return (
-            <DroppableCell key={`${day}-${session}-${period}`} day={day} session={session} period={period}>
+            <DroppableCell
+                key={`${day}-${session}-${period}`}
+                day={day}
+                session={session}
+                period={period}
+                isValid={!moveTargets || isDraggingThis ? null : (target?.valid ?? false)}
+                hint={target?.valid ? formatDelta(target.deltaScore) : target?.reason}
+            >
                 {slot ? (
-                    <DraggableSlot slot={slot} viewMode={viewMode} isEditable={isEditable} onToggleLock={onToggleLock} />
+                    <DraggableSlot slot={slot} viewMode={viewMode} isEditable={isEditable} onToggleLock={onToggleLock} onRequestSwap={onRequestSwap} isOffender={offenderIds?.has(slot.id)} />
                 ) : (
                     <div className="h-full w-full flex items-center justify-center text-gray-200 text-xs">-</div>
                 )}

@@ -2,10 +2,14 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { AlgorithmService } from '../algorithm/algorithm.service';
+import { AlgorithmGateway } from '../algorithm/algorithm.gateway';
 
 @Processor('optimization')
 export class AlgorithmProcessor extends WorkerHost {
-    constructor(private readonly algorithmService: AlgorithmService) {
+    constructor(
+        private readonly algorithmService: AlgorithmService,
+        private readonly gateway: AlgorithmGateway,
+    ) {
         super();
     }
 
@@ -18,15 +22,33 @@ export class AlgorithmProcessor extends WorkerHost {
             const result: any = await this.algorithmService.runAlgorithm(semesterId);
 
             if (result.success) {
-                console.log(`[Worker] Optimization Finished. Created Timetable ID: ${result.id}`);
+                const { generated, saved, rejected } = result.stats ?? {};
+                console.log(
+                    `[Worker] Optimization Finished. Timetable ${result.id} — ` +
+                    `${saved}/${generated} tiết lưu được (${rejected} bị từ chối), ` +
+                    `điểm ${result.fitnessScore}, ${result.isValid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ'}`
+                );
             } else {
                 console.warn(`[Worker] Optimization LOGICALLY Failed: ${result.error}`);
             }
+
+            this.gateway.publishDone(semesterId, {
+                success: result.success,
+                timetableId: result.id,
+                fitnessScore: result.fitnessScore,
+                isValid: result.isValid,
+                stats: result.stats,
+                error: result.error,
+            });
 
             return {
                 success: result.success,
                 timetableId: result.id,
                 debugLogs: result.debugLogs,
+                fitnessScore: result.fitnessScore,
+                fitnessDetails: result.fitnessDetails,
+                isValid: result.isValid,
+                stats: result.stats,
                 error: result.error
             };
         } catch (error: any) {

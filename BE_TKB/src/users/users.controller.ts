@@ -1,8 +1,13 @@
 
 import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Tài khoản')
+@ApiBearerAuth('access-token')
 @Controller('users')
+@Roles('ADMIN')
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
 

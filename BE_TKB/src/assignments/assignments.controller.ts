@@ -1,8 +1,13 @@
 
 import { Controller, Get, Post, Body, Query, Put, Param, Delete } from '@nestjs/common';
 import { AssignmentsService } from './assignments.service';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Phân công')
+@ApiBearerAuth('access-token')
 @Controller('assignments')
+@Roles('ADMIN')
 export class AssignmentsController {
     constructor(private readonly assignmentsService: AssignmentsService) { }
 

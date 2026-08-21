@@ -15,9 +15,16 @@ import { WorkerModule } from './worker/worker.module';
 import { AuthModule } from './auth/auth.module';
 import { ExcelModule } from './excel/excel.module';
 import { ConstraintsModule } from './constraints/constraints.module';
+import { ScheduleModule } from './schedule/schedule.module';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
 
 @Module({
   imports: [
+    // Blanket ceiling so no endpoint can be hammered; /auth/login tightens it further
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
     PrismaModule,
     BullModule.forRoot({
       connection: {
@@ -36,8 +43,16 @@ import { ConstraintsModule } from './constraints/constraints.module';
     AuthModule,
     ExcelModule,
     ConstraintsModule,
+    ScheduleModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Protected by default: a route is reachable only with a valid token unless it
+    // explicitly opts out with @Public(), and only by the roles @Roles() allows.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
 })
 export class AppModule { }
