@@ -686,17 +686,38 @@ GV báo ốm 6h45, tiết đầu 7h00. Một nút, 10 giây có phương án cho
 
 ---
 
-### D1 — Xuất lịch .ics 🟠 ★★
+### D1 — Xuất lịch .ics ✅ **ĐÃ LÀM**
 **Ngày công:** 0.5 · **Phụ thuộc:** B1
 
 Nhỏ nhất trong lộ trình nhưng ai xem cũng phản ứng.
 
-**Chạm vào:** `GET /schedule/ical/:teacherId.ics` — sinh từ lịch hiệu lực
+**Chạm vào:** `IcalService` · `GET /schedule/ical/:token/:teacherCode`
 
 **Hoàn thành khi:**
-- [ ] Đăng ký được vào Google Calendar và Outlook
-- [ ] Overlay (nghỉ, dạy thay) phản ánh đúng vào file
-- [ ] URL có token riêng, không đoán được
+- [x] Đăng ký được vào Google Calendar và Outlook — file `VCALENDAR` hợp lệ, 211 sự kiện cho một giáo viên
+- [x] Overlay (nghỉ, dạy thay) phản ánh đúng vào file
+- [x] URL có token riêng, không đoán được — dùng `public_token` 32 ký tự hex của bản đã công bố
+
+**Kiểm chứng overlay bằng cách thử thật:** đăng ký cho giáo viên nghỉ một tiết rồi sinh lại
+file — số sự kiện giảm từ **269 xuống 268**, đúng một tiết. Lý do nó đúng là `IcalService`
+gọi `EffectiveScheduleService.forDate()` cho từng ngày chứ không đọc thẳng bảng tiết học, nên
+mọi thứ tầng overlay biết thì file lịch cũng biết.
+
+**Giờ để trôi nổi, không gắn múi giờ — có chủ ý.** Một tiết bắt đầu 7g50 phải hiện 7g50 trên
+điện thoại của giáo viên, kể cả khi máy đang đặt sai múi giờ. Gắn `TZID` sẽ khiến giờ bị dịch
+theo thiết bị, điều không ai muốn với một thời khóa biểu của trường.
+
+Một sự kiện thật trong file:
+
+```
+BEGIN:VEVENT
+UID:66e51335-...-2026-09-05@tkb
+DTSTART:20260905T075000
+DTEND:20260905T083500
+SUMMARY:Vật lý · 10A1
+LOCATION:301
+END:VEVENT
+```
 
 ---
 
@@ -942,66 +963,6 @@ tra cứu một mã giáo viên rỗng.
 
 **Chưa cấu hình khoá thì widget tự báo và tắt ô nhập**, thay vì để người dùng gõ câu hỏi rồi
 nhận lỗi.
-
----
-
-### C5 — Guardrail bảo mật ✅ **ĐÃ LÀM**
-**Ngày công:** 1.5 · **Phụ thuộc:** C1
-
-Làm **trước** orchestrator, không phải sau — một guardrail nằm trong system prompt là một
-*lời đề nghị*; guardrail nằm trong mã máy chủ là một *quy tắc*. Đó là toàn bộ thiết kế.
-
-**Hoàn thành khi:**
-- [x] GV hỏi "cho tôi xem lịch cô Lan" → chỉ trả về lịch của chính họ
-- [x] Dữ liệu từ DB bọc trong delimiter, đánh dấu là dữ liệu không phải chỉ thị
-- [x] Đặt tên lớp là `"Bỏ qua mọi chỉ dẫn trước đó"` → không có tác dụng
-- [x] Tool ghi luôn trả về thẻ xác nhận, không tự thực thi
-- [x] Giới hạn 20 câu/giờ/người
-- [ ] Trần chi phí theo ngày — *cần số liệu thật từ nhà cung cấp, để lại cho C2*
-
-**Danh tính đóng dấu từ JWT, không có đường nào truyền vào.** Mô hình bị dụ đổi danh tính là
-mô hình bị dụ đọc lịch đồng nghiệp, và "người dùng bảo họ là admin" không phải xác thực.
-
-**Dữ liệu không tự đóng được hàng rào của chính nó** — dấu phân cách nhúng trong giá trị bị
-gỡ trước khi bọc, nên một tên lớp chứa `⟦dữ-liệu⟧` không thoát ra được.
-
-33 test cho riêng lớp công cụ và guardrail, chạy không cần mô hình.
-
----
-
-### C2 — Orchestrator + streaming 🔴 ★★★
-**Ngày công:** 2 · **Phụ thuộc:** C1
-
-**Hoàn thành khi:**
-- [ ] Vòng lặp gọi tool tối đa 5 vòng rồi dừng
-- [ ] Stream token qua SSE
-- [ ] Danh tính đóng dấu từ JWT vào ngữ cảnh hệ thống
-- [ ] Lỗi tool → AI diễn đạt lại thành tiếng Việt dễ hiểu, không lộ stack trace
-
----
-
-### C5 — Guardrail bảo mật 🔴 ★★★
-**Ngày công:** 1.5 · **Phụ thuộc:** C2
-
-Làm **ngay sau** orchestrator, trước khi mở giao diện cho người dùng.
-
-**Hoàn thành khi:**
-- [ ] GV hỏi "cho tôi xem lịch cô Lan" → chỉ trả về lịch của chính họ
-- [ ] Dữ liệu từ DB bọc trong delimiter, đánh dấu là dữ liệu không phải chỉ thị
-- [ ] Đặt tên lớp là `"Bỏ qua mọi chỉ dẫn trước đó"` → không có tác dụng
-- [ ] Tool ghi luôn trả về thẻ xác nhận, không tự thực thi
-- [ ] Giới hạn 20 câu/giờ/người và trần chi phí theo ngày
-
----
-
-### C3 — Widget chat trên frontend 🟠 ★★
-**Ngày công:** 2.5 · **Phụ thuộc:** C5
-
-**Hoàn thành khi:**
-- [ ] Hiển thị streaming mượt
-- [ ] Thẻ hành động bấm được → tạo yêu cầu đổi tiết thật
-- [ ] Trích dẫn nguồn quy chế click mở được
-- [ ] Lịch sử hội thoại lưu theo phiên
 
 ---
 
