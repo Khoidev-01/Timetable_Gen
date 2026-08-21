@@ -1082,14 +1082,34 @@ chỉ số công bằng và luồng dạy thay đều đọc nhầm bản mà kh
 
 ---
 
-### E3 — Xuất PDF 🟡
+### E3 — Xuất PDF ✅ **ĐÃ LÀM**
 **Ngày công:** 1.5 · **Phụ thuộc:** B1
 
+**Chạm vào:** `/admin/in` · thuộc tính `data-app-shell` / `data-print-hide` trong `admin/layout.tsx`
+
 **Hoàn thành khi:**
-- [ ] TKB toàn trường khổ A3 nằm ngang
-- [ ] TKB từng lớp khổ A4 để dán bảng tin
-- [ ] TKB từng GV
-- [ ] Tiếng Việt có dấu hiển thị đúng
+- [x] TKB toàn trường khổ A3 nằm ngang — kiểm chứng bằng PDF thật: **420 × 297 mm, 1 trang**
+- [x] TKB từng lớp khổ A4 để dán bảng tin — **210 × 297 mm**, mỗi lớp một trang
+- [x] TKB từng GV — cùng khuôn A4
+- [x] Tiếng Việt có dấu hiển thị đúng
+
+**Sinh PDF bằng chính trình duyệt, không sinh phía máy chủ.** Đây là quyết định có cân nhắc,
+không phải đi đường tắt:
+
+- Các thư viện PDF phía máy chủ đi kèm font **không có dấu tiếng Việt**. "Thời khóa biểu" in
+  ra thành "Th?i khóa bi?u" trừ khi nhúng font và kiểm từng chữ cái. Yêu cầu của chính mục
+  này ghi rõ "Tiếng Việt có dấu hiển thị đúng" — cách chắc chắn nhất là in đúng trang mà nhà
+  trường đang nhìn, bằng font mà nó vốn đã hiển thị đúng.
+- Không thêm phụ thuộc nào (`puppeteer` nặng ~300MB, `pdfkit` phải nhúng font).
+- Người dùng bấm In rồi chọn "Lưu thành PDF" — vẫn ra file, mà giống hệt bản trên màn hình.
+
+**Một lỗi phải sửa mới in được.** Khung trang admin là flexbox `h-[100dvh] overflow-hidden`;
+để nguyên thì bản in **bị cắt còn đúng một màn hình**. Thanh bên lại là `<div>` chứ không
+phải `<aside>` nên không có cách nào nhắm trúng bằng thẻ. Đã đánh dấu bằng thuộc tính
+`data-*` trong layout — bền hơn nhắm theo tên lớp Tailwind, vốn đổi mỗi lần chỉnh giao diện.
+
+**Kiểm chứng bằng cách in thật ra PDF qua Chrome headless**, xem tận mắt ảnh kết xuất của cả
+hai khổ, và đọc `/MediaBox` trong file PDF để xác nhận kích thước giấy.
 
 ---
 

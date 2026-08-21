@@ -127,13 +127,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!user) return null;
 
   return (
-    <div className="flex h-[100dvh] w-screen bg-[var(--bg-base)] overflow-hidden transition-colors">
-      <div className="grain-overlay" aria-hidden />
+    // data-* attributes drive the print rules on /admin/in. The shell is a fixed-height,
+    // overflow-hidden flexbox, which prints as a single clipped screen unless it is
+    // unwound first; class names alone could not target it without coupling print CSS to
+    // Tailwind utilities that change whenever the layout is restyled.
+    <div
+      data-app-shell
+      className="flex h-[100dvh] w-screen bg-[var(--bg-base)] overflow-hidden transition-colors"
+    >
+      <div className="grain-overlay" data-print-hide aria-hidden />
       <Toaster />
-      <AdminSidebar onLogout={handleLogout} />
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div data-print-hide className="contents">
+        <AdminSidebar onLogout={handleLogout} />
+      </div>
+      <div data-app-main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <header className="h-14 bg-[var(--bg-surface)] border-b border-[var(--border-default)]
+        <header data-print-hide className="h-14 bg-[var(--bg-surface)] border-b border-[var(--border-default)]
           flex items-center justify-between px-4 md:px-6 z-20 transition-colors">
           <h2 className="text-sm font-medium text-[var(--text-secondary)]">
             Xin chào, <span className="text-[var(--text-primary)] font-semibold">{user.username}</span>
@@ -287,7 +296,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 md:p-6">
+        <main data-app-content className="flex-1 overflow-auto p-4 md:p-6">
           {children}
         </main>
       </div>
