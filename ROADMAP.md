@@ -1093,12 +1093,31 @@ chỉ số công bằng và luồng dạy thay đều đọc nhầm bản mà kh
 
 ---
 
-### F3 — CI cơ bản 🟡
-**Ngày công:** 0.5 · **Phụ thuộc:** F2
+### F3 — CI cơ bản ✅ **ĐÃ LÀM**
+**Ngày công:** 1 · **Phụ thuộc:** F2
 
-**Hoàn thành khi:**
-- [ ] GitHub Actions chạy lint + test + build mỗi lần push
-- [ ] Test fail thì chặn merge
+Cho tới giờ, thứ duy nhất kiểm tra 101 test còn chạy được và cả hai phía còn biên dịch được
+là **có người nhớ chạy chúng**.
+
+**Chạm vào:** `.github/workflows/ci.yml`
+
+**Ba việc chạy song song trên mỗi lần push và mỗi pull request:**
+
+| Việc | Các bước |
+| :--- | :--- |
+| Backend | `npm ci` · `prisma generate` · `tsc --noEmit` · `jest --ci` · `nest build` |
+| Frontend | `npm ci` · `tsc --noEmit` · `next build` |
+| Migration | không file nào bị `.gitignore` bỏ sót · `prisma validate` |
+
+**Test chạy được mà không cần database** — chúng giả lập Prisma và không mở kết nối nào. CI
+chỉ cần `DATABASE_URL` để schema phân tích được, và `JWT_SECRET` vì hệ thống cố ý không có
+giá trị mặc định.
+
+**Việc thứ ba tồn tại vì một lỗi có thật.** Luật `*.sql` trong `.gitignore` từng chặn mọi
+migration mới, nên lần triển khai sau sẽ chạy trên schema cũ mà không ai biết. Đã thử lại
+bằng cách tạm gỡ ngoại lệ — chốt chặn bắt đúng file và làm đỏ build.
+
+Cả bốn bước đã chạy thử tại máy trước khi đẩy lên, kể cả `nest build`.
 
 ---
 ---

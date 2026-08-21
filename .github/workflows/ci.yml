@@ -1,0 +1,112 @@
+name: CI
+
+# Runs on every push and pull request. Until now the only thing checking that 101 tests
+# still pass and both sides still compile was somebody remembering to run them.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — biên dịch và test
+    runs-on: ubuntu-latest
+    env:
+      # The tests mock Prisma and never open a connection, but the schema still has to
+      # parse and JWT_SECRET is required at boot by design (no fallback, on purpose).
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      JWT_SECRET: ci-only-secret-at-least-32-characters-long
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: BE_TKB/package-lock.json
+
+      - name: Cài phụ thuộc
+        working-directory: BE_TKB
+        run: npm ci
+
+      - name: Sinh Prisma Client
+        working-directory: BE_TKB
+        run: npx prisma generate
+
+      - name: Kiểm tra kiểu
+        working-directory: BE_TKB
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Chạy test
+        working-directory: BE_TKB
+        run: npx jest --ci
+
+      - name: Build
+        working-directory: BE_TKB
+        run: npm run build
+
+  frontend:
+    name: Frontend — biên dịch và build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: FE_TKB/package-lock.json
+
+      - name: Cài phụ thuộc
+        working-directory: FE_TKB
+        run: npm ci
+
+      - name: Kiểm tra kiểu
+        working-directory: FE_TKB
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Build
+        working-directory: FE_TKB
+        run: npm run build
+
+  migrations:
+    name: Migration — đã commit và khớp schema
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: BE_TKB/package-lock.json
+
+      - name: Cài phụ thuộc
+        working-directory: BE_TKB
+        run: npm ci
+
+      # A `*.sql` rule in .gitignore once silently dropped every new migration, so a
+      # deploy would have run against an old schema. This fails the build instead.
+      - name: Không có migration nào bị .gitignore bỏ sót
+        run: |
+          missing=$(git ls-files --others --ignored --exclude-standard -- 'BE_TKB/prisma/migrations/**/*.sql')
+          if [ -n "$missing" ]; then
+            echo "Các migration sau bị .gitignore chặn nên sẽ không lên được server:"
+            echo "$missing"
+            exit 1
+          fi
+          echo "Tất cả migration đều được theo dõi."
+
+      - name: Schema hợp lệ
+        working-directory: BE_TKB
+        run: npx prisma validate
