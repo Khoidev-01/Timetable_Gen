@@ -1,8 +1,11 @@
-
+﻿
 'use client';
 import { useState, useEffect } from 'react';
+import { toast } from '@/lib/toast';
 import AccountModal from '../../components/admin/AccountModal';
 import { API_URL } from '@/lib/api';
+import { TableSkeleton, EmptyState } from '../../components/ui/States';
+import { Users } from 'lucide-react';
 
 interface User {
     id: string;
@@ -58,7 +61,7 @@ export default function AccountsPage() {
             fetchAccounts();
         } else {
             const err = await res.json();
-            alert(err.message || 'Lỗi khi lưu tài khoản');
+            toast(err.message || 'Lỗi khi lưu tài khoản', "error");
         }
     };
 
@@ -72,55 +75,81 @@ export default function AccountsPage() {
         fetchAccounts();
     };
 
+    const handleDeleteAll = async () => {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const otherCount = accounts.filter(a => a.id !== currentUser.id).length;
+        if (otherCount === 0) { toast('Không có tài khoản nào khác để xóa.', "error"); return; }
+        if (!confirm(`Xóa TOÀN BỘ ${otherCount} tài khoản (giữ lại admin hiện tại)? Hành động này không thể hoàn tác.`)) return;
+        if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/users/all?except_id=${encodeURIComponent(currentUser.id)}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) { fetchAccounts(); toast('Đã xóa toàn bộ tài khoản.', "success"); }
+        else toast('Lỗi khi xóa toàn bộ.', "error");
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-800">Quản lý Tài khoản</h1>
-                <button
-                    onClick={() => { setSelectedAccount(null); setIsModalOpen(true); }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                >
-                    + Thêm tài khoản
-                </button>
+                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quản lý Tài khoản</h1>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleDeleteAll}
+                        disabled={accounts.length === 0}
+                        className="border border-red-600 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        Xóa toàn bộ
+                    </button>
+                    <button
+                        onClick={() => { setSelectedAccount(null); setIsModalOpen(true); }}
+                        className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                        + Thêm tài khoản
+                    </button>
+                </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] shadow-sm border border-[var(--border-default)] overflow-hidden">
                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="bg-[var(--bg-surface-hover)] border-b">
                         <tr>
-                            <th className="p-4 text-xs font-semibold text-gray-500 uppercase">Tên đăng nhập</th>
-                            <th className="p-4 text-xs font-semibold text-gray-500 uppercase">Vai trò</th>
-                            <th className="p-4 text-xs font-semibold text-gray-500 uppercase">Giáo viên liên kết</th>
-                            <th className="p-4 text-xs font-semibold text-gray-500 uppercase text-right">Thao tác</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase">Tên đăng nhập</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase">Vai trò</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase">Giáo viên liên kết</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase text-right">Thao tác</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-[var(--border-light)]">
                         {isLoading ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-gray-500">Đang tải...</td></tr>
+                            <TableSkeleton rows={5} cols={4} />
                         ) : accounts.length === 0 ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-gray-500">Không tìm thấy tài khoản nào.</td></tr>
+                            <tr><td colSpan={4}>
+                                <EmptyState icon={<Users size={22} strokeWidth={1.8} />} title="Chưa có tài khoản nào" hint="Tạo tài khoản đăng nhập cho quản trị viên và giáo viên." />
+                            </td></tr>
                         ) : (
-                            accounts.map((acc) => (
-                                <tr key={acc.id} className="hover:bg-gray-50">
-                                    <td className="p-4 font-medium text-gray-900">{acc.username}</td>
+                            accounts.map((acc, idx) => (
+                                <tr key={acc.id} style={{ animationDelay: `${idx * 30}ms` }} className="animate-rise hover:bg-[var(--bg-surface-hover)] transition-colors">
+                                    <td className="p-4 font-medium text-[var(--text-primary)]">{acc.username}</td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${acc.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${acc.role === 'ADMIN' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'bg-[var(--accent-soft)] text-[var(--accent)]'}`}>
                                             {acc.role}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-gray-600">
+                                    <td className="p-4 text-[var(--text-secondary)]">
                                         {acc.teacher_profile ? `${acc.teacher_profile.full_name} (${acc.teacher_profile.code})` : '-'}
                                     </td>
                                     <td className="p-4 text-right space-x-2">
                                         <button
                                             onClick={() => { setSelectedAccount(acc); setIsModalOpen(true); }}
-                                            className="text-gray-500 hover:text-blue-600 font-medium text-sm"
+                                            className="text-[var(--text-muted)] hover:text-[var(--accent-hover)] font-medium text-sm"
                                         >
                                             Sửa
                                         </button>
                                         <button
                                             onClick={() => handleDelete(acc.id)}
-                                            className="text-gray-500 hover:text-red-600 font-medium text-sm"
+                                            className="text-[var(--text-muted)] hover:text-red-600 font-medium text-sm"
                                         >
                                             Xóa
                                         </button>

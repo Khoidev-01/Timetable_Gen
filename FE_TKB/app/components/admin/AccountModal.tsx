@@ -1,6 +1,7 @@
-
+﻿
 'use client';
 import { useState, useEffect } from 'react';
+import { toast } from '@/lib/toast';
 import { API_URL } from '@/lib/api';
 
 interface AccountModalProps {
@@ -46,7 +47,7 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
             await onSave(formData);
             onClose();
         } catch (error) {
-            alert('Lỗi khi lưu dữ liệu');
+            toast('Lỗi khi lưu dữ liệu', "error");
         } finally {
             setIsLoading(false);
         }
@@ -54,44 +55,44 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 className="text-lg font-bold text-gray-800">
+            <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                <div className="px-6 py-4 border-b border-[var(--border-light)] flex justify-between items-center bg-[var(--bg-surface-hover)]">
+                    <h3 className="text-lg font-bold text-[var(--text-primary)]">
                         {initialData ? 'Cập nhật tài khoản' : 'Thêm tài khoản mới'}
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-[var(--text-secondary)]">✕</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Tên đăng nhập</label>
                         <input
                             type="text"
                             required
                             disabled={!!initialData} // Username usually immutable
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all disabled:opacity-60"
                             value={formData.username}
                             onChange={e => setFormData({ ...formData, username: e.target.value })}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
                             Mật khẩu {initialData && <span className="text-gray-400 font-normal">(để trống để giữ nguyên)</span>}
                         </label>
                         <input
                             type="password"
                             required={!initialData}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                             value={formData.password}
                             onChange={e => setFormData({ ...formData, password: e.target.value })}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Vai trò</label>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Vai trò</label>
                         <select
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                             value={formData.role}
                             onChange={e => setFormData({ ...formData, role: e.target.value })}
                         >
@@ -102,7 +103,7 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
 
                     {formData.role === 'TEACHER' && (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Giáo viên liên kết</label>
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Giáo viên liên kết</label>
                             <TeacherSelect
                                 value={formData.teacher_profile_id}
                                 onChange={(val) => setFormData({ ...formData, teacher_profile_id: val })}
@@ -114,14 +115,14 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                            className="px-4 py-2 text-[var(--text-secondary)] bg-[var(--bg-surface-hover)] hover:bg-[var(--border-default)] rounded-lg"
                         >
                             Hủy
                         </button>
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2"
+                            className="px-4 py-2 text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] rounded-lg flex items-center gap-2"
                         >
                             {isLoading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                             Lưu
@@ -158,11 +159,11 @@ function TeacherSelect({ value, onChange }: { value: string, onChange: (val: str
         fetchTeachers();
     }, []);
 
-    if (loading) return <div className="text-sm text-gray-500">Đang tải danh sách giáo viên...</div>;
+    if (loading) return <div className="text-sm text-[var(--text-muted)]">Đang tải danh sách giáo viên...</div>;
 
     return (
         <select
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
             value={value}
             onChange={e => onChange(e.target.value)}
         >

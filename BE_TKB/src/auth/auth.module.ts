@@ -12,9 +12,16 @@ import { JWT_EXPIRES_IN, requireJwtSecret } from './jwt.constants';
     imports: [
         PrismaModule,
         PassportModule,
-        JwtModule.register({
-            secret: requireJwtSecret(),
-            signOptions: { expiresIn: JWT_EXPIRES_IN },
+        // registerAsync, not register: the secret is read when Nest builds the
+        // provider rather than when this file is first evaluated. Nothing loads .env
+        // explicitly here - Prisma does it as a side effect of being imported - so
+        // reading it at module-definition time depends on import order, and reordering
+        // AppModule's imports was enough to make the whole app fail to start.
+        JwtModule.registerAsync({
+            useFactory: () => ({
+                secret: requireJwtSecret(),
+                signOptions: { expiresIn: JWT_EXPIRES_IN },
+            }),
         }),
     ],
     controllers: [AuthController],

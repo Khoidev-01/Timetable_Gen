@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '@/lib/api';
-import { CalendarDays, LogIn, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { LogIn, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
 import ThemeToggle from './ThemeToggle';
 
 interface LoginProps {
@@ -65,38 +66,37 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--bg-base)] transition-colors">
-      {/* Background decoration */}
+    <div className="min-h-[100dvh] flex items-center justify-center px-4 bg-[var(--bg-base)] transition-colors">
+      {/* Background decoration — single accent, restrained */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-violet-500/10 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[var(--accent)]/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[var(--accent)]/5 rounded-full blur-3xl" />
       </div>
+      <div className="grain-overlay" aria-hidden />
 
       {/* Theme toggle */}
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div>
 
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-md animate-rise">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 shadow-xl shadow-blue-500/25 mb-4">
-            <CalendarDays size={32} className="text-white" />
-          </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-            TKB Pro
+          <Image src="/logo.png" alt="MiKiTimetable" width={72} height={72} className="rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] mb-4" />
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+            MiKiTimetable
           </h1>
           <p className="text-[var(--text-muted)] text-sm mt-1">Hệ thống xếp thời khóa biểu tự động</p>
         </div>
 
         {/* Card */}
-        <div className="bg-[var(--bg-surface)] rounded-2xl shadow-xl border border-[var(--border-default)] p-8 transition-colors">
+        <div className="bg-[var(--bg-surface)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--border-default)] p-8 transition-colors">
           <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6 text-center">
             Đăng nhập
           </h2>
 
           {error && (
-            <div className="bg-red-500/10 text-red-500 border border-red-500/20 px-4 py-3 rounded-xl mb-5 text-sm font-medium">
+            <div className="bg-red-500/10 text-red-500 border border-red-500/20 px-4 py-3 rounded-[var(--radius-md)] mb-5 text-sm font-medium">
               {error}
             </div>
           )}
@@ -108,9 +108,9 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-base)]
+                className="w-full px-4 py-2.5 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-base)]
                   text-[var(--text-primary)] placeholder:text-[var(--text-muted)]
-                  focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-all"
+                  focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] outline-none transition-all"
                 placeholder="Nhập mã giáo viên hoặc admin"
                 required
               />
@@ -123,9 +123,9 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 pr-11 rounded-xl border border-[var(--border-default)] bg-[var(--bg-base)]
+                  className="w-full px-4 py-2.5 pr-11 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-base)]
                     text-[var(--text-primary)] placeholder:text-[var(--text-muted)]
-                    focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-all"
+                    focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] outline-none transition-all"
                   placeholder="••••••"
                   required
                 />
@@ -146,21 +146,21 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   type="text"
                   value={captchaCode}
                   onChange={(e) => setCaptchaCode(e.target.value)}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-base)]
+                  className="flex-1 px-4 py-2.5 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-base)]
                     text-[var(--text-primary)] placeholder:text-[var(--text-muted)]
-                    focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-all"
+                    focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] outline-none transition-all"
                   placeholder="Nhập mã bên cạnh"
                   required
                 />
                 <div className="relative group">
                   <div
-                    className="h-full w-28 rounded-xl overflow-hidden border border-[var(--border-default)] bg-[var(--bg-base)]
+                    className="h-full w-28 rounded-[var(--radius-md)] overflow-hidden border border-[var(--border-default)] bg-[var(--bg-base)]
                       cursor-pointer flex items-center justify-center shrink-0"
                     onClick={fetchCaptcha}
                     title="Click để làm mới"
                     dangerouslySetInnerHTML={{ __html: captchaSvg }}
                   />
-                  <div className="absolute inset-0 rounded-xl bg-black/30 opacity-0 group-hover:opacity-100
+                  <div className="absolute inset-0 rounded-[var(--radius-md)] bg-black/30 opacity-0 group-hover:opacity-100
                     flex items-center justify-center transition-opacity cursor-pointer"
                     onClick={fetchCaptcha}
                   >
@@ -173,9 +173,9 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700
-                text-white font-semibold py-3 rounded-xl transition-all flex justify-center items-center gap-2
-                shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-60"
+              className="tactile w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)]
+                text-[var(--accent-contrast)] font-semibold py-3 rounded-[var(--radius-md)] flex justify-center items-center gap-2
+                shadow-[var(--shadow-md)] disabled:opacity-60 disabled:pointer-events-none"
             >
               {isLoading ? (
                 <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -190,7 +190,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         </div>
 
         <p className="text-center text-[var(--text-muted)] text-xs mt-6">
-          TKB Pro v1.0 &mdash; Hệ thống xếp thời khóa biểu tự động
+          MiKiTimetable v1.0 · Hệ thống xếp thời khóa biểu tự động
         </p>
       </div>
     </div>

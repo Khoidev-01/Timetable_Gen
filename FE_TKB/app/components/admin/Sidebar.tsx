@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, School, GraduationCap, BookOpen, ClipboardList, CalendarDays, LogOut, PanelLeftClose, PanelLeft, Settings, Pin, FlaskConical, AlertTriangle, Lightbulb } from 'lucide-react';
+import { LayoutDashboard, Users, School, GraduationCap, BookOpen, ClipboardList, CalendarDays, LogOut, PanelLeftClose, PanelLeft, Settings, Pin, FlaskConical, AlertTriangle, Lightbulb, Clock } from 'lucide-react';
 import { useState } from 'react';
 import AppLogo from '../AppLogo';
 
@@ -15,6 +15,7 @@ const menuItems = [
   { name: 'Phân công', href: '/admin/assignments', icon: ClipboardList },
   { name: 'Thời khóa biểu', href: '/admin/timetable', icon: CalendarDays },
   { name: 'Tiết cố định', href: '/admin/fixed-periods', icon: Pin },
+  { name: 'Lịch bận GV', href: '/admin/busy-schedule', icon: Clock },
   { name: 'Giáo viên vắng', href: '/admin/absence', icon: AlertTriangle },
   { name: 'Quy luật ẩn', href: '/admin/mined-rules', icon: Lightbulb },
   { name: 'Thử nghiệm', href: '/admin/benchmark', icon: FlaskConical },
@@ -38,7 +39,7 @@ export default function AdminSidebar({ onLogout }: { onLogout: () => void }) {
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'} p-4 border-b border-white/10`}>
           {!collapsed && <AppLogo size="sm" />}
           <button onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-sidebar)] transition-colors">
+            className="p-1.5 rounded-lg hover:bg-[var(--bg-surface)]/10 text-[var(--text-sidebar)] transition-colors">
             {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
@@ -53,13 +54,17 @@ export default function AdminSidebar({ onLogout }: { onLogout: () => void }) {
                 key={item.href}
                 href={item.href}
                 title={collapsed ? item.name : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150
+                aria-current={isActive ? 'page' : undefined}
+                className={`relative flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] tactile
                   ${isActive
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-medium'
-                    : 'text-[var(--text-sidebar)] hover:bg-white/8 hover:text-white'
+                    ? 'bg-[var(--accent)] text-[var(--accent-contrast)] font-medium shadow-[var(--shadow-md)]'
+                    : 'text-[var(--text-sidebar)] hover:bg-white/[0.06] hover:text-white'
                   }
                   ${collapsed ? 'justify-center' : ''}`}
               >
+                {isActive && !collapsed && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-[var(--accent-contrast)]" />
+                )}
                 <Icon size={20} strokeWidth={isActive ? 2.2 : 1.8} />
                 {!collapsed && <span className="text-sm">{item.name}</span>}
               </Link>
@@ -72,7 +77,7 @@ export default function AdminSidebar({ onLogout }: { onLogout: () => void }) {
           <button
             onClick={onLogout}
             title={collapsed ? 'Đăng xuất' : undefined}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] transition-colors
               text-red-400 hover:bg-red-500/15 hover:text-red-300
               ${collapsed ? 'justify-center' : ''}`}
           >

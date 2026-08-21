@@ -57,28 +57,57 @@ export function applyTitleRow(
   const row = worksheet.getRow(rowNumber);
   const cell = row.getCell(1);
   cell.value = title;
-  cell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FF0F172A' } };
-  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-  cell.alignment = { horizontal: 'left', vertical: 'middle' };
-  cell.border = thinBorder();
-  row.height = 24;
+  cell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D4ED8' } };
+  cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  cell.border = {
+    top: { style: 'thin', color: { argb: 'FF1E40AF' } },
+    left: { style: 'thin', color: { argb: 'FF1E40AF' } },
+    right: { style: 'thin', color: { argb: 'FF1E40AF' } },
+    bottom: { style: 'thin', color: { argb: 'FF1E40AF' } },
+  };
+  row.height = 32;
 }
 
 export function applyHeaderRow(row: ExcelJS.Row): void {
-  row.font = { name: 'Calibri', bold: true, color: { argb: 'FFFFFFFF' } };
-  row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D4ED8' } };
+  row.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+  row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
   row.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-  row.height = 22;
+  row.height = 26;
   row.eachCell((cell) => {
-    cell.border = thinBorder();
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FF1E40AF' } },
+      left: { style: 'thin', color: { argb: 'FF1E40AF' } },
+      right: { style: 'thin', color: { argb: 'FF1E40AF' } },
+      bottom: { style: 'thin', color: { argb: 'FF1E40AF' } },
+    };
   });
 }
 
+// Track row index for zebra striping
+let bodyRowIndex = 0;
+
+export function resetBodyRowIndex(): void {
+  bodyRowIndex = 0;
+}
+
 export function applyBodyRow(row: ExcelJS.Row): void {
-  row.font = { name: 'Calibri', size: 11, color: { argb: 'FF111827' } };
-  row.alignment = { vertical: 'middle', wrapText: true };
+  const isEven = bodyRowIndex % 2 === 0;
+  bodyRowIndex++;
+  row.font = { name: 'Calibri', size: 11 };
+  row.alignment = { vertical: 'middle' };
   row.eachCell((cell) => {
-    cell.border = thinBorder();
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' },
+    };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+    };
   });
 }
 

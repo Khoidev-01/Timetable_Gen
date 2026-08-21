@@ -7,7 +7,10 @@ export class TeacherService {
     constructor(private prisma: PrismaService) { }
 
     async findAll() {
-        return this.prisma.teacher.findMany({ include: { constraints: true } });
+        return this.prisma.teacher.findMany({
+            include: { constraints: true, homeroom_classes: { select: { id: true, name: true } } },
+            orderBy: { code: 'asc' },
+        });
     }
 
     async findOne(id: string) {
@@ -29,6 +32,17 @@ export class TeacherService {
 
     async delete(id: string) {
         return this.prisma.teacher.delete({ where: { id } });
+    }
+
+    async deleteAll() {
+        const [, , , , teachers] = await this.prisma.$transaction([
+            this.prisma.timetableSlot.deleteMany({}),
+            this.prisma.teachingAssignment.deleteMany({}),
+            this.prisma.class.updateMany({ data: { homeroom_teacher_id: null } }),
+            this.prisma.user.updateMany({ data: { teacher_profile_id: null } }),
+            this.prisma.teacher.deleteMany({}),
+        ]);
+        return { deleted: teachers.count };
     }
 
     // Constraint Management

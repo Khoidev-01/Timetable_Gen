@@ -3,6 +3,7 @@ import { Controller, Get, Param, Query } from '@nestjs/common';
 import { TimetablesService } from './timetables.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+// Xem thời khóa biểu cần đăng nhập — guard toàn cục đã bắt buộc điều đó.
 @ApiTags('Thời khóa biểu')
 @ApiBearerAuth('access-token')
 @Controller('timetables')

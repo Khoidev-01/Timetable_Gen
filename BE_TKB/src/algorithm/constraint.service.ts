@@ -2,6 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintSettingsService } from '../constraints/constraint-settings.service';
+import { isBlock, isOutdoor, isSessionExempt } from './subject-rules';
 
 export interface TimeSlot {
     id?: string;
@@ -47,6 +48,10 @@ export class ConstraintService {
     private fixedRules: any[] = [];
     // Map<classId, floor of its home room> and Map<RoomType, floor of that room type>
     private classFloor: Map<string, number> = new Map();
+    /** Which session a class normally studies in: 0 morning, 1 afternoon. */
+    private classSessionMap: Map<string, number> = new Map();
+    /** Upper-cased subject code by id, so the hot scoring loop never scans an array. */
+    private subjectCode: Map<number, string> = new Map();
     private roomTypeFloor: Map<string, number> = new Map();
     // Map<teacherId, mobility weight in tenths>
     private mobilityWeight: Map<string, number> = new Map();
@@ -76,6 +81,9 @@ export class ConstraintService {
         subjectSpacing: 8,
         afternoonOverload: 12,
         mobility: 3,
+        // Taken from the main branch when the two lines of work were merged
+        outdoorTiming: 10,
+        blockRules: 12,
     };
 
     public weights = { ...this.defaultWeights };
@@ -101,6 +109,7 @@ export class ConstraintService {
         this.subjects = subjects;
         subjects.forEach(s => {
             this.subjectMap.set(s.code, s.id);
+            this.subjectCode.set(s.id, s.code.toUpperCase());
             const roomType = this.resolveRoomType(s);
             if (roomType) this.subjectRoomType.set(s.id, roomType);
             if (s.is_special) this.ceremonySubjects.add(s.id);
@@ -121,6 +130,9 @@ export class ConstraintService {
         const classes = await this.prisma.class.findMany({ include: { fixed_room: true } });
         classes.forEach(c => {
             if (c.fixed_room) this.classFloor.set(c.id, c.fixed_room.floor);
+            if (c.main_session !== null && c.main_session !== undefined) {
+                this.classSessionMap.set(c.id, c.main_session);
+            }
         });
 
         this.assignments = await this.prisma.teachingAssignment.findMany({
@@ -367,6 +379,7 @@ export class ConstraintService {
         if (!this.isHardDisabled('classGaps')) violations += this.checkClassGaps(schedule);
         if (!this.isHardDisabled('teacherWeeklyLimit')) violations += this.checkTeacherWeeklyLimit(schedule);
         if (!this.isHardDisabled('roomTypeCapacity')) violations += this.checkRoomTypeCapacity(schedule);
+        if (!this.isHardDisabled('sessionRestriction')) violations += this.checkSessionRestriction(schedule);
 
         return violations;
     }
@@ -488,6 +501,82 @@ export class ConstraintService {
         return overlaps;
     }
 
+    /**
+     * A class studies in one session; periods in the other one send students home and
+     * back again. Physical education, defence, HĐTN and GDĐP are exempt - schools
+     * deliberately put those in the free half-day.
+     *
+     * Taken from the main branch, which scored this while this branch only relied on the
+     * generator placing correctly - nothing checked it afterwards.
+     */
+    public checkSessionRestriction(schedule: TimeSlot[]): number {
+        let violations = 0;
+        for (const slot of schedule) {
+            if (isSessionExempt(this.getSubjectCode(slot.subjectId))) continue;
+            const mainSession = this.classSessionMap.get(slot.classId);
+            if (mainSession === undefined) continue;
+            if ((slot.period <= 5 ? 0 : 1) !== mainSession) violations++;
+        }
+        return violations;
+    }
+
+    /**
+     * Physical education belongs in the cool hours: first three periods of the morning,
+     * last three of the afternoon. Vietnamese schools avoid the midday sun.
+     */
+    private checkOutdoorTiming(schedule: TimeSlot[]): number {
+        let penalty = 0;
+        for (const slot of schedule) {
+            if (!isOutdoor(this.getSubjectCode(slot.subjectId))) continue;
+            const tooLateInMorning = slot.period <= 5 && slot.period > 3;
+            const tooEarlyInAfternoon = slot.period > 5 && slot.period < 8;
+            if (tooLateInMorning || tooEarlyInAfternoon) penalty++;
+        }
+        return penalty;
+    }
+
+    /**
+     * How much of one session a class spends on the demanding subjects: at most three
+     * such periods per session, at most two of any one subject, and never three in a row.
+     */
+    private checkBlockRules(classSchedule: Map<string, TimeSlot[]>): number {
+        let violations = 0;
+
+        for (const slots of classSchedule.values()) {
+            const perSession = new Map<string, Map<string, number>>();
+            const periodsPerSession = new Map<string, number[]>();
+
+            for (const slot of slots) {
+                const code = this.getSubjectCode(slot.subjectId);
+                if (!isBlock(code)) continue;
+                const key = `${slot.day}-${slot.period <= 5 ? 0 : 1}`;
+                if (!perSession.has(key)) perSession.set(key, new Map());
+                const counts = perSession.get(key)!;
+                counts.set(code, (counts.get(code) ?? 0) + 1);
+                if (!periodsPerSession.has(key)) periodsPerSession.set(key, []);
+                periodsPerSession.get(key)!.push(slot.period);
+            }
+
+            for (const [key, counts] of perSession) {
+                let total = 0;
+                for (const count of counts.values()) {
+                    total += count;
+                    if (count > 2) violations += count - 2;
+                }
+                if (total > 3) violations += total - 3;
+
+                const periods = [...(periodsPerSession.get(key) ?? [])].sort((a, b) => a - b);
+                for (let i = 0; i + 2 < periods.length; i++) {
+                    if (periods[i + 1] === periods[i] + 1 && periods[i + 2] === periods[i] + 2) {
+                        violations++;
+                        break;
+                    }
+                }
+            }
+        }
+        return violations;
+    }
+
     // --- SOFT CONSTRAINTS ---
     calculatePenalty(schedule: TimeSlot[]): number {
         let score = 0;
@@ -508,6 +597,8 @@ export class ConstraintService {
         score += this.checkSubjectSpacing(classSchedule) * this.weights.subjectSpacing;
         score += this.checkAfternoonLoad(classSchedule) * this.weights.afternoonOverload;
         score += this.checkMobilityCost(teacherSchedule) * this.weights.mobility;
+        score += this.checkOutdoorTiming(schedule) * this.weights.outdoorTiming;
+        score += this.checkBlockRules(classSchedule) * this.weights.blockRules;
 
         return score;
     }
@@ -944,9 +1035,14 @@ export class ConstraintService {
         return undefined;
     }
 
+    /**
+     * Cached on purpose. This used to scan the subject array and upper-case the result on
+     * every call, which was survivable while only a few checks used it - the merged
+     * session and outdoor rules call it for every period on every candidate schedule,
+     * turning a two-minute solve into something that had not finished after fifteen.
+     */
     public getSubjectCode(id: number): string {
-        const subj = this.subjects.find(s => s.id === id);
-        return subj ? subj.code.toUpperCase() : '';
+        return this.subjectCode.get(id) ?? '';
     }
 
     public getFitnessDetails(schedule: TimeSlot[]): any {
@@ -967,6 +1063,7 @@ export class ConstraintService {
             { key: 'classGaps', label: 'Lớp bị trống tiết giữa buổi', count: this.checkClassGaps(schedule) },
             { key: 'teacherWeeklyLimit', label: 'Giáo viên vượt định mức tuần', count: this.checkTeacherWeeklyLimit(schedule) },
             { key: 'roomTypeCapacity', label: 'Thiếu phòng chức năng', count: this.checkRoomTypeCapacity(schedule) },
+            { key: 'sessionRestriction', label: 'Lớp học sai buổi chính', count: this.checkSessionRestriction(schedule) },
         ].map((item) => (this.isHardDisabled(item.key) ? { ...item, count: 0 } : item));
 
         let hardViolations = 0;
@@ -992,6 +1089,8 @@ export class ConstraintService {
             { label: 'Môn học cách nhau quá 3 ngày', count: this.checkSubjectSpacing(classSchedule), weight: w.subjectSpacing },
             { label: 'Lớp học quá 3 tiết buổi phụ', count: this.checkAfternoonLoad(classSchedule), weight: w.afternoonOverload },
             { label: 'Giáo viên phải leo cầu thang', count: this.checkMobilityCost(teacherSchedule), weight: w.mobility },
+            { label: 'Thể dục xếp vào giờ nắng', count: this.checkOutdoorTiming(schedule), weight: w.outdoorTiming },
+            { label: 'Môn nặng dồn trong một buổi', count: this.checkBlockRules(classSchedule), weight: w.blockRules },
         ];
 
         let softPenalty = 0;

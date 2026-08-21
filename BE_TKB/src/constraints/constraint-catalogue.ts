@@ -111,6 +111,17 @@ export const CONSTRAINT_CATALOGUE: CatalogueEntry[] = [
     canDisable: true,
   },
 
+  {
+    key: 'sessionRestriction',
+    kind: 'HARD',
+    code: 'HC_09',
+    name: 'Lớp học đúng buổi chính',
+    description:
+      'Lớp học sáng thì học sáng, học chiều thì học chiều. Thể dục, GDQP, HĐTN và GDĐP được miễn vì trường vẫn xếp chúng vào buổi trống.',
+    defaultWeight: 0,
+    canDisable: true,
+  },
+
   // --- Soft constraints: violating one costs points, the schedule stays usable ---
   {
     key: 'spreadSubjects',
@@ -236,6 +247,25 @@ export const CONSTRAINT_CATALOGUE: CatalogueEntry[] = [
     name: 'Hạn chế di chuyển giữa các tầng',
     description: 'Giáo viên lớn tuổi phải leo cầu thang liên tục giữa hai tiết liền nhau.',
     defaultWeight: 3,
+    canDisable: true,
+  },
+  {
+    key: 'outdoorTiming',
+    kind: 'SOFT',
+    code: 'SC_15',
+    name: 'Thể dục tránh giờ nắng',
+    description: 'Thể dục và GDQP nên xếp tiết 1-3 buổi sáng hoặc tiết 8-10 buổi chiều, tránh nắng giữa trưa.',
+    defaultWeight: 10,
+    canDisable: true,
+  },
+  {
+    key: 'blockRules',
+    kind: 'SOFT',
+    code: 'SC_16',
+    name: 'Môn nặng không dồn một buổi',
+    description:
+      'Mỗi buổi tối đa 3 tiết môn nặng, mỗi môn tối đa 2 tiết, và không bao giờ 3 tiết môn nặng liên tiếp.',
+    defaultWeight: 12,
     canDisable: true,
   },
 ];

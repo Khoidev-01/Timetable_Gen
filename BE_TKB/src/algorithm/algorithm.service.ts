@@ -1502,4 +1502,12 @@ export class AlgorithmService {
 
         return { success: true, is_locked: updated.is_locked };
     }
+    /** Xoá mọi thời khóa biểu đã sinh của một học kỳ, để xếp lại từ đầu. */
+    async clearSchedule(semesterId: string) {
+        await this.prisma.generatedTimetable.deleteMany({
+            where: { semester_id: semesterId },
+        });
+        return { success: true };
+    }
+
 }

@@ -1,11 +1,14 @@
 
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { AlgorithmService } from '../algorithm/algorithm.service';
 import { AlgorithmGateway } from '../algorithm/algorithm.gateway';
 
 @Processor('optimization')
 export class AlgorithmProcessor extends WorkerHost {
+    private readonly logger = new Logger(AlgorithmProcessor.name);
+
     constructor(
         private readonly algorithmService: AlgorithmService,
         private readonly gateway: AlgorithmGateway,
@@ -14,11 +17,10 @@ export class AlgorithmProcessor extends WorkerHost {
     }
 
     async process(job: Job<any, any, string>): Promise<any> {
-        const { semesterId } = job.data as any; // Cast job data just in case
-        console.log(`[Worker] Starting optimization for Semester ${semesterId}...`);
+        const { semesterId } = job.data as any;
+        this.logger.log(`Starting optimization for Semester ${semesterId}`);
 
         try {
-            // Updated to use the monolithic runAlgorithm method
             const result: any = await this.algorithmService.runAlgorithm(semesterId);
 
             if (result.success) {
@@ -29,7 +31,7 @@ export class AlgorithmProcessor extends WorkerHost {
                     `điểm ${result.fitnessScore}, ${result.isValid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ'}`
                 );
             } else {
-                console.warn(`[Worker] Optimization LOGICALLY Failed: ${result.error}`);
+                this.logger.warn(`Optimization LOGICALLY Failed: ${result.error}`);
             }
 
             this.gateway.publishDone(semesterId, {
@@ -52,8 +54,7 @@ export class AlgorithmProcessor extends WorkerHost {
                 error: result.error
             };
         } catch (error: any) {
-            console.error(`[Worker] Optimization Crashed:`, error);
-            // Return crash as result to view logs if captured (unlikely here)
+            this.logger.error(`Optimization Crashed: ${error.message}`, error.stack);
             return { success: false, error: error.message };
         }
     }

@@ -130,8 +130,11 @@ export class AlgorithmController {
     }
 
     @Get('result/:semesterId')
-    async getResult(@Param('semesterId') semesterId: string) {
-        return this.algorithmProducer.getResult(semesterId);
+    async getResult(
+        @Param('semesterId') semesterId: string,
+        @Query('week') week?: string
+    ) {
+        return this.algorithmProducer.getResult(semesterId, week ? parseInt(week, 10) : 1);
     }
 
     @Roles('ADMIN')
@@ -174,5 +177,11 @@ export class AlgorithmController {
     @Post('toggle-lock')
     async toggleLock(@Body() body: { slotId: string }, @Req() req: Request) {
         return this.algorithmService.toggleLock(body.slotId, this.actorOf(req));
+    }
+
+    @Roles('ADMIN')
+    @Post('clear/:semesterId')
+    async clearSchedule(@Param('semesterId') semesterId: string) {
+        return this.algorithmService.clearSchedule(semesterId);
     }
 }

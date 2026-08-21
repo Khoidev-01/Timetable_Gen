@@ -1,7 +1,8 @@
-import { Controller, Get, Patch, Param, Body, NotFoundException, ForbiddenException, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, NotFoundException, ForbiddenException, Req, Logger } from '@nestjs/common';
 import type { Request } from 'express';
 import { TeacherService } from './teacher.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notifications/notification.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 /**
@@ -15,7 +16,10 @@ export class TeacherAliasController {
     constructor(
         private readonly teacherService: TeacherService,
         private readonly prisma: PrismaService,
+        private readonly notificationService: NotificationService,
     ) { }
+
+    private readonly logger = new Logger(TeacherAliasController.name);
 
     /**
      * A teacher may only touch their own record. Without this the busy-time endpoint

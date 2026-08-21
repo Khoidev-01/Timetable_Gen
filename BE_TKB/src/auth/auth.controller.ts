@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { Response, Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from './decorators/public.decorator';
+import { LoginDto, ChangePasswordDto } from './dto/auth.dto';
 import { ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Xác thực')
@@ -26,7 +27,7 @@ export class AuthController {
     @Throttle({ default: { ttl: 60_000, limit: 5 } })
     @Public()
     @Post('login')
-    async login(@Body() body: any) {
+    async login(@Body() body: LoginDto) {
         // 1. Verify Captcha
         const isValid = await this.authService.validateCaptcha(body.captchaCode, body.captchaSessionId);
         if (!isValid) {
@@ -52,7 +53,7 @@ export class AuthController {
     }
 
     @Patch('change-password')
-    async changePassword(@Req() req: Request, @Body() body: any) {
+    async changePassword(@Req() req: Request, @Body() body: ChangePasswordDto) {
         const user = this.extractUser(req);
         try {
             return await this.authService.changePassword(user.sub, body.oldPassword, body.newPassword);

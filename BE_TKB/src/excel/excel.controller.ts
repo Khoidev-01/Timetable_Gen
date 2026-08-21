@@ -17,8 +17,10 @@ import { buildAttachmentDisposition } from './excel.utils';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+// Nhập/xuất dữ liệu hàng loạt là việc của ADMIN.
 @ApiTags('Excel')
 @ApiBearerAuth('access-token')
+@Roles('ADMIN')
 @Controller('excel')
 @Roles('ADMIN')
 export class ExcelController {

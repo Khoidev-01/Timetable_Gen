@@ -32,4 +32,14 @@ export class ClassService {
     async delete(id: string) {
         return this.prisma.class.delete({ where: { id } });
     }
+
+    async deleteAll() {
+        const [, , , classes] = await this.prisma.$transaction([
+            this.prisma.timetableSlot.deleteMany({}),
+            this.prisma.teachingAssignment.deleteMany({}),
+            this.prisma.class.updateMany({ data: { fixed_room_id: null, homeroom_teacher_id: null } }),
+            this.prisma.class.deleteMany({}),
+        ]);
+        return { deleted: classes.count };
+    }
 }

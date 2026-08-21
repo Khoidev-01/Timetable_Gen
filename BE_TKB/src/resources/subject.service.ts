@@ -21,4 +21,13 @@ export class SubjectService {
     async delete(id: number) {
         return this.prisma.subject.delete({ where: { id } });
     }
+
+    async deleteAll() {
+        const [, , subjects] = await this.prisma.$transaction([
+            this.prisma.timetableSlot.deleteMany({}),
+            this.prisma.teachingAssignment.deleteMany({}),
+            this.prisma.subject.deleteMany({}),
+        ]);
+        return { deleted: subjects.count };
+    }
 }

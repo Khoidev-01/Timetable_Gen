@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PeriodType, Prisma, RoomType } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notifications/notification.service';
 import {
   GUIDE_ROWS,
   HEADER_ALIASES,
@@ -18,6 +19,7 @@ import {
   getCellNumber,
   getCellText,
   normalizeKey,
+  resetBodyRowIndex,
 } from './excel.utils';
 
 type PrismaTx = Prisma.TransactionClient;
@@ -48,6 +50,9 @@ interface TeacherImportRow {
   baseLoad: number;
   reduction: number;
   effectiveLoad: number;
+  homeroomClass?: string;
+  phone?: string;
+  email?: string;
   notes?: string;
 }
 
@@ -71,9 +76,17 @@ interface CombinationImportRow {
   elective2: string;
   elective3: string;
   elective4: string;
-  special1: string;
-  special2: string;
-  special3: string;
+  notes?: string;
+}
+
+interface RoomImportRow {
+  rowNumber: number;
+  name: string;
+  type: string;
+  floor: number;
+  capacity: number;
+  session?: string;       // Sáng, Chiều, Cả ngày
+  fixedClass?: string;    // Tên lớp cố định
   notes?: string;
 }
 
@@ -116,6 +129,7 @@ interface PreparedAssignmentRow {
 interface ParsedWorkbook {
   teachers: TeacherImportRow[];
   classes: ClassImportRow[];
+  rooms: RoomImportRow[];
   combinations: CombinationImportRow[];
   assignments: AssignmentImportRow[];
   warnings: WorkbookMessage[];
@@ -130,6 +144,9 @@ interface WorkbookTeacherRow {
   baseLoad: number;
   reduction: number;
   effectiveLoad: number;
+  homeroomClass?: string;
+  phone?: string;
+  email?: string;
   notes?: string;
 }
 
@@ -151,9 +168,6 @@ interface WorkbookCombinationRow {
   elective2: string;
   elective3: string;
   elective4: string;
-  special1: string;
-  special2: string;
-  special3: string;
   notes?: string;
 }
 
@@ -224,7 +238,10 @@ export class ExcelService {
     '#65A30D',
   ];
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   async downloadTemplate(academicYearId: string): Promise<ExportPayload> {
     const context = await this.getYearContext(academicYearId);
@@ -291,6 +308,24 @@ export class ExcelService {
       const classSummary = await this.upsertClasses(tx, parsed.classes, teacherMap);
       const classMap = await this.fetchClassMap(tx);
 
+      // Assign homeroom teachers from teacher sheet GVCN column
+      for (const teacher of parsed.teachers) {
+        if (!teacher.homeroomClass) continue;
+        const classEntity = classMap.get(normalizeKey(teacher.homeroomClass));
+        const teacherEntity = teacherMap.get(teacher.code);
+        if (classEntity && teacherEntity) {
+          await tx.class.update({
+            where: { id: classEntity.id },
+            data: { homeroom_teacher_id: teacherEntity.id },
+          });
+        }
+      }
+
+      // Upsert rooms and assign fixed rooms to classes
+      if (parsed.rooms.length > 0) {
+        await this.upsertRooms(tx, parsed.rooms, classMap);
+      }
+
       await tx.curriculumCombination.deleteMany({});
       if (parsed.combinations.length > 0) {
         await tx.curriculumCombination.createMany({
@@ -301,9 +336,7 @@ export class ExcelService {
             elective_subject_code_2: item.elective2,
             elective_subject_code_3: item.elective3,
             elective_subject_code_4: item.elective4,
-            special_topic_code_1: item.special1,
-            special_topic_code_2: item.special2,
-            special_topic_code_3: item.special3,
+            // Chuyên đề đã gộp vào môn gốc
             notes: item.notes ?? null,
           })),
         });
@@ -337,7 +370,9 @@ export class ExcelService {
               total_periods: row.hk1.totalPeriods,
               period_type: row.periodType,
               required_room_type:
-                row.periodType === PeriodType.PRACTICE ? RoomType.LAB_IT : null,
+                row.periodType === PeriodType.PRACTICE
+                  ? this.resolveLabRoomType(row.subjectCode)
+                  : null,
               block_config: row.notes ?? null,
             });
           }
@@ -354,7 +389,9 @@ export class ExcelService {
               total_periods: row.hk2.totalPeriods,
               period_type: row.periodType,
               required_room_type:
-                row.periodType === PeriodType.PRACTICE ? RoomType.LAB_IT : null,
+                row.periodType === PeriodType.PRACTICE
+                  ? this.resolveLabRoomType(row.subjectCode)
+                  : null,
               block_config: row.notes ?? null,
             });
           }
@@ -381,6 +418,13 @@ export class ExcelService {
       };
     });
 
+    // Send notification about successful import
+    try {
+      await this.notificationService.notifyImportSuccess(summary);
+    } catch (e) {
+      // Don't fail import if notification fails
+    }
+
     return {
       summary,
       warnings: [...parsed.warnings, ...warnings],
@@ -405,6 +449,10 @@ export class ExcelService {
     const combinations = this.parseCombinationsSheet(combinationsSheet, errors);
     const assignments = this.parseAssignmentsSheet(assignmentsSheet, errors, warnings);
 
+    // Rooms sheet is optional
+    const roomsSheet = this.findWorksheet(workbook, WORKBOOK_SHEET_NAMES.rooms, true);
+    const rooms = roomsSheet ? this.parseRoomsSheet(roomsSheet, errors) : [];
+
     if (errors.length > 0) {
       throw new BadRequestException({
         summary: null,
@@ -416,6 +464,7 @@ export class ExcelService {
     return {
       teachers,
       classes,
+      rooms,
       combinations,
       assignments,
       warnings,
@@ -452,7 +501,7 @@ export class ExcelService {
       errors,
     );
     this.validateDuplicateCodes(
-      parsed.combinations.map((item) => ({ value: item.code, rowNumber: item.rowNumber })),
+      parsed.combinations.map((item) => ({ value: `${item.code}__${item.gradeLevel}`, rowNumber: item.rowNumber })),
       WORKBOOK_SHEET_NAMES.combinations,
       'Mã_tổ_hợp',
       'duplicate_combination_code',
@@ -606,7 +655,9 @@ export class ExcelService {
         });
       }
 
-      const assignmentKey = `${classKey}:${resolved.subjectCode}:${resolved.periodType}`;
+      const refinedPeriodType = this.refinePeriodType(resolved.periodType, item.programGroup, item.notes);
+
+      const assignmentKey = `${classKey}:${resolved.subjectCode}:${refinedPeriodType}`;
       if (item.periodsHk1 > 0) {
         const hk1Key = `${assignmentKey}:1`;
         if (seenAssignmentKeys.has(hk1Key)) {
@@ -641,7 +692,7 @@ export class ExcelService {
         combinationCode: item.combinationCode,
         subjectCode: resolved.subjectCode,
         subjectName: resolved.subjectName,
-        periodType: resolved.periodType,
+        periodType: refinedPeriodType,
         notes: item.notes,
         hk1:
           item.periodsHk1 > 0 && item.teacherHk1Code
@@ -704,6 +755,8 @@ export class ExcelService {
         status: teacher.status,
         workload_reduction: teacher.reduction,
         max_periods_per_week: teacher.effectiveLoad,
+        phone: teacher.phone || null,
+        email: teacher.email || null,
         notes: teacher.notes || null,
       };
 
@@ -765,6 +818,114 @@ export class ExcelService {
     return { created, updated };
   }
 
+  private resolveRoomType(typeStr: string): RoomType {
+    const normalized = normalizeKey(typeStr);
+    if (normalized.includes('labvatly') || normalized.includes('lably') || normalized.includes('thinghiemvatly') || normalized.includes('phongtnly'))
+      return RoomType.LAB_PHYSICS;
+    if (normalized.includes('labhoahoc') || normalized.includes('labhoa') || normalized.includes('thinghiemhoahoc') || normalized.includes('phongtnhoa'))
+      return RoomType.LAB_CHEM;
+    if (normalized.includes('labsinhhoc') || normalized.includes('labsinh') || normalized.includes('thinghiemsinhhoc'))
+      return RoomType.LAB_BIO;
+    if (normalized.includes('labtinhoc') || normalized.includes('labtin') || normalized.includes('labmaytinh') || normalized.includes('phongmaytinh'))
+      return RoomType.LAB_IT;
+    if (normalized.includes('san') || normalized.includes('sanbai') || normalized.includes('sanchoi'))
+      return RoomType.YARD;
+    if (normalized.includes('dadung') || normalized.includes('danang') || normalized.includes('hoitruong'))
+      return RoomType.MULTI_PURPOSE;
+    return RoomType.CLASSROOM;
+  }
+
+  private parseRoomsSheet(
+    worksheet: ExcelJS.Worksheet,
+    errors: WorkbookMessage[],
+  ): RoomImportRow[] {
+    const config = this.resolveColumns(
+      worksheet,
+      HEADER_ALIASES.rooms,
+      (columns) => Boolean(columns.name),
+      WORKBOOK_SHEET_NAMES.rooms,
+      errors,
+    );
+    if (!config) return [];
+
+    const rows: RoomImportRow[] = [];
+    for (let rowNumber = config.headerRow + 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+      const row = worksheet.getRow(rowNumber);
+      if (!this.rowHasValue(row, Object.values(config.columns))) continue;
+
+      const name = this.readString(row, config.columns.name);
+      if (!name) continue;
+
+      const typeStr = this.readString(row, config.columns.type) || 'Phòng học';
+      const floor = this.readInteger(row, config.columns.floor) ?? 1;
+      const capacity = this.readInteger(row, config.columns.capacity) ?? 45;
+      const session = this.readString(row, config.columns.session);
+      const fixedClass = this.readString(row, config.columns.fixedClass);
+      const notes = this.readString(row, config.columns.notes);
+
+      rows.push({
+        rowNumber,
+        name,
+        type: typeStr,
+        floor,
+        capacity,
+        session,
+        fixedClass,
+        notes,
+      });
+    }
+    return rows;
+  }
+
+  private async upsertRooms(
+    tx: PrismaTx,
+    rooms: RoomImportRow[],
+    classMap: Map<string, { id: string; name: string }>,
+  ): Promise<{ created: number; updated: number }> {
+    let created = 0;
+    let updated = 0;
+
+    for (const room of rooms) {
+      const roomType = this.resolveRoomType(room.type);
+      const data = {
+        name: room.name,
+        type: roomType,
+        floor: room.floor,
+        capacity: room.capacity,
+      };
+
+      const existing = await tx.room.findFirst({ where: { name: room.name } });
+      let roomId: number;
+
+      if (existing) {
+        await tx.room.update({ where: { id: existing.id }, data });
+        roomId = existing.id;
+        updated += 1;
+      } else {
+        const created_room = await tx.room.create({ data });
+        roomId = created_room.id;
+        created += 1;
+      }
+
+      // Assign fixed room to class if specified
+      if (room.fixedClass) {
+        // fixedClass can be comma-separated: "12A1, 11B1"
+        const classNames = room.fixedClass.split(',').map((s) => s.trim()).filter(Boolean);
+        for (const className of classNames) {
+          const classEntity = classMap.get(normalizeKey(className));
+          if (classEntity) {
+            await tx.class.update({
+              where: { id: classEntity.id },
+              data: { fixed_room_id: roomId },
+            });
+          }
+        }
+      }
+    }
+
+    return { created, updated };
+  }
+
   private async loadWorkbookData(
     hk1Id: string,
     hk2Id: string,
@@ -791,6 +952,12 @@ export class ExcelService {
     ]);
 
     const teacherMajorMap = this.buildTeacherMajorSubjectMap(assignments);
+    const homeroomMap = new Map<string, string>();
+    classes.forEach((cls) => {
+      if (cls.homeroom_teacher_id) {
+        homeroomMap.set(cls.homeroom_teacher_id, cls.name);
+      }
+    });
     const workbookTeachers: WorkbookTeacherRow[] = teachers.map((teacher) => ({
       code: teacher.code,
       fullName: teacher.full_name,
@@ -800,6 +967,9 @@ export class ExcelService {
       baseLoad: teacher.max_periods_per_week + teacher.workload_reduction,
       reduction: teacher.workload_reduction,
       effectiveLoad: teacher.max_periods_per_week,
+      homeroomClass: homeroomMap.get(teacher.id) ?? '',
+      phone: teacher.phone ?? '',
+      email: teacher.email ?? '',
       notes: teacher.notes ?? '',
     }));
 
@@ -821,22 +991,15 @@ export class ExcelService {
       elective2: item.elective_subject_code_2,
       elective3: item.elective_subject_code_3,
       elective4: item.elective_subject_code_4,
-      special1: item.special_topic_code_1,
-      special2: item.special_topic_code_2,
-      special3: item.special_topic_code_3,
+      // Chuyên đề đã gộp vào môn gốc, không xuất riêng
       notes: item.notes ?? '',
     }));
 
     const groupedAssignments = new Map<string, WorkbookAssignmentRow>();
     assignments.forEach((assignment) => {
-      const exportedSubjectCode =
-        assignment.period_type === PeriodType.SPECIAL && !assignment.subject.is_special
-          ? `CD_${assignment.subject.code}`
-          : assignment.subject.code;
-      const exportedSubjectName =
-        assignment.period_type === PeriodType.SPECIAL && !assignment.subject.is_special
-          ? `Chuyên đề ${assignment.subject.name}`
-          : assignment.subject.name;
+      // Chuyên đề đã gộp vào môn gốc — dùng mã môn gốc trực tiếp
+      const exportedSubjectCode = assignment.subject.code;
+      const exportedSubjectName = assignment.subject.name;
       const key = `${assignment.class_id}:${exportedSubjectCode}`;
 
       const existing = groupedAssignments.get(key) ?? {
@@ -932,12 +1095,41 @@ export class ExcelService {
     this.buildSubjectCatalogSheet(workbook, data.subjects);
     this.buildTeachersSheet(workbook, data.teachers);
     this.buildClassesSheet(workbook, data.classes);
+    this.buildRoomsSheet(workbook);
     this.buildCombinationsSheet(workbook, data.combinations);
     this.buildAssignmentsSheet(workbook, data.assignments);
     this.buildTeacherSummarySheet(workbook, data.teacherSummaries);
 
     const rawBuffer = await workbook.xlsx.writeBuffer();
     return Buffer.isBuffer(rawBuffer) ? rawBuffer : Buffer.from(rawBuffer);
+  }
+
+  private buildRoomsSheet(workbook: ExcelJS.Workbook): void {
+    const worksheet = workbook.addWorksheet(WORKBOOK_SHEET_NAMES.rooms, {
+      views: [{ state: 'frozen', ySplit: 2 }],
+    });
+
+    const headers = ['Tên phòng', 'Loại', 'Tầng', 'Sức chứa', 'Buổi', 'Lớp cố định', 'Ghi chú'];
+    applyTitleRow(worksheet, 1, 'DANH MỤC PHÒNG HỌC', headers.length);
+
+    const headerRow = worksheet.getRow(2);
+    headers.forEach((h, i) => { headerRow.getCell(i + 1).value = h; });
+    applyHeaderRow(headerRow);
+
+    // Sample data
+    const samples: (string | number)[][] = [
+      ['101', 'Phòng học', 1, 45, 'Sáng', '12A1', 'Phòng học chính lớp 12A1'],
+      ['201', 'Phòng học', 2, 45, 'Chiều', '10C1', 'Phòng học chính lớp 10C1'],
+      ['301', 'Lab Vật lý', 3, 40, 'Cả ngày', '', 'Phòng thí nghiệm Vật lý'],
+      ['302', 'Lab Hóa học', 3, 40, 'Cả ngày', '', 'Phòng thí nghiệm Hóa học'],
+    ];
+    samples.forEach((vals, i) => {
+      const r = worksheet.getRow(i + 3);
+      vals.forEach((v, j) => { r.getCell(j + 1).value = v; });
+      applyBodyRow(r);
+    });
+
+    [12, 15, 8, 10, 12, 20, 30].forEach((w, i) => { worksheet.getColumn(i + 1).width = w; });
   }
 
   private buildGuideSheet(workbook: ExcelJS.Workbook): void {
@@ -1000,18 +1192,21 @@ export class ExcelService {
       views: [{ state: 'frozen', ySplit: 2 }],
     });
     worksheet.columns = [
-      { header: 'Mã_GV', key: 'code', width: 16 },
-      { header: 'Họ_tên', key: 'fullName', width: 28 },
-      { header: 'Tổ_CM', key: 'department', width: 20 },
-      { header: 'Môn_chuyên_môn_chính', key: 'majorSubject', width: 24 },
-      { header: 'Trạng_thái', key: 'status', width: 18 },
-      { header: 'Định_mức_tuần', key: 'baseLoad', width: 16 },
-      { header: 'Giảm_trừ_tuần', key: 'reduction', width: 16 },
-      { header: 'Định_mức_hiệu_lực', key: 'effectiveLoad', width: 18 },
-      { header: 'Ghi_chú', key: 'notes', width: 36 },
+      { header: 'Mã GV', key: 'code', width: 16 },
+      { header: 'Họ tên', key: 'fullName', width: 28 },
+      { header: 'GVCN', key: 'homeroomClass', width: 14 },
+      { header: 'Liên hệ', key: 'phone', width: 18 },
+      { header: 'Tổ CM', key: 'department', width: 20 },
+      { header: 'Môn chuyên môn chính', key: 'majorSubject', width: 24 },
+      { header: 'Trạng thái', key: 'status', width: 18 },
+      { header: 'Định mức tuần', key: 'baseLoad', width: 16 },
+      { header: 'Giảm trừ tuần', key: 'reduction', width: 16 },
+      { header: 'Định mức hiệu lực', key: 'effectiveLoad', width: 18 },
+      { header: 'Ghi chú', key: 'notes', width: 36 },
     ];
-    applyTitleRow(worksheet, 1, 'Danh mục giáo viên', 9);
+    applyTitleRow(worksheet, 1, 'Danh mục giáo viên', 11);
     applyHeaderRow(worksheet.getRow(2));
+    resetBodyRowIndex();
     teachers.forEach((teacher) => {
       const row = worksheet.addRow(teacher);
       applyBodyRow(row);
@@ -1025,15 +1220,16 @@ export class ExcelService {
     worksheet.columns = [
       { header: 'Lớp', key: 'name', width: 16 },
       { header: 'Khối', key: 'gradeLevel', width: 10 },
-      { header: 'Sĩ_số', key: 'studentCount', width: 12 },
-      { header: 'Buổi_học', key: 'sessionLabel', width: 14 },
-      { header: 'Mã_tổ_hợp', key: 'combinationCode', width: 18 },
-      { header: 'GVCN_Mã', key: 'homeroomCode', width: 18 },
-      { header: 'GVCN_Họ_tên', key: 'homeroomName', width: 28 },
-      { header: 'Ghi_chú', key: 'notes', width: 36 },
+      { header: 'Sĩ số', key: 'studentCount', width: 12 },
+      { header: 'Buổi học', key: 'sessionLabel', width: 14 },
+      { header: 'Mã tổ hợp', key: 'combinationCode', width: 18 },
+      { header: 'GVCN Mã', key: 'homeroomCode', width: 18 },
+      { header: 'GVCN Họ tên', key: 'homeroomName', width: 28 },
+      { header: 'Ghi chú', key: 'notes', width: 36 },
     ];
     applyTitleRow(worksheet, 1, 'Danh mục lớp', 8);
     applyHeaderRow(worksheet.getRow(2));
+    resetBodyRowIndex();
     classes.forEach((item) => {
       const row = worksheet.addRow(item);
       applyBodyRow(row);
@@ -1045,19 +1241,17 @@ export class ExcelService {
       views: [{ state: 'frozen', ySplit: 2 }],
     });
     worksheet.columns = [
-      { header: 'Mã_tổ_hợp', key: 'code', width: 18 },
+      { header: 'Mã tổ hợp', key: 'code', width: 18 },
       { header: 'Khối', key: 'gradeLevel', width: 10 },
-      { header: 'Môn_tự_chọn_1', key: 'elective1', width: 18 },
-      { header: 'Môn_tự_chọn_2', key: 'elective2', width: 18 },
-      { header: 'Môn_tự_chọn_3', key: 'elective3', width: 18 },
-      { header: 'Môn_tự_chọn_4', key: 'elective4', width: 18 },
-      { header: 'Chuyên_đề_1', key: 'special1', width: 18 },
-      { header: 'Chuyên_đề_2', key: 'special2', width: 18 },
-      { header: 'Chuyên_đề_3', key: 'special3', width: 18 },
-      { header: 'Ghi_chú', key: 'notes', width: 32 },
+      { header: 'Môn tự chọn 1', key: 'elective1', width: 18 },
+      { header: 'Môn tự chọn 2', key: 'elective2', width: 18 },
+      { header: 'Môn tự chọn 3', key: 'elective3', width: 18 },
+      { header: 'Môn tự chọn 4', key: 'elective4', width: 18 },
+      { header: 'Ghi chú', key: 'notes', width: 32 },
     ];
-    applyTitleRow(worksheet, 1, 'Danh mục tổ hợp môn học', 10);
+    applyTitleRow(worksheet, 1, 'Danh mục tổ hợp môn học', 7);
     applyHeaderRow(worksheet.getRow(2));
+    resetBodyRowIndex();
     combinations.forEach((item) => {
       const row = worksheet.addRow(item);
       applyBodyRow(row);
@@ -1070,25 +1264,26 @@ export class ExcelService {
     });
     worksheet.columns = [
       { header: 'STT', key: 'order', width: 10 },
-      { header: 'Năm_học', key: 'schoolYear', width: 16 },
+      { header: 'Năm học', key: 'schoolYear', width: 16 },
       { header: 'Khối', key: 'gradeLevel', width: 10 },
       { header: 'Lớp', key: 'className', width: 14 },
-      { header: 'Mã_tổ_hợp', key: 'combinationCode', width: 18 },
-      { header: 'Mã_môn', key: 'subjectCode', width: 16 },
-      { header: 'Tên_môn', key: 'subjectName', width: 28 },
-      { header: 'Nhóm_CT', key: 'programGroup', width: 18 },
-      { header: 'Tiết_HK1', key: 'periodsHk1', width: 12 },
-      { header: 'Tiết_HK2', key: 'periodsHk2', width: 12 },
-      { header: 'GV_HK1_Mã', key: 'teacherHk1Code', width: 16 },
-      { header: 'GV_HK1_Họ_tên', key: 'teacherHk1Name', width: 26 },
-      { header: 'GV_HK1_Định_mức', key: 'teacherHk1Load', width: 18 },
-      { header: 'GV_HK2_Mã', key: 'teacherHk2Code', width: 16 },
-      { header: 'GV_HK2_Họ_tên', key: 'teacherHk2Name', width: 26 },
-      { header: 'GV_HK2_Định_mức', key: 'teacherHk2Load', width: 18 },
-      { header: 'Ghi_chú', key: 'notes', width: 28 },
+      { header: 'Mã tổ hợp', key: 'combinationCode', width: 18 },
+      { header: 'Mã môn', key: 'subjectCode', width: 16 },
+      { header: 'Tên môn', key: 'subjectName', width: 28 },
+      { header: 'Nhóm CT', key: 'programGroup', width: 18 },
+      { header: 'Tiết HK1', key: 'periodsHk1', width: 12 },
+      { header: 'Tiết HK2', key: 'periodsHk2', width: 12 },
+      { header: 'GV HK1 Mã', key: 'teacherHk1Code', width: 16 },
+      { header: 'GV HK1 Họ tên', key: 'teacherHk1Name', width: 26 },
+      { header: 'GV HK1 Định mức', key: 'teacherHk1Load', width: 18 },
+      { header: 'GV HK2 Mã', key: 'teacherHk2Code', width: 16 },
+      { header: 'GV HK2 Họ tên', key: 'teacherHk2Name', width: 26 },
+      { header: 'GV HK2 Định mức', key: 'teacherHk2Load', width: 18 },
+      { header: 'Ghi chú', key: 'notes', width: 28 },
     ];
     applyTitleRow(worksheet, 1, 'Bảng phân công giảng dạy theo năm học', 17);
     applyHeaderRow(worksheet.getRow(2));
+    resetBodyRowIndex();
     assignments.forEach((assignment) => {
       const row = worksheet.addRow(assignment);
       applyBodyRow(row);
@@ -1103,23 +1298,24 @@ export class ExcelService {
       views: [{ state: 'frozen', ySplit: 2 }],
     });
     worksheet.columns = [
-      { header: 'Mã_GV', key: 'code', width: 16 },
-      { header: 'Họ_tên', key: 'fullName', width: 28 },
-      { header: 'Tổ_CM', key: 'department', width: 18 },
-      { header: 'Định_mức_tuần', key: 'baseLoad', width: 16 },
-      { header: 'Giảm_trừ_tuần', key: 'reduction', width: 16 },
-      { header: 'Định_mức_hiệu_lực', key: 'effectiveLoad', width: 18 },
-      { header: 'Tổng_tiết_HK1', key: 'totalHk1', width: 16 },
-      { header: 'Tổng_tiết_HK2', key: 'totalHk2', width: 16 },
-      { header: 'Chênh_HK1', key: 'deltaHk1', width: 12 },
-      { header: 'Chênh_HK2', key: 'deltaHk2', width: 12 },
-      { header: 'Tổng_tiết_năm', key: 'totalYear', width: 16 },
-      { header: 'Số_dòng_PC_HK1', key: 'assignmentRowsHk1', width: 16 },
-      { header: 'Số_dòng_PC_HK2', key: 'assignmentRowsHk2', width: 16 },
-      { header: 'Ghi_chú', key: 'notes', width: 28 },
+      { header: 'Mã GV', key: 'code', width: 12 },
+      { header: 'Họ tên', key: 'fullName', width: 24 },
+      { header: 'Tổ CM', key: 'department', width: 16 },
+      { header: 'Định mức tuần', key: 'baseLoad', width: 14 },
+      { header: 'Giảm trừ tuần', key: 'reduction', width: 14 },
+      { header: 'Định mức hiệu lực', key: 'effectiveLoad', width: 16 },
+      { header: 'Tổng tiết HK1', key: 'totalHk1', width: 14 },
+      { header: 'Tổng tiết HK2', key: 'totalHk2', width: 14 },
+      { header: 'Chênh HK1', key: 'deltaHk1', width: 11 },
+      { header: 'Chênh HK2', key: 'deltaHk2', width: 11 },
+      { header: 'Tổng tiết năm', key: 'totalYear', width: 14 },
+      { header: 'Số dòng PC HK1', key: 'assignmentRowsHk1', width: 14 },
+      { header: 'Số dòng PC HK2', key: 'assignmentRowsHk2', width: 14 },
+      { header: 'Ghi chú', key: 'notes', width: 24 },
     ];
     applyTitleRow(worksheet, 1, 'Tổng hợp tải giảng dạy theo giáo viên', 14);
     applyHeaderRow(worksheet.getRow(2));
+    resetBodyRowIndex();
     rows.forEach((item) => {
       const row = worksheet.addRow(item);
       applyBodyRow(row);
@@ -1173,6 +1369,9 @@ export class ExcelService {
         baseLoad: resolvedBase,
         reduction,
         effectiveLoad: resolvedEffective,
+        homeroomClass: this.readString(row, config.columns.homeroomClass) || undefined,
+        phone: this.readString(row, config.columns.phone) || undefined,
+        email: this.readString(row, config.columns.email) || undefined,
         notes: this.readString(row, config.columns.notes),
       });
     }
@@ -1266,9 +1465,7 @@ export class ExcelService {
         elective2: this.normalizeSubjectEntry(this.readString(row, config.columns.elective2)),
         elective3: this.normalizeSubjectEntry(this.readString(row, config.columns.elective3)),
         elective4: this.normalizeSubjectEntry(this.readString(row, config.columns.elective4)),
-        special1: this.normalizeSpecialTopicEntry(this.readString(row, config.columns.special1)),
-        special2: this.normalizeSpecialTopicEntry(this.readString(row, config.columns.special2)),
-        special3: this.normalizeSpecialTopicEntry(this.readString(row, config.columns.special3)),
+        // Chuyên đề đã gộp vào môn gốc, không parse
         notes: this.readString(row, config.columns.notes),
       });
     }
@@ -1455,7 +1652,9 @@ export class ExcelService {
     return new Map(classes.map((item) => [normalizeKey(item.name), item]));
   }
 
-  private findWorksheet(workbook: ExcelJS.Workbook, expectedName: string): ExcelJS.Worksheet {
+  private findWorksheet(workbook: ExcelJS.Workbook, expectedName: string): ExcelJS.Worksheet;
+  private findWorksheet(workbook: ExcelJS.Workbook, expectedName: string, optional: true): ExcelJS.Worksheet | null;
+  private findWorksheet(workbook: ExcelJS.Workbook, expectedName: string, optional?: boolean): ExcelJS.Worksheet | null {
     const normalizedExpected = normalizeKey(expectedName);
     for (const worksheet of workbook.worksheets) {
       const normalizedName = normalizeKey(worksheet.name);
@@ -1463,6 +1662,8 @@ export class ExcelService {
       const aliases = SHEET_ALIASES[expectedName] ?? [];
       if (aliases.includes(normalizedName)) return worksheet;
     }
+
+    if (optional) return null;
 
     throw new BadRequestException({
       summary: null,
@@ -1488,12 +1689,15 @@ export class ExcelService {
   ): { headerRow: number; columns: Partial<Record<keyof T, number>> } | null {
     let bestMatch: { headerRow: number; columns: Partial<Record<keyof T, number>>; score: number } | null = null;
 
-    for (let rowNumber = 1; rowNumber <= Math.min(worksheet.rowCount, 10); rowNumber += 1) {
+    for (let rowNumber = 1; rowNumber <= Math.min(worksheet.rowCount, 15); rowNumber += 1) {
       const row = worksheet.getRow(rowNumber);
       const columns: Partial<Record<keyof T, number>> = {};
+      const cellValues: string[] = [];
+
       row.eachCell((cell, colNumber) => {
         const normalized = normalizeKey(getCellText(cell));
         if (!normalized) return;
+        cellValues.push(normalized);
 
         (Object.entries(aliasMap) as Array<[keyof T, readonly string[]]>).forEach(([field, aliases]) => {
           if (!columns[field] && aliases.includes(normalized)) {
@@ -1501,6 +1705,9 @@ export class ExcelService {
           }
         });
       });
+
+      // Skip merged title rows (all cells have same value)
+      if (cellValues.length > 1 && new Set(cellValues).size === 1) continue;
 
       const score = Object.keys(columns).length;
       if (score === 0) continue;
@@ -1510,12 +1717,23 @@ export class ExcelService {
     }
 
     if (!bestMatch) {
+      // Build debug info: show what the first 5 rows contain
+      const debugRows: string[] = [];
+      for (let r = 1; r <= Math.min(worksheet.rowCount, 5); r++) {
+        const vals: string[] = [];
+        worksheet.getRow(r).eachCell((c) => {
+          const t = getCellText(c);
+          if (t) vals.push(t.substring(0, 20));
+        });
+        if (vals.length > 0) debugRows.push(`Row ${r}: [${vals.join(', ')}]`);
+      }
+
       errors.push({
         sheet: sheetName,
         row: 0,
         column: '',
         code: 'invalid_header',
-        message: `Không tìm thấy hàng tiêu đề hợp lệ cho sheet ${sheetName}.`,
+        message: `Không tìm thấy hàng tiêu đề hợp lệ cho sheet ${sheetName}. ${debugRows.length > 0 ? 'Dữ liệu tìm thấy: ' + debugRows.join(' | ') : 'Sheet trống.'}`,
       });
       return null;
     }
@@ -1701,5 +1919,32 @@ export class ExcelService {
     }
     const canonical = this.normalizeSubjectEntry(value);
     return canonical ? `CD_${canonical}` : value.toUpperCase();
+  }
+
+  private resolveLabRoomType(subjectCode: string): RoomType {
+    switch (subjectCode) {
+      case 'LY':
+        return RoomType.LAB_PHYSICS;
+      case 'HOA':
+        return RoomType.LAB_CHEM;
+      case 'SINH':
+        return RoomType.LAB_BIO;
+      case 'TIN':
+        return RoomType.LAB_IT;
+      default:
+        return RoomType.LAB_IT;
+    }
+  }
+
+  private refinePeriodType(
+    basePeriodType: PeriodType,
+    programGroup?: string,
+    notes?: string,
+  ): PeriodType {
+    if (basePeriodType === PeriodType.SPECIAL) return basePeriodType;
+    const txt = normalizeKey((programGroup ?? '') + ' ' + (notes ?? ''));
+    if (txt.includes('thuchanh')) return PeriodType.PRACTICE;
+    if (txt.includes('lythuyet')) return PeriodType.THEORY;
+    return basePeriodType;
   }
 }

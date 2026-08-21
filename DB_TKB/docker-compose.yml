@@ -21,6 +21,21 @@ services:
     volumes:
       - redis_data:/data
 
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: tkb_pgadmin
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@tkb.local
+      PGADMIN_DEFAULT_PASSWORD: "123456"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "8088:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
   backend:
     build:
       context: ../BE_TKB
@@ -42,3 +57,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  pgadmin_data:

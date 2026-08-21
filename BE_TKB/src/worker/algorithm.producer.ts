@@ -1,31 +1,68 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { AlgorithmService } from '../algorithm/algorithm.service'; // Direct access for now or use Prisma
+import { AlgorithmService } from '../algorithm/algorithm.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService } from '../algorithm/constraint.service';
 
 @Injectable()
 export class AlgorithmProducer {
+    private readonly logger = new Logger(AlgorithmProducer.name);
+
     constructor(
         @InjectQueue('optimization') private optimizationQueue: Queue,
+        private algorithmService: AlgorithmService,
         private prisma: PrismaService,
-        private constraints: ConstraintService,
+        private constraintService: ConstraintService,
     ) { }
 
     async startOptimization(semesterId: string) {
-        const job = await this.optimizationQueue.add('optimize-schedule', {
-            semesterId,
-            params: {
-                populationSize: 50,
-                maxGenerations: 100,
-                mutationRate: 0.02
+        // Check if Redis/Queue is available with a timeout
+        const isRedisAvailable = await this.checkRedis();
+        
+        if (isRedisAvailable) {
+            try {
+                const job = await this.optimizationQueue.add('optimize-schedule', {
+                    semesterId,
+                    params: { populationSize: 100, maxGenerations: 200, mutationRate: 0.05 }
+                });
+                return { message: 'Optimization started', jobId: job.id, semesterId };
+            } catch (error) {
+                this.logger.warn('Queue add failed, falling back to direct mode');
             }
-        });
-        return { message: 'Optimization started', jobId: job.id, semesterId };
+        }
+
+        // Fallback: run directly without queue
+        this.logger.warn('Running algorithm directly (no Redis)...');
+        const result = await this.algorithmService.runAlgorithm(semesterId);
+        return { 
+            message: 'Optimization completed (direct mode)', 
+            jobId: 'direct-' + Date.now(), 
+            semesterId, 
+            directResult: true,
+            success: result.success 
+        };
+    }
+
+    private async checkRedis(): Promise<boolean> {
+        try {
+            const client = await (this.optimizationQueue as any).client;
+            if (!client) return false;
+            const result = await Promise.race([
+                client.ping(),
+                new Promise((_, reject) => setTimeout(() => reject('timeout'), 1000))
+            ]);
+            return result === 'PONG';
+        } catch {
+            return false;
+        }
     }
 
     async getJobStatus(jobId: string) {
+        // Handle direct-mode jobs
+        if (jobId.startsWith('direct-')) {
+            return { id: jobId, state: 'completed', progress: 100, result: { success: true } };
+        }
         const job = await this.optimizationQueue.getJob(jobId);
         if (!job) return null;
 
@@ -36,21 +73,35 @@ export class AlgorithmProducer {
         return { id: job.id, state, progress, result };
     }
 
-    async getResult(semesterId: string) {
+    async getResult(semesterId: string, week: number = 1) {
         // Prefer the published timetable. Falling back to the newest draft is what let
         // teachers see half-finished schedules the moment an admin pressed Run.
         const latestTkb =
             (await this.prisma.generatedTimetable.findFirst({
                 where: { semester_id: semesterId, is_official: true },
-                include: { slots: true },
+                include: { slots: { where: { week } } },
             })) ??
             (await this.prisma.generatedTimetable.findFirst({
                 where: { semester_id: semesterId },
                 orderBy: { created_at: 'desc' },
-                include: { slots: true },
+                include: { slots: { where: { week } } },
             }));
 
         if (!latestTkb) return [];
+
+        // Total weeks in this timetable
+        const weekAgg = await this.prisma.timetableSlot.aggregate({
+            _max: { week: true },
+            where: { timetable_id: latestTkb.id }
+        });
+        const totalWeeks = weekAgg._max.week ?? 1;
+
+        // Semester start date for FE week-range display
+        const semester = await this.prisma.semester.findUnique({
+            where: { id: semesterId },
+            select: { start_date: true, end_date: true }
+        });
+
 
         // Fetch Reference Data (Names)
         const teacherIds = [...new Set(latestTkb.slots.map(t => t.teacher_id).filter(Boolean))];
@@ -103,28 +154,38 @@ export class AlgorithmProducer {
             };
         });
 
+        const timeSlots = latestTkb.slots.map(t => ({
+            id: t.id,
+            day: t.day,
+            period: t.period,
+            classId: t.class_id,
+            subjectId: t.subject_id,
+            teacherId: t.teacher_id,
+            roomId: t.room_id || undefined,
+            isLocked: t.is_locked,
+        }));
+
+        await this.constraintService.initialize(semesterId);
+        const fitnessResult = this.constraintService.getFitnessDetails(timeSlots);
+
         // Which periods are to blame for each hard violation, so the grid can point at
         // them instead of leaving the user to hunt through the week by eye
-        await this.constraints.initialize(semesterId);
-        const offenders = this.constraints.locateHardViolations(
-            latestTkb.slots.map(s => ({
-                id: s.id,
-                day: s.day,
-                period: s.period,
-                classId: s.class_id,
-                subjectId: s.subject_id,
-                teacherId: s.teacher_id,
-                roomId: s.room_id ?? undefined,
-            })),
-        );
+        const offenders = this.constraintService.locateHardViolations(timeSlots);
 
         return {
             timetableId: latestTkb.id,
             bestSchedule,
             offenders,
             fitness_score: latestTkb.fitness_score,
+            fitnessDetails: fitnessResult.details,
+            fitnessViolations: fitnessResult.violations,
+            hardViolations: fitnessResult.hardViolations,
+            softPenalty: fitnessResult.softPenalty,
             is_official: latestTkb.is_official,
-            generated_at: latestTkb.created_at
+            generated_at: latestTkb.created_at,
+            totalWeeks,
+            currentWeek: week,
+            semesterStartDate: semester?.start_date ?? null,
         };
     }
 }

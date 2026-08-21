@@ -21,4 +21,9 @@ export class RoomService {
     async delete(id: number) {
         return this.prisma.room.delete({ where: { id } });
     }
+
+    async deleteAll() {
+        const result = await this.prisma.room.deleteMany({});
+        return { deleted: result.count };
+    }
 }

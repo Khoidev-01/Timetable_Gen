@@ -1,4 +1,6 @@
 
+// Must come first: every module below may read process.env while being evaluated.
+import './load-env';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -20,6 +22,9 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { NotificationModule } from './notifications/notification.module';
+import { AutoAssignModule } from './auto-assign/auto-assign.module';
+import { BusyScheduleModule } from './busy-schedule/busy-schedule.module';
 
 @Module({
   imports: [
@@ -44,6 +49,9 @@ import { RolesGuard } from './auth/guards/roles.guard';
     ExcelModule,
     ConstraintsModule,
     ScheduleModule,
+    NotificationModule,
+    AutoAssignModule,
+    BusyScheduleModule,
   ],
   controllers: [AppController],
   providers: [

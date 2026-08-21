@@ -1,4 +1,4 @@
-
+﻿
 'use client';
 import { useState, useEffect } from 'react';
 import { API_URL } from '@/lib/api';
@@ -64,6 +64,8 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
 
     if (!isOpen) return null;
 
+    const inputCls = "w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all";
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
@@ -86,57 +88,57 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 className="text-lg font-bold text-gray-800">
-                        {initialData ? 'Update Class' : 'Add New Class'}
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-[var(--bg-surface)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] w-full max-w-lg overflow-hidden animate-rise">
+                <div className="px-6 py-4 border-b border-[var(--border-default)] flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-[var(--text-primary)]">
+                        {initialData ? 'Sửa lớp học' : 'Thêm lớp học'}
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+                    <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">✕</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
-                            <input className="w-full px-3 py-2 border rounded-lg"
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Tên lớp</label>
+                            <input className={inputCls}
                                 required
                                 value={formData.name}
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="e.g. 10A1"
+                                placeholder="VD: 10A1"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level</label>
-                            <select className="w-full px-3 py-2 border rounded-lg"
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Khối</label>
+                            <select className={inputCls}
                                 value={formData.grade_level}
                                 onChange={e => setFormData({ ...formData, grade_level: Number(e.target.value) })}
                             >
-                                <option value={10}>Grade 10</option>
-                                <option value={11}>Grade 11</option>
-                                <option value={12}>Grade 12</option>
+                                <option value={10}>Khối 10</option>
+                                <option value={11}>Khối 11</option>
+                                <option value={12}>Khối 12</option>
                             </select>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Main Session</label>
-                            <select className="w-full px-3 py-2 border rounded-lg"
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Buổi học chính</label>
+                            <select className={inputCls}
                                 value={formData.main_session}
                                 onChange={e => setFormData({ ...formData, main_session: Number(e.target.value) })}
                             >
-                                <option value={0}>Morning</option>
-                                <option value={1}>Afternoon</option>
+                                <option value={0}>Sáng</option>
+                                <option value={1}>Chiều</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Fixed Room</label>
-                            <select className="w-full px-3 py-2 border rounded-lg"
+                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Phòng cố định</label>
+                            <select className={inputCls}
                                 value={formData.fixed_room_id}
                                 onChange={e => setFormData({ ...formData, fixed_room_id: e.target.value })}
                             >
-                                <option value="">-- No Fixed Room --</option>
+                                <option value="">Không có phòng cố định</option>
                                 {rooms.map(r => (
                                     <option key={r.id} value={r.id}>{r.name}</option>
                                 ))}
@@ -145,23 +147,23 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Homeroom Teacher</label>
-                        <select className="w-full px-3 py-2 border rounded-lg"
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Giáo viên chủ nhiệm</label>
+                        <select className={inputCls}
                             value={formData.homeroom_teacher_id}
                             onChange={e => setFormData({ ...formData, homeroom_teacher_id: e.target.value })}
                         >
-                            <option value="">-- Select Teacher --</option>
+                            <option value="">Chọn giáo viên</option>
                             {teachers.map(t => (
                                 <option key={t.id} value={t.id}>{t.full_name} ({t.code})</option>
                             ))}
                         </select>
                     </div>
 
-                    <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-700">Cancel</button>
-                        <button type="submit" disabled={isLoading} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 text-white flex items-center gap-2">
-                            {isLoading && <span className="animate-spin text-white">⏳</span>}
-                            Save
+                    <div className="pt-4 flex justify-end gap-3 border-t border-[var(--border-default)] mt-4">
+                        <button type="button" onClick={onClose} className="tactile px-4 py-2 bg-[var(--bg-surface-hover)] rounded-[var(--radius-md)] hover:bg-[var(--border-default)] text-[var(--text-secondary)] font-medium">Hủy</button>
+                        <button type="submit" disabled={isLoading} className="tactile px-4 py-2 bg-[var(--accent)] rounded-[var(--radius-md)] hover:bg-[var(--accent-hover)] text-[var(--accent-contrast)] font-semibold flex items-center gap-2 disabled:opacity-60">
+                            {isLoading && <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+                            {initialData ? 'Lưu thay đổi' : 'Tạo lớp'}
                         </button>
                     </div>
                 </form>
