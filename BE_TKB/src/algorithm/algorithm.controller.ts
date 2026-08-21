@@ -12,6 +12,7 @@ import { SwapGraphService } from './swap-graph.service';
 import { ChangeLogService } from './change-log.service';
 import { AnalyticsService } from './analytics.service';
 import { PatternMiningService } from './pattern-mining.service';
+import { FairnessService } from './fairness.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Thuật toán')
@@ -28,8 +29,19 @@ export class AlgorithmController {
         private readonly swapGraph: SwapGraphService,
         private readonly changeLog: ChangeLogService,
         private readonly analytics: AnalyticsService,
-        private readonly patternMining: PatternMiningService
+        private readonly patternMining: PatternMiningService,
+        private readonly fairness: FairnessService
     ) { }
+
+    /**
+     * Is the timetable fair, and to whom is it unfair? A good total score says nothing
+     * about how the inconvenience is spread between teachers.
+     */
+    @Roles('ADMIN')
+    @Get('fairness/:semesterId')
+    async fairnessReport(@Param('semesterId') semesterId: string) {
+        return this.fairness.report(semesterId);
+    }
 
     /**
      * Rules the school follows but never wrote down, read back out of the manual edits.

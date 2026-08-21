@@ -612,7 +612,7 @@ model ScheduleOverlay {
 
 ---
 
-### D4 — Thông báo trong ứng dụng 🟡
+### D4 — Thông báo trong ứng dụng 🟨 **MỘT PHẦN**
 **Ngày công:** 1 · **Phụ thuộc:** 0.1
 
 Nền tảng bắt buộc cho B2, B5, D3.
@@ -620,8 +620,10 @@ Nền tảng bắt buộc cho B2, B5, D3.
 **Chạm vào:** Schema `Notification`, `BE_TKB/src/notifications/`, chuông thông báo trên layout FE
 
 **Hoàn thành khi:**
-- [ ] Tạo / đánh dấu đã đọc / đếm chưa đọc
-- [ ] Đẩy realtime qua WebSocket đã dựng ở A2
+- [x] Tạo / đánh dấu đã đọc / đếm chưa đọc — `NotificationService`, chuông ở `admin/layout.tsx` và `teacher/layout.tsx`
+- [ ] Đẩy realtime qua WebSocket đã dựng ở A2 — *hiện đang hỏi lại máy chủ mỗi 30 giây*
+
+> Phần này đến từ nhánh `main` khi gộp hai hướng làm việc (2026-08-21).
 
 ---
 
@@ -860,14 +862,37 @@ Làm **ngay sau** orchestrator, trước khi mở giao diện cho người dùng
 
 ---
 
-### A5 — Chỉ số công bằng Gini 🟠 ★★
+### A5 — Chỉ số công bằng Gini 🟨 **MỘT PHẦN**
 **Ngày công:** 3 · **Phụ thuộc:** A6, D2
 
+**Chạm vào:** `FairnessService` · `GET /algorithm/fairness/:semesterId` · `/admin/fairness`
+
 **Hoàn thành khi:**
-- [ ] Điểm chất lượng lịch từng GV = f(tiết trống, số buổi đến trường, tiết đầu/cuối, độ dồn cụm, chi phí di chuyển, % nguyện vọng đáp ứng)
-- [ ] Hệ số Gini + đường cong Lorenz hiển thị trên dashboard
-- [ ] Liệt kê GV thiệt thòi nhất kèm phương án cải thiện và chi phí đánh đổi
+- [x] Điểm chất lượng lịch từng GV = f(tiết trống, số buổi đến trường, ngày nghỉ, tiết cuối buổi, đổi tầng, chuỗi dạy liên tục) — *thiếu "% nguyện vọng đáp ứng" vì `D2` chưa làm*
+- [x] Hệ số Gini + đường cong Lorenz
+- [x] Liệt kê GV thiệt thòi nhất kèm phương án cải thiện
 - [ ] Thanh trượt Hiệu quả ↔ Công bằng sinh đường Pareto
+
+**Đo trên dữ liệu thật:**
+
+```
+Hệ số Gini: 0.146
+Điểm lịch: cao nhất 95, trung vị 70, thấp nhất 40 — chênh 55 điểm
+
+40đ  Hoàng Ngọc Sơn   — Tiết trống phải chờ (5 lần, −30 điểm)
+41đ  Phạm Thu Hà      — Tiết trống phải chờ (4 lần, −24 điểm)
+48đ  Vũ Thị Hương     — Buổi đến trường dư (4 lần, −20 điểm)
+
+Phân bố: 40 41 47 48 49 64 65 68 69 70 81 81 82 90 90 92 92 93 95
+```
+
+**Đây là phát hiện đáng nói.** Thời khóa biểu này **hợp lệ, 0 lỗi cứng, điểm tốt** — nhưng
+một giáo viên có tuần 40 điểm trong khi người khác 95. Điểm tổng không hề cho biết điều đó;
+nó cộng mọi khoản trừ lại rồi im lặng về việc phần bất tiện rơi vào ai.
+
+**Mỗi giáo viên được chấm so với chính khối lượng dạy của họ.** Người dạy 20 tiết không thể
+có tuần giống người dạy 8 tiết — trừ điểm vì chênh lệch không thể tránh đó thì chính chỉ số
+công bằng lại thành bất công.
 
 ---
 

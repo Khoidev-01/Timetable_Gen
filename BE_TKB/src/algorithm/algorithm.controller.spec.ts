@@ -10,6 +10,7 @@ import { SwapGraphService } from './swap-graph.service';
 import { ChangeLogService } from './change-log.service';
 import { AnalyticsService } from './analytics.service';
 import { PatternMiningService } from './pattern-mining.service';
+import { FairnessService } from './fairness.service';
 
 describe('AlgorithmController', () => {
   let controller: AlgorithmController;
@@ -28,6 +29,7 @@ describe('AlgorithmController', () => {
         { provide: ChangeLogService, useValue: {} },
         { provide: AnalyticsService, useValue: {} },
         { provide: PatternMiningService, useValue: {} },
+        { provide: FairnessService, useValue: {} },
       ],
     }).compile();
 

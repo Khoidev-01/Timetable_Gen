@@ -19,6 +19,7 @@ import { SwapGraphService } from './swap-graph.service';
 import { ChangeLogService } from './change-log.service';
 import { AnalyticsService } from './analytics.service';
 import { PatternMiningService } from './pattern-mining.service';
+import { FairnessService } from './fairness.service';
 
 @Module({
   imports: [
@@ -31,7 +32,7 @@ import { PatternMiningService } from './pattern-mining.service';
     forwardRef(() => WorkerModule)
   ],
   controllers: [AlgorithmController],
-  providers: [AlgorithmService, ExportService, ConstraintService, FeasibilityService, AlgorithmGateway, BenchmarkService, VariantService, SwapGraphService, ChangeLogService, AnalyticsService, PatternMiningService],
+  providers: [AlgorithmService, ExportService, ConstraintService, FeasibilityService, AlgorithmGateway, BenchmarkService, VariantService, SwapGraphService, ChangeLogService, AnalyticsService, PatternMiningService, FairnessService],
   exports: [AlgorithmService, AlgorithmGateway, ConstraintService]
 })
 export class AlgorithmModule { }
