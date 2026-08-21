@@ -8,6 +8,7 @@ import AppLogo from '../components/AppLogo';
 import ThemeToggle from '../components/ThemeToggle';
 import { API_URL } from '@/lib/api';
 import { Toaster } from '@/lib/toast';
+import AssistantWidget from '../components/AssistantWidget';
 
 const teacherMenuItems = [
   { name: 'Tổng quan', href: '/teacher', icon: LayoutDashboard },
@@ -243,6 +244,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
         <main className="flex-1 overflow-auto p-4 md:p-6">
           {children}
         </main>
+        <AssistantWidget />
       </div>
     </div>
   );

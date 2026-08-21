@@ -10,8 +10,13 @@ import { Actor } from './tool.types';
  */
 export function resolveTeacherScope(
   actor: Actor,
-  requested?: string,
+  rawRequested?: string,
 ): { allowed: true; teacherId: string } | { allowed: false; reason: string } {
+  // Models fill optional string parameters with "" instead of omitting them - observed
+  // with cx/gpt-5.6-sol on the first real call. An empty string means "not specified",
+  // and treating it as a teacher id would have an admin looking up nobody.
+  const requested = rawRequested?.trim() ? rawRequested.trim() : undefined;
+
   if (actor.role === 'ADMIN') {
     const teacherId = requested ?? actor.teacherId;
     if (!teacherId) {

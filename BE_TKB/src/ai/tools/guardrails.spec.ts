@@ -35,6 +35,13 @@ describe('phạm vi được phép hỏi', () => {
     expect(resolveTeacherScope(admin, otherTeacher)).toEqual({ allowed: true, teacherId: otherTeacher });
   });
 
+  it('chuỗi rỗng nghĩa là không nêu, không phải mã giáo viên', () => {
+    // Mô hình điền "" vào tham số tuỳ chọn thay vì bỏ trống — gặp thật ở lần gọi đầu tiên
+    expect(resolveTeacherScope(teacher, '')).toEqual({ allowed: true, teacherId: 'T-lan' });
+    expect(resolveTeacherScope(teacher, '   ')).toEqual({ allowed: true, teacherId: 'T-lan' });
+    expect(resolveTeacherScope(admin, '').allowed).toBe(false);
+  });
+
   it('quản trị viên không nêu tên ai thì bị hỏi lại, không đoán bừa', () => {
     const scope = resolveTeacherScope(admin);
     expect(scope.allowed).toBe(false);

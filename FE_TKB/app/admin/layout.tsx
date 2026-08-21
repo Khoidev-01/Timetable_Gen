@@ -7,6 +7,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import { Bell, LogOut, User, Settings, Check, FileSpreadsheet, Calendar, MessageSquare, Clock, Monitor } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 import { Toaster } from '@/lib/toast';
+import AssistantWidget from '../components/AssistantWidget';
 
 interface Notification {
   id: string;
@@ -299,6 +300,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <main data-app-content className="flex-1 overflow-auto p-4 md:p-6">
           {children}
         </main>
+        <AssistantWidget />
       </div>
     </div>
   );
