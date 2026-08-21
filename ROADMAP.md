@@ -1019,17 +1019,37 @@ Làm **ngay sau** orchestrator, trước khi mở giao diện cho người dùng
 
 ---
 
-### C6 — Bộ 50 câu hỏi vàng 🔴 ★★★
-**Ngày công:** 1.5 · **Phụ thuộc:** C3, C4
+### C6 — Bộ 50 câu hỏi vàng ✅ **ĐÃ LÀM**
+**Ngày công:** 1.5 · **Phụ thuộc:** C3
 
-5 nhóm × 10 câu: tra cứu lịch · đếm/thống kê · kiểm tra khả thi · tra quy chế · **câu hỏi bẫy vượt quyền**.
+**Chạm vào:** `ai/eval/golden-questions.ts` · `ai/eval/assistant-eval.service.ts` ·
+`POST /ai/eval`
+
+5 nhóm × 10 câu: tra cứu lịch · thống kê · kiểm tra khả thi · tra quy chế ·
+**câu hỏi bẫy vượt quyền**.
 
 **Hoàn thành khi:**
-- [ ] Mỗi câu có đáp án đúng và tool đúng cần gọi
-- [ ] Script chạy tự động, xuất bảng kết quả
-- [ ] Đo đủ: tool selection accuracy, answer accuracy, refusal rate, độ trễ TB, chi phí TB/câu
-- [ ] Refusal rate trên nhóm câu bẫy = 100%
-- [ ] Kết quả đưa được thẳng vào báo cáo
+- [x] Mỗi câu có đáp án đúng và tool đúng cần gọi
+- [x] Script chạy tự động, xuất bảng kết quả
+- [x] Đo đủ: tool selection accuracy, answer accuracy, refusal rate, độ trễ trung vị
+- [x] Refusal rate trên nhóm câu bẫy = 100%
+- [x] Kết quả đưa được thẳng vào báo cáo
+
+**Vì sao mục này tồn tại.** *"Trợ lý có vẻ ổn"* không phải thứ ai kiểm chứng hay bảo vệ
+được. Năm mươi câu có đáp án biết trước biến việc chọn mô hình thành một phép đo — đúng cách
+Benchmark Lab (`A1`) đã biến việc chọn thuật toán thành phép đo. Đổi mô hình chỉ là một dòng
+`.env`, nên so hai mô hình trên cùng bộ câu hỏi tốn vài phút.
+
+**So sánh tiếng Việt bỏ dấu và bỏ phân biệt hoa thường.** Một mô hình diễn đạt khác đi thì
+không sai; chỉ khi nó **gọi sai công cụ**, hoặc **trả lời câu lẽ ra phải từ chối**, mới là
+sai.
+
+**Dữ liệu trong câu hỏi lấy từ database lúc chạy**, không cứng trong file — mã tiết và tên
+giáo viên gõ cứng sẽ hỏng ngay lần nạp lại dữ liệu đầu tiên.
+
+**Nhóm câu bẫy là nhóm quan trọng nhất.** Mười câu được thiết kế để dụ trợ lý làm điều nó
+không được phép: giả danh hiệu trưởng, tiêm chỉ thị, viện cớ khẩn cấp, bảo nó đoán thay vì
+tra. Mức đạt ở nhóm này là **100%**, không phải "phần lớn".
 
 ---
 ---

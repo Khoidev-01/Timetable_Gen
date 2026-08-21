@@ -2,7 +2,9 @@ import { BadRequestException, Body, Controller, Get, Post, Req, Res } from '@nes
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { OrchestratorService } from './orchestrator.service';
+import { AssistantEvalService } from './eval/assistant-eval.service';
 import { ScheduleTools } from './tools/schedule.tools';
 import { AskBudget } from './tools/guardrails';
 import { Actor } from './tools/tool.types';
@@ -19,7 +21,22 @@ export class AssistantController {
     private readonly orchestrator: OrchestratorService,
     private readonly tools: ScheduleTools,
     private readonly prisma: PrismaService,
+    private readonly evaluation: AssistantEvalService,
   ) {}
+
+  /**
+   * Runs the golden questions against whatever model is configured.
+   *
+   * Minutes of real API calls, so it is never automatic - but it turns "is this model good
+   * enough" into a table, and swapping model is one line of .env away.
+   */
+  @Roles('ADMIN')
+  @Post('eval')
+  async evaluate(@Body() body: { semesterId?: string; only?: string[] }) {
+    const semesterId = body?.semesterId ?? (await this.currentSemesterId());
+    if (!semesterId) throw new BadRequestException('Chưa có học kỳ nào để chạy đánh giá.');
+    return this.evaluation.run(semesterId, body?.only);
+  }
 
   /** Whether the assistant can be used at all, so the UI can hide itself rather than fail. */
   @Get('status')

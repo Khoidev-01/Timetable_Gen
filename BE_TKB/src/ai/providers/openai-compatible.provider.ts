@@ -8,7 +8,9 @@ import {
 
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.6';
-const TIMEOUT_MS = 45_000;
+const TIMEOUT_MS = 60_000;
+const MAX_ATTEMPTS = 3;
+const RETRY_BASE_MS = 1_200;
 
 /**
  * Talks to anything that speaks the `/chat/completions` shape.
@@ -58,6 +60,28 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       );
     }
 
+    // A provider that drops one connection in ten looks exactly like a broken assistant to
+    // a teacher, and exactly like a bad model in an evaluation. Found the hard way: an
+    // eval run lost seventeen of fifty questions to transient failures and scored them all
+    // as wrong. Retry the failures that are worth retrying, and say which is which.
+    let lastError: any;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        return await this.callOnce(messages, tools);
+      } catch (error: any) {
+        lastError = error;
+        if (!error?.retryable || attempt === MAX_ATTEMPTS) break;
+
+        const backoff = RETRY_BASE_MS * 2 ** (attempt - 1);
+        this.logger.warn(`LLM lỗi tạm thời (lần ${attempt}/${MAX_ATTEMPTS}), thử lại sau ${backoff}ms`);
+        await new Promise((resolve) => setTimeout(resolve, backoff));
+      }
+    }
+    throw lastError;
+  }
+
+  private async callOnce(messages: LlmMessage[], tools: LlmToolSpec[]): Promise<LlmReply> {
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -97,12 +121,15 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         this.logger.error(`LLM ${response.status}: ${detail}`);
 
         // The provider's own error text is for the log, not for a teacher's screen
-        throw new ServiceUnavailableException(
-          response.status === 401
-            ? 'Khoá API của trợ lý không hợp lệ. Liên hệ quản trị viên.'
-            : response.status === 429
-              ? 'Trợ lý đang quá tải hoặc đã hết lượt dùng. Thử lại sau ít phút.'
-              : 'Trợ lý tạm thời không phản hồi. Thử lại sau ít phút.',
+        throw retryableIf(
+          response.status === 429 || response.status >= 500,
+          new ServiceUnavailableException(
+            response.status === 401
+              ? 'Khoá API của trợ lý không hợp lệ. Liên hệ quản trị viên.'
+              : response.status === 429
+                ? 'Trợ lý đang quá tải hoặc đã hết lượt dùng. Thử lại sau ít phút.'
+                : 'Trợ lý tạm thời không phản hồi. Thử lại sau ít phút.',
+          ),
         );
       }
 
@@ -123,16 +150,27 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       };
     } catch (error: any) {
       if (error?.name === 'AbortError') {
-        throw new ServiceUnavailableException('Trợ lý trả lời quá lâu nên đã dừng. Thử hỏi ngắn gọn hơn.');
+        throw retryableIf(
+          true,
+          new ServiceUnavailableException('Trợ lý trả lời quá lâu nên đã dừng. Thử hỏi ngắn gọn hơn.'),
+        );
       }
       if (error instanceof ServiceUnavailableException) throw error;
 
+      // A dropped socket is the classic transient failure, and the one that silently
+      // ruined the first evaluation run
       this.logger.error(`LLM gọi hỏng: ${error?.message ?? error}`);
-      throw new ServiceUnavailableException('Không kết nối được tới trợ lý.');
+      throw retryableIf(true, new ServiceUnavailableException('Không kết nối được tới trợ lý.'));
     } finally {
       clearTimeout(timer);
     }
   }
+}
+
+/** Marks an error as worth retrying, without inventing a new error class for it. */
+function retryableIf<T>(retryable: boolean, error: T): T {
+  (error as any).retryable = retryable;
+  return error;
 }
 
 function toWireMessage(message: LlmMessage) {

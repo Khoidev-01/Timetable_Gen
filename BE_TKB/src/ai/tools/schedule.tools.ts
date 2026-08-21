@@ -95,7 +95,10 @@ export class ScheduleTools {
   private getTeacherWorkload(): ToolDefinition {
     return {
       name: 'get_teacher_workload',
-      description: 'Số tiết dạy trong tuần so với định mức, và chất lượng lịch của giáo viên.',
+      description:
+        'Dùng cho mọi câu hỏi về SỐ LƯỢNG: bao nhiêu tiết, có vượt định mức không, ' +
+        'đến trường mấy buổi, lịch có nhiều tiết trống không. ' +
+        'Khác get_my_schedule ở chỗ đó trả về từng tiết cụ thể, còn cái này trả về con số tổng hợp.',
       parameters: {
         type: 'object',
         properties: { teacherId: { type: 'string', description: 'Chỉ quản trị viên mới dùng được.' } },
@@ -129,13 +132,19 @@ export class ScheduleTools {
   private findFreeTeachers(): ToolDefinition {
     return {
       name: 'find_free_teachers',
-      description: 'Những giáo viên không có tiết vào một khung giờ cụ thể.',
+      description:
+        'Những giáo viên không có tiết vào một khung giờ cụ thể. ' +
+        'Chỉ cần thứ và tiết là gọi được — KHÔNG hỏi lại người dùng về môn, ' +
+        'bỏ trống subjectCode thì trả về mọi giáo viên rảnh.',
       parameters: {
         type: 'object',
         properties: {
           day: { type: 'number', description: 'Thứ, từ 2 đến 7' },
           period: { type: 'number', description: 'Tiết, từ 1 đến 10' },
-          subjectCode: { type: 'string', description: 'Lọc theo môn chuyên môn, ví dụ TOAN' },
+          subjectCode: {
+            type: 'string',
+            description: 'TUỲ CHỌN. Chỉ điền khi người dùng nêu rõ môn, ví dụ TOAN. Bỏ trống để lấy tất cả.',
+          },
         },
         required: ['day', 'period'],
       },
