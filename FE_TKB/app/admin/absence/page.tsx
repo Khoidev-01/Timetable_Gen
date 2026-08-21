@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Send } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import PendingLeaveRequests from '../../components/admin/PendingLeaveRequests';
 
 type CoverageMode = 'SUBSTITUTE' | 'MERGED' | 'SELF_STUDY' | 'CANCELLED';
 
@@ -45,6 +46,8 @@ export default function AbsencePage() {
   const [choice, setChoice] = useState<Record<string, { mode: CoverageMode; substituteTeacherId?: string }>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+  /** Set after an approval so the planner runs once the teacher and date have landed. */
+  const [pendingPlan, setPendingPlan] = useState(false);
 
   const authHeaders = () => ({
     'Content-Type': 'application/json',
@@ -75,6 +78,14 @@ export default function AbsencePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!pendingPlan || !semesterId || !teacherId || !date) return;
+    setPendingPlan(false);
+    findCover();
+    // findCover is recreated each render; depending on it would loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPlan, semesterId, teacherId, date]);
 
   const findCover = async () => {
     if (!semesterId || !teacherId || !date) return;
@@ -170,6 +181,19 @@ export default function AbsencePage() {
           không bị sửa — chỉ ngày đó thay đổi, hôm sau tự trở lại bình thường.
         </p>
       </div>
+
+      {semesterId && (
+        <PendingLeaveRequests
+          semesterId={semesterId}
+          onApproved={(approvedTeacherId, approvedDate) => {
+            // Carry the approval straight into the planner below, so the classes it
+            // just left uncovered are the next thing on screen
+            setTeacherId(approvedTeacherId);
+            setDate(approvedDate);
+            setPendingPlan(true);
+          }}
+        />
+      )}
 
       <div className="space-y-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">

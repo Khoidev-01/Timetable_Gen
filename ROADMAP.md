@@ -1067,6 +1067,35 @@ lại lý do không quy được ra ngày thay vì bỏ qua im lặng.
 
 ---
 
+### B8 — Duyệt đơn nghỉ ngay tại chỗ xử lý vắng mặt ✅ **ĐÃ LÀM**
+**Ngày công:** 0.5 · **Phụ thuộc:** B7
+
+`B7` nối được đơn đã duyệt vào lịch hiệu lực, nhưng admin vẫn phải duyệt ở một màn hình rồi
+sang màn hình khác mới phân được dạy thay — nên có thể duyệt một tuần vắng mà **không bao
+giờ nhìn thấy những lớp bị bỏ trống**.
+
+**Chạm vào:** `PendingLeaveRequests` · `/admin/absence`
+
+**Hoàn thành khi:**
+- [x] Đơn chờ duyệt hiện ngay đầu trang xử lý vắng mặt, kèm ngày cụ thể đã quy đổi
+- [x] Duyệt / từ chối ngay tại chỗ
+- [x] Duyệt xong tự mở phần phân dạy thay đúng giáo viên và đúng ngày đó
+
+**Ngày cụ thể do máy chủ trả về**, không tính lại ở trình duyệt. Lặp lại phép quy đổi
+tuần-ra-ngày ở hai nơi là hai nơi có thể ra hai kết quả khác nhau.
+
+**Kiểm chứng qua API thật, đúng những lời gọi mà giao diện thực hiện:**
+
+```
+1. Danh sách chờ duyệt: 1 đơn, có teacher_id
+2. Xem trước: 200 — Phạm Văn Dũng nghỉ ngày 2026-09-23, 1 tiết cần bù
+3. Duyệt:     200 — {"periods":1,"overlays":1}
+4. Còn chờ duyệt: 0 đơn
+5. Phần phân dạy thay mở ra: 2 tiết, tiết đầu có 3 ứng viên
+```
+
+---
+
 ### 0.19 — Đọc bản chính thức phải xác định ✅ **ĐÃ LÀM**
 **Ngày công:** 0.5 · **Phụ thuộc:** —
 
