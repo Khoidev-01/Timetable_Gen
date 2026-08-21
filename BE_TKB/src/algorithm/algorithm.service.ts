@@ -2,6 +2,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService, TimeSlot } from './constraint.service';
+import { IncrementalScorer } from './incremental-scorer';
 import { AlgorithmGateway, SlotTuple } from './algorithm.gateway';
 import { Move, MoveOperations } from './solvers/solver.interface';
 import { LocalSearchSolver } from './solvers/improvement.solvers';
@@ -1019,7 +1020,12 @@ export class AlgorithmService {
         const PLATEAU_LIMIT = Math.max(1000, Math.floor(iterations / 5));
 
         const slots: TimeSlot[] = solution.slots;
-        let score = this.calculateFitness(slots);
+
+        // Rescoring all 217 periods after every candidate move is what made each added
+        // constraint slow the whole search down. This rechecks only the classes and
+        // teachers a move touched; the numbers are identical, see incremental-scoring.spec.
+        const scorer = new IncrementalScorer(this.constraintService, slots);
+        let score = scorer.fitness();
         const initial = score;
 
         let improvements = 0;
@@ -1041,7 +1047,7 @@ export class AlgorithmService {
 
             if (!undo) continue;
 
-            const candidate = this.calculateFitness(slots);
+            const candidate = scorer.fitness();
 
             if (candidate > score) {
                 score = candidate;
@@ -1068,9 +1074,21 @@ export class AlgorithmService {
      * swapping the solver, not rewriting the neighbourhood.
      */
     public moveOperations(): MoveOperations {
+        // One scorer per schedule: a solver evaluates the same array over and over, so the
+        // caches stay warm across the whole run.
+        const scorers = new WeakMap<TimeSlot[], IncrementalScorer>();
+        const scorerFor = (slots: TimeSlot[]) => {
+            let scorer = scorers.get(slots);
+            if (!scorer) {
+                scorer = new IncrementalScorer(this.constraintService, slots);
+                scorers.set(slots, scorer);
+            }
+            return scorer;
+        };
+
         return {
-            fitness: (slots: TimeSlot[]) => this.calculateFitness(slots),
-            hardViolations: (slots: TimeSlot[]) => this.constraintService.checkHardConstraints(slots),
+            fitness: (slots: TimeSlot[]) => scorerFor(slots).fitness(),
+            hardViolations: (slots: TimeSlot[]) => scorerFor(slots).hardViolations(),
             randomMove: (slots: TimeSlot[]) => {
                 const movable = slots.filter(s => !s.isLocked);
                 if (movable.length < 2) return null;

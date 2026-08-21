@@ -1269,3 +1269,60 @@ Hai chỗ đã sửa được ngay:
 **Cách sửa tận gốc là đánh giá tăng dần**: một thao tác đổi chỗ chỉ đụng 2 tiết, nên chỉ cần
 tính lại phần điểm liên quan tới 2 tiết đó thay vì cả 217. Đây là việc riêng, đáng đưa vào
 lộ trình — nếu không, mỗi ràng buộc mới sẽ tiếp tục làm mọi lần chạy chậm thêm.
+
+---
+
+# Phụ lục I — Chấm điểm tăng dần: 100 lần nhanh hơn
+
+## I.1 — Vấn đề tự lớn dần
+
+Ở Phụ lục H tôi ghi nhận thuật toán chậm dần theo mỗi ràng buộc thêm vào. Đến mục `D2` thì
+một lần chạy vượt 10 phút và bị cắt. Nguyên nhân đơn giản: sau **mỗi thao tác thử**, điểm
+được tính lại từ đầu trên cả 217 tiết.
+
+## I.2 — Nhận xét khiến việc này làm được
+
+Một thao tác đổi chỗ chỉ thay đổi **khi nào** một hai tiết diễn ra. Nó không đổi:
+
+- tiết nào tồn tại → `checkMissingPeriods` bất biến
+- ai dạy tiết nào → `checkTeacherWeeklyLimit` bất biến
+- tiết thuộc lớp nào
+
+Vậy chỉ cần chấm lại **một hai lớp và một hai giáo viên** liên quan. Trên 7 lớp và 21 giáo
+viên, đó là phần lớn công việc được bỏ qua.
+
+Phép tách chính xác tuyệt đối chứ không phải xấp xỉ, vì mọi hàm chấm điểm vốn đã cộng dồn
+độc lập theo từng lớp / từng giáo viên — chúng chỉ chưa bao giờ được gọi riêng lẻ.
+
+## I.3 — Kết quả
+
+| | Trước | Sau |
+| :--- | ---: | ---: |
+| Một lần chạy | > 10 phút (bị cắt) | **4,1 – 5,7 giây** |
+| Điểm | −289 | **−151 … −283** |
+| Lỗi cứng | 0 | 0 |
+| Hợp lệ | ✅ | ✅ 4/4 lần |
+
+Điểm còn **tốt hơn** vì trong cùng ngân sách vòng lặp, tìm kiếm nay chạy trọn vẹn thay vì bị
+cắt giữa chừng.
+
+## I.4 — Hai quyết định thiết kế
+
+**Bộ chấm điểm tự phát hiện thay đổi.** Phương án hiển nhiên là bắt mỗi hàm sinh thao tác
+khai báo những tiết nó vừa đụng. Cách đó chạy đúng cho tới khi ai đó thêm loại thao tác thứ
+tư rồi quên khai — và lỗi sẽ im lặng, chỉ biểu hiện thành điểm sai. Thay vào đó bộ chấm điểm
+giữ ảnh chụp vị trí và tự so. Duyệt 217 tiết so hai số nguyên rẻ hơn nhiều so với chấm lại
+một lớp, và không thể quên được.
+
+**Điều kiện bắt buộc: phải trùng khít.** Một bộ chấm điểm lệch dần sẽ khiến thuật toán tối ưu
+một con số khác với con số nhà trường nhìn thấy, mà không có gì báo. `incremental-scoring.spec.ts`
+đối chiếu với bản tính đầy đủ sau **mỗi** thao tác, qua hơn 700 lần đổi chỗ và dời tiết ngẫu
+nhiên, trên lịch sinh ngẫu nhiên có cả lịch bận, nguyện vọng và môn ngoài trời.
+
+## I.5 — Thử nâng ngân sách vòng lặp: không đáng
+
+Nhanh gấp 100 lần thì tự nhiên nghĩ tới việc đổi tốc độ lấy chất lượng. Đã thử 40.000 và
+120.000 vòng thay vì 12.000: mỗi lần chạy trở lại mức vài phút. Lý do là ngưỡng dừng sớm
+(`plateauLimit`) tính theo ngân sách, nên tăng ngân sách thì tìm kiếm không còn thoát sớm
+nữa. Giữ nguyên 12.000. Muốn chỉnh cho đúng thì nên dùng Benchmark Lab (`A1`) chứ không phải
+đoán.

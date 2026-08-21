@@ -979,6 +979,54 @@ thời khóa biểu vi phạm chúng là không thực hiện được, không p
 
 ---
 
+### 0.18 — Chấm điểm tăng dần ✅ **ĐÃ LÀM**
+**Ngày công:** 2 · **Phụ thuộc:** 0.17
+
+Mỗi ràng buộc thêm vào đều làm **toàn bộ** quá trình tìm kiếm chậm đi, vì điểm được tính lại
+từ đầu trên cả 217 tiết sau mọi thao tác thử. Đến mục `D2` thì một lần chạy đã vượt 10 phút.
+
+**Chạm vào:** `IncrementalScorer` · `ConstraintService.classPenalty/teacherPenalty/
+classHardViolations/teacherHardViolations/crossEntityHardViolations/invariantHardViolations`
+
+**Nhận xét khiến việc này làm được:** một thao tác đổi chỗ chỉ thay đổi *khi nào* một hai
+tiết diễn ra. Nó không đổi tiết nào tồn tại, ai dạy, hay thuộc lớp nào. Vậy chỉ cần chấm lại
+một hai lớp và một hai giáo viên liên quan — trên 7 lớp và 21 giáo viên thì phần lớn công
+việc được bỏ qua.
+
+Mọi hàm chấm điểm vốn đã **cộng dồn độc lập theo từng lớp / từng giáo viên**, nên phép tách
+là chính xác tuyệt đối chứ không phải xấp xỉ.
+
+**Kết quả đo:**
+
+| | Trước | Sau |
+| :--- | ---: | ---: |
+| Một lần chạy | > 10 phút (bị cắt) | **4,1 – 5,7 giây** |
+| Điểm | −289 | **−151 … −283** |
+| Lỗi cứng | 0 | 0 |
+
+Nhanh hơn khoảng **100 lần**, và điểm còn tốt hơn vì trong cùng ngân sách vòng lặp thì tìm
+kiếm chạy được trọn vẹn thay vì bị cắt giữa chừng.
+
+**Hai điều được giữ ngoài phép tính tăng dần, có lý do:**
+- `checkMissingPeriods` và `checkTeacherWeeklyLimit` **bất biến** dưới mọi thao tác — đổi chỗ
+  không làm mất tiết cũng không đổi giáo viên — nên chỉ tính một lần cho cả lần chạy.
+- Trùng phòng và sức chứa phòng chức năng không quy về một lớp hay một giáo viên nào, nên
+  vẫn tính toàn cục. Trong lúc tìm kiếm thì phòng chưa được gán nên chúng gần như bằng 0.
+
+**Bộ chấm điểm tự phát hiện thay đổi** thay vì bắt mỗi hàm sinh thao tác phải khai báo. Cách
+kia chạy đúng cho tới khi ai đó thêm loại thao tác thứ tư rồi quên khai. So hai số nguyên
+cho mỗi tiết rẻ hơn nhiều so với chấm lại một lớp, và không thể quên được.
+
+**Điều kiện bắt buộc: kết quả phải trùng khít.** `incremental-scoring.spec.ts` đối chiếu với
+bản tính đầy đủ sau **mỗi** thao tác trên hơn 700 lần đổi chỗ ngẫu nhiên. Nếu hai bên lệch
+nhau, thuật toán sẽ tối ưu một con số khác với con số nhà trường nhìn thấy — mà không ai
+báo.
+
+**Đã thử nâng ngân sách vòng lặp lên 40.000 và 120.000**: không đáng, vì ngưỡng dừng sớm
+cũng tính theo ngân sách nên tìm kiếm không thoát nữa, mỗi lần chạy mất vài phút. Giữ 12.000.
+
+---
+
 ### E3 — Xuất PDF 🟡
 **Ngày công:** 1.5 · **Phụ thuộc:** B1
 

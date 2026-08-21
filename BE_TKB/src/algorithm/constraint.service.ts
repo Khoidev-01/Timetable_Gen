@@ -653,33 +653,116 @@ export class ConstraintService {
     // --- SOFT CONSTRAINTS ---
     calculatePenalty(schedule: TimeSlot[]): number {
         let score = 0;
-        const classSchedule = this.groupBy(schedule, 'classId');
-        const teacherSchedule = this.groupBy(schedule, 'teacherId');
+        for (const slots of this.groupBy(schedule, 'classId').values()) {
+            score += this.classPenalty(slots);
+        }
+        for (const [teacherId, slots] of this.groupBy(schedule, 'teacherId')) {
+            score += this.teacherPenalty(teacherId, slots);
+        }
+        return score;
+    }
 
-        score += this.checkSpreadSubjects(classSchedule) * this.weights.spreadSubjects;
-        score += this.checkHeavySubjects(classSchedule) * this.weights.heavySubjects;
-        score += this.checkMorningPriority(classSchedule) * this.weights.morningPriority;
-        score += this.checkBlock2(classSchedule) * this.weights.block2;
-        score += this.checkNoHoles(teacherSchedule) * this.weights.teacherGaps;
-        score += this.checkMaxLoad(teacherSchedule) * this.weights.teacherMaxLoad;
-        score += this.checkTeacherAttendance(teacherSchedule) * this.weights.teacherAttendance;
-        score += this.checkBothSessionsSameDay(teacherSchedule) * this.weights.bothSessionsSameDay;
-        score += this.checkAfterPhysicalEd(classSchedule) * this.weights.afterPhysicalEd;
-        score += this.checkNoDayOff(teacherSchedule) * this.weights.noDayOff;
-        score += this.checkConsecutiveTeaching(teacherSchedule) * this.weights.consecutiveTeaching;
-        score += this.checkSubjectSpacing(classSchedule) * this.weights.subjectSpacing;
-        score += this.checkAfternoonLoad(classSchedule) * this.weights.afternoonOverload;
-        score += this.checkMobilityCost(teacherSchedule) * this.weights.mobility;
-        score += this.checkOutdoorTiming(schedule) * this.weights.outdoorTiming;
-        score += this.checkBlockRules(classSchedule) * this.weights.blockRules;
+    /**
+     * Every soft rule that depends only on one class's own periods.
+     *
+     * Split out so a single move can be scored by re-checking the one or two classes it
+     * touched instead of all of them. Each rule already summed independently per class,
+     * which is what makes the split exact rather than an approximation - see
+     * `incremental-scoring.spec.ts`, which asserts the two agree on random schedules.
+     */
+    public classPenalty(slots: TimeSlot[]): number {
+        const one = new Map<string, TimeSlot[]>([['c', slots]]);
+        const w = this.weights;
+
+        return (
+            this.checkSpreadSubjects(one) * w.spreadSubjects +
+            this.checkHeavySubjects(one) * w.heavySubjects +
+            this.checkMorningPriority(one) * w.morningPriority +
+            this.checkBlock2(one) * w.block2 +
+            this.checkAfterPhysicalEd(one) * w.afterPhysicalEd +
+            this.checkSubjectSpacing(one) * w.subjectSpacing +
+            this.checkAfternoonLoad(one) * w.afternoonOverload +
+            this.checkBlockRules(one) * w.blockRules +
+            this.checkOutdoorTiming(slots) * w.outdoorTiming
+        );
+    }
+
+    /** Every soft rule that depends only on one teacher's own periods. */
+    public teacherPenalty(teacherId: string, slots: TimeSlot[]): number {
+        const one = new Map<string, TimeSlot[]>([[teacherId, slots]]);
+        const w = this.weights;
+
+        let score =
+            this.checkNoHoles(one) * w.teacherGaps +
+            this.checkMaxLoad(one) * w.teacherMaxLoad +
+            this.checkTeacherAttendance(one) * w.teacherAttendance +
+            this.checkBothSessionsSameDay(one) * w.bothSessionsSameDay +
+            this.checkNoDayOff(one) * w.noDayOff +
+            this.checkConsecutiveTeaching(one) * w.consecutiveTeaching +
+            this.checkMobilityCost(one) * w.mobility;
 
         // A granted wish subtracts from the penalty rather than adding to a separate
         // reward total, so the solvers keep minimising one number.
-        const wishes = this.preferenceReport(schedule);
-        score += wishes.avoidedUsed * this.weights.teacherAvoid;
-        score -= wishes.preferGranted * this.weights.teacherPrefer;
-
+        if (this.avoidCells.size > 0 || this.preferCells.size > 0) {
+            for (const slot of slots) {
+                if (this.isTeacherAvoiding(teacherId, slot.day, slot.period)) score += w.teacherAvoid;
+                if (this.isTeacherPreferring(teacherId, slot.day, slot.period)) score -= w.teacherPrefer;
+            }
+        }
         return score;
+    }
+
+    /** Hard violations that live inside one class's own periods. */
+    public classHardViolations(slots: TimeSlot[]): number {
+        let violations = this.countTimeOverlaps(slots);
+        if (!this.isHardDisabled('classGaps')) {
+            violations += this.checkClassGaps(slots);
+        }
+        return violations;
+    }
+
+    /** Hard violations that live inside one teacher's own periods. */
+    public teacherHardViolations(teacherId: string, slots: TimeSlot[]): number {
+        let violations = this.countTimeOverlaps(slots);
+
+        if (!this.isHardDisabled('teacherBusy')) {
+            for (const slot of slots) {
+                if (this.isTeacherBusy(teacherId, slot.day, slot.period)) violations++;
+            }
+        }
+        if (!this.isHardDisabled('sessionRestriction')) {
+            violations += this.checkSessionRestriction(slots);
+        }
+        return violations;
+    }
+
+    /**
+     * The hard checks that cannot be attributed to a single class or teacher.
+     *
+     * `missingPeriods` and `teacherWeeklyLimit` are left out on purpose: moving a period
+     * changes when it happens, never whether it exists or who teaches it, so both are
+     * invariant under every move a solver makes and are counted once per run instead.
+     */
+    public crossEntityHardViolations(schedule: TimeSlot[]): number {
+        let violations = 0;
+
+        const roomGroups = this.groupBy(schedule, 'roomId');
+        for (const [roomId, slots] of roomGroups) {
+            if (this.isRoomlessKey(roomId)) continue;
+            violations += this.countTimeOverlaps(slots);
+        }
+        if (!this.isHardDisabled('roomTypeCapacity')) {
+            violations += this.checkRoomTypeCapacity(schedule);
+        }
+        return violations;
+    }
+
+    /** The hard checks a move cannot change, so a scorer counts them once. */
+    public invariantHardViolations(schedule: TimeSlot[]): number {
+        let violations = 0;
+        if (!this.isHardDisabled('missingPeriods')) violations += this.checkMissingPeriods(schedule);
+        if (!this.isHardDisabled('teacherWeeklyLimit')) violations += this.checkTeacherWeeklyLimit(schedule);
+        return violations;
     }
 
     /**
