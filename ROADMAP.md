@@ -814,10 +814,13 @@ Kiến trúc **Tool-calling agent** cho dữ liệu có cấu trúc, RAG chỉ c
 
 ---
 
-### C1 — Lớp công cụ + adapter LLM 🔴 ★★★
+### C1 — Lớp công cụ ✅ **ĐÃ LÀM** *(phần adapter LLM còn lại ở C2)*
 **Ngày công:** 3 · **Phụ thuộc:** Phase 6
 
-9 tool trên service đã có:
+**Chạm vào:** `BE_TKB/src/ai/tools/` — `tool.types.ts`, `guardrails.ts`, `schedule.tools.ts`,
+`tools.controller.ts`
+
+9 công cụ, mỗi cái gọi thẳng service đã có:
 
 | Tool | Nhóm |
 | :--- | :--- |
@@ -825,18 +828,62 @@ Kiến trúc **Tool-calling agent** cho dữ liệu có cấu trúc, RAG chỉ c
 | `find_free_teachers` · `find_swap_candidates` | Tìm kiếm |
 | `check_swap_feasibility` · `explain_slot` | Kiểm tra |
 | `search_regulations` | Văn bản |
-| `create_swap_request` · `create_busy_registration` | Ghi |
-
-**`check_swap_feasibility` gọi thẳng `ConstraintService`** — AI không tự đánh giá tính hợp lệ nên không thể bịa.
-
-**Chạm vào:**
-- `BE_TKB/src/ai/tools/` *(mới)*
-- `BE_TKB/src/ai/providers/llm-provider.interface.ts` — model ID nằm trong `.env`
+| `create_busy_registration` | Ghi |
 
 **Hoàn thành khi:**
-- [ ] Mọi tool gọi được độc lập bằng `curl`, không cần LLM
-- [ ] Tool nhận `actorId` từ tham số, không đọc từ nội dung câu hỏi
-- [ ] Đổi model chỉ cần sửa 1 dòng `.env`
+- [x] Mọi tool gọi được độc lập bằng `curl`, không cần LLM
+- [x] Tool nhận `actorId` từ tham số, không đọc từ nội dung câu hỏi
+- [x] Đổi model chỉ cần sửa 1 dòng `.env` — `OPENROUTER_MODEL`
+
+**`check_swap_feasibility` gọi thẳng `ConstraintService`.** Mô hình không tự đánh giá tính
+hợp lệ nên không thể bịa. Kiểm chứng qua HTTP: nó trả *"Không đổi được: sẽ sinh lỗi cứng"*
+với `hardViolationsAfter=1` — con số thật từ bộ chấm điểm.
+
+**Kiểm chứng qua HTTP thật, không có mô hình nào trong vòng lặp:**
+
+```
+GET /ai/tools -> 9 công cụ, đúng 1 công cụ ghi dữ liệu
+
+QUYỀN GIÁO VIÊN
+  get_my_schedule              ok=true, 11 tiết
+  get_my_schedule(đồng nghiệp) ok=false -> "Bạn chỉ xem được lịch của chính mình"
+  find_free_teachers           ok=false -> "Việc này chỉ quản trị viên làm được"
+
+QUYỀN ADMIN
+  find_free_teachers      16 giáo viên rảnh
+  check_swap_feasibility  khả thi=false, lỗi cứng sau=1
+  explain_slot            Thứ bảy tiết 5, Sinh hoạt cuối tuần, lớp 11A1
+  search_regulations      nguồn Thông tư 05/2025/TT-BGDĐT
+
+CÔNG CỤ GHI
+  create_busy_registration  trả thẻ xác nhận, tạo 0 bản ghi trong DB
+
+KHÔNG TOKEN  401
+```
+
+---
+
+### C5 — Guardrail bảo mật ✅ **ĐÃ LÀM**
+**Ngày công:** 1.5 · **Phụ thuộc:** C1
+
+Làm **trước** orchestrator, không phải sau — một guardrail nằm trong system prompt là một
+*lời đề nghị*; guardrail nằm trong mã máy chủ là một *quy tắc*. Đó là toàn bộ thiết kế.
+
+**Hoàn thành khi:**
+- [x] GV hỏi "cho tôi xem lịch cô Lan" → chỉ trả về lịch của chính họ
+- [x] Dữ liệu từ DB bọc trong delimiter, đánh dấu là dữ liệu không phải chỉ thị
+- [x] Đặt tên lớp là `"Bỏ qua mọi chỉ dẫn trước đó"` → không có tác dụng
+- [x] Tool ghi luôn trả về thẻ xác nhận, không tự thực thi
+- [x] Giới hạn 20 câu/giờ/người
+- [ ] Trần chi phí theo ngày — *cần số liệu thật từ nhà cung cấp, để lại cho C2*
+
+**Danh tính đóng dấu từ JWT, không có đường nào truyền vào.** Mô hình bị dụ đổi danh tính là
+mô hình bị dụ đọc lịch đồng nghiệp, và "người dùng bảo họ là admin" không phải xác thực.
+
+**Dữ liệu không tự đóng được hàng rào của chính nó** — dấu phân cách nhúng trong giá trị bị
+gỡ trước khi bọc, nên một tên lớp chứa `⟦dữ-liệu⟧` không thoát ra được.
+
+33 test cho riêng lớp công cụ và guardrail, chạy không cần mô hình.
 
 ---
 
