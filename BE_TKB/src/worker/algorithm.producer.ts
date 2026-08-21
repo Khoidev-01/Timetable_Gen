@@ -78,7 +78,12 @@ export class AlgorithmProducer {
         // teachers see half-finished schedules the moment an admin pressed Run.
         const latestTkb =
             (await this.prisma.generatedTimetable.findFirst({
+                // publish() clears the flag on the others in one transaction, but nothing at the
+                // database level enforces that only one row carries it. Without an ordering,
+                // findFirst returns an arbitrary row, so a stray write leaves the whole app
+                // reading a different timetable from the one the school published.
                 where: { semester_id: semesterId, is_official: true },
+                orderBy: { created_at: 'desc' },
                 include: { slots: { where: { week } } },
             })) ??
             (await this.prisma.generatedTimetable.findFirst({

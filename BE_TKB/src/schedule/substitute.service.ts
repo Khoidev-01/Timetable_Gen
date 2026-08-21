@@ -59,7 +59,12 @@ export class SubstituteService {
     if (!absent) throw new NotFoundException('Không tìm thấy giáo viên.');
 
     const timetable = await this.prisma.generatedTimetable.findFirst({
+      // publish() clears the flag on the others in one transaction, but nothing at the
+      // database level enforces that only one row carries it. Without an ordering,
+      // findFirst returns an arbitrary row, so a stray write leaves the whole app
+      // reading a different timetable from the one the school published.
       where: { semester_id: semesterId, is_official: true },
+      orderBy: { created_at: 'desc' },
       include: {
         slots: { include: { class: true, subject: true, room: true } },
       },

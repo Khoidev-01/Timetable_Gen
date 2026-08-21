@@ -1027,6 +1027,61 @@ cũng tính theo ngân sách nên tìm kiếm không thoát nữa, mỗi lần c
 
 ---
 
+### B7 — Nối đơn xin nghỉ vào lịch hiệu lực ✅ **ĐÃ LÀM**
+**Ngày công:** 2 · **Phụ thuộc:** B1, B3
+
+Phát hiện ở Phụ lục H: giáo viên đăng ký nghỉ, admin bấm duyệt, và **không có gì xảy ra**.
+Đơn nằm ở bảng `teacher_busy_requests` mà lịch hiệu lực không đọc, thuật toán cũng không
+đọc. Không ai được phân dạy thay, lớp lên lớp gặp phòng trống.
+
+**Chạm vào:** `AbsenceLinkService` · `BusyScheduleService.approve()` ·
+`GET /schedule/absence-request/:requestId/preview`
+
+**Hoàn thành khi:**
+- [x] Quy `(học kỳ, tuần, thứ)` ra ngày cụ thể, neo vào thứ Hai của tuần đầu học kỳ
+- [x] Duyệt đơn → sinh `ScheduleOverlay` dạng vắng mặt cho đúng ngày đó
+- [x] Nhiều tiết cùng ngày gộp thành một lần vắng, khác ngày thì tách
+- [x] Lớp nhìn thấy ghi chú, giáo viên vắng không còn tiết đó trong lịch
+- [x] Endpoint xem trước để admin biết duyệt xong sẽ ra gì
+
+**Kiểm chứng đầu-cuối trên dữ liệu thật:**
+
+```
+Bùi Thị Mai xin nghỉ Tuần 2, Thứ 3, tiết 4 (= 2026-09-15)
+Trước khi duyệt: 2 tiết trong lịch hiệu lực, 0 overlay
+Duyệt đơn:       {"periods":1,"overlays":1}
+Sau khi duyệt:   1 tiết trong lịch hiệu lực, 1 overlay
+Lớp nhìn thấy:   "10A2 tiết 4: nghỉ (Họp chuyên môn cấp Sở)"
+```
+
+**Cố ý không tự phân người dạy thay.** Ai đứng lớp thay là quyết định của phó hiệu trưởng;
+danh sách ứng viên đã xếp hạng là gợi ý, không phải câu trả lời. Điều được bảo đảm là **lần
+vắng hiện ra trong lịch** thay vì im lặng không làm gì.
+
+**Cố ý không tạo `TeacherConstraint`.** Nghỉ một buổi mà biến thành ràng buộc lặp hàng tuần
+sẽ chặn khung giờ đó suốt học kỳ. Vắng có ngày cụ thể thuộc về tầng overlay — đúng thứ kiến
+trúc hai tầng (`B1`) sinh ra để làm.
+
+**Học kỳ thiếu ngày bắt đầu thì không chặn việc duyệt** — đơn vẫn được duyệt, hệ thống ghi
+lại lý do không quy được ra ngày thay vì bỏ qua im lặng.
+
+---
+
+### 0.19 — Đọc bản chính thức phải xác định ✅ **ĐÃ LÀM**
+**Ngày công:** 0.5 · **Phụ thuộc:** —
+
+Năm chỗ trong hệ thống tìm thời khóa biểu chính thức bằng `findFirst` **không kèm thứ tự**.
+`publish()` có xoá cờ của các bản khác trong cùng một giao dịch, nhưng **không có ràng buộc
+nào ở tầng cơ sở dữ liệu** bắt buộc chỉ một bản mang cờ đó.
+
+Đã gặp thật trong lúc kiểm thử: một script đặt `is_official` trực tiếp làm có hai bản cùng
+mang cờ, và `findFirst` trả về **bản cũ từ tám ngày trước**. Lịch hiệu lực, bảng điều khiển,
+chỉ số công bằng và luồng dạy thay đều đọc nhầm bản mà không có gì báo.
+
+Đã thêm `orderBy: { created_at: 'desc' }` vào cả năm chỗ, kèm giải thích vì sao.
+
+---
+
 ### E3 — Xuất PDF 🟡
 **Ngày công:** 1.5 · **Phụ thuộc:** B1
 

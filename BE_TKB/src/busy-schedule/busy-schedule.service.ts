@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notifications/notification.service';
+import { AbsenceLinkService } from '../schedule/absence-link.service';
 import { AiService, SwapOptionForAi } from '../ai/ai.service';
 
 const DAY_LABELS: Record<number, string> = { 2: 'Thứ 2', 3: 'Thứ 3', 4: 'Thứ 4', 5: 'Thứ 5', 6: 'Thứ 6', 7: 'Thứ 7' };
@@ -17,10 +18,13 @@ interface SwapOption {
 
 @Injectable()
 export class BusyScheduleService {
+    private readonly logger = new Logger(BusyScheduleService.name);
+
     constructor(
         private prisma: PrismaService,
         private notificationService: NotificationService,
         private aiService: AiService,
+        private readonly absenceLink: AbsenceLinkService,
     ) { }
 
     // ─── TEACHER ───────────────────────────────────────────────────────────────
@@ -136,7 +140,26 @@ export class BusyScheduleService {
             });
         }
 
-        return { success: true };
+        // Approving used to end here: the request sat in its own table, the effective
+        // schedule never merged it, and the class turned up to an empty room. Write the
+        // dated absence into the overlay layer so the timetable people read reflects it.
+        let absence: { periods: number; overlays: number; note?: string } = { periods: 0, overlays: 0 };
+        try {
+            const linked = await this.absenceLink.linkApproved({
+                semesterId: req.semester_id,
+                teacherId: req.teacher_id,
+                weekNumber: req.week_number,
+                createdBy: adminUserId,
+            });
+            absence = { periods: linked.linked.length, overlays: linked.overlayIds.length };
+            if (linked.skipped.length) absence.note = linked.skipped[0].reason;
+        } catch (e: any) {
+            // A missing semester start date must not block the approval itself
+            this.logger.warn(`Không tạo được lịch vắng cho đơn ${requestId}: ${e?.message ?? e}`);
+            absence.note = e?.message ?? 'Không tạo được lịch vắng';
+        }
+
+        return { success: true, absence };
     }
 
     async reject(requestId: string, adminUserId: string, note: string) {

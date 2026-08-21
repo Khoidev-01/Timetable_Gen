@@ -64,7 +64,12 @@ export class EffectiveScheduleService {
     // overlay can hand a period to a different teacher, so who teaches what is only
     // known after the overlays have been applied
     const timetable = await this.prisma.generatedTimetable.findFirst({
+      // publish() clears the flag on the others in one transaction, but nothing at the
+      // database level enforces that only one row carries it. Without an ordering,
+      // findFirst returns an arbitrary row, so a stray write leaves the whole app
+      // reading a different timetable from the one the school published.
       where: { semester_id: semesterId, is_official: true },
+      orderBy: { created_at: 'desc' },
       include: {
         slots: {
           where: { day: dayOfWeek },

@@ -5,6 +5,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { CoverageMode, EffectiveScheduleService } from './effective-schedule.service';
 import { SubstituteService } from './substitute.service';
+import { AbsenceLinkService } from './absence-link.service';
 import { IcalService } from './ical.service';
 
 @ApiTags('Lịch vận hành')
@@ -14,6 +15,7 @@ export class ScheduleController {
   constructor(
     private readonly effective: EffectiveScheduleService,
     private readonly substitutes: SubstituteService,
+    private readonly absenceLink: AbsenceLinkService,
     private readonly icalService: IcalService,
   ) {}
 
@@ -70,6 +72,13 @@ export class ScheduleController {
   }
 
   /** Every period an absent teacher leaves uncovered, each with ranked stand-ins. */
+  /** What approving this leave request would mean, before anyone approves it. */
+  @Roles('ADMIN')
+  @Get('absence-request/:requestId/preview')
+  async previewRequest(@Param('requestId') requestId: string) {
+    return this.absenceLink.preview(requestId);
+  }
+
   @Roles('ADMIN')
   @Get('absence-plan')
   async absencePlan(
