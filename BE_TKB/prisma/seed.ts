@@ -11,12 +11,18 @@ const prisma = new PrismaService();
 const notificationService = new NotificationService(prisma);
 const excelService = new ExcelService(prisma, notificationService);
 
-const MOCK_WORKBOOK = path.resolve(
-  __dirname,
-  '..',
-  '..',
+/**
+ * Sample data the seed imports.
+ *
+ * The previous filename was removed in a repo cleanup, which left `prisma db seed` failing
+ * on a fresh clone - the one command a new developer runs first. Candidates are tried in
+ * order so renaming the sample file does not silently break setup again.
+ */
+const WORKBOOK_CANDIDATES = [
+  'Du_lieu_mau_GDPT2018_30lop.xlsx',
   'Mau_phan_cong_giang_day_THPT_GDPT2018_co_du_lieu_mau.xlsx',
-);
+  'Mau_phan_cong_giang_day_THPT_GDPT2018.xlsx',
+];
 
 const ROOM_SEED = [
   ...Array.from({ length: 14 }, (_, index) => ({
@@ -179,11 +185,19 @@ async function assignHomeRooms() {
   }
 }
 
-async function importMockWorkbook(academicYearId: string) {
-  if (!fs.existsSync(MOCK_WORKBOOK)) {
-    throw new Error(`Mock workbook not found: ${MOCK_WORKBOOK}`);
+function findWorkbook(): string {
+  const root = path.resolve(__dirname, '..', '..');
+  for (const name of WORKBOOK_CANDIDATES) {
+    const candidate = path.join(root, name);
+    if (fs.existsSync(candidate)) return candidate;
   }
+  throw new Error(
+    `Không tìm thấy file dữ liệu mẫu trong ${root}. Đã thử: ${WORKBOOK_CANDIDATES.join(', ')}`,
+  );
+}
 
+async function importMockWorkbook(academicYearId: string) {
+  const MOCK_WORKBOOK = findWorkbook();
   console.log(`Importing workbook ${path.basename(MOCK_WORKBOOK)}...`);
   let result;
   try {

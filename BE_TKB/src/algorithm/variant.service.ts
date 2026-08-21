@@ -161,4 +161,42 @@ export class VariantService {
       qrSvg: await QRCode.toString(url, { type: 'svg', margin: 1, width: 240 }),
     };
   }
+
+  /**
+   * One QR per teacher, each opening straight to that person's own day.
+   *
+   * The shared noticeboard code opens the whole school, which on a phone means scrolling a
+   * list of twenty-one names to find yourself. These get printed and handed out instead.
+   */
+  async teacherLinks(timetableId: string) {
+    const { url, token } = await this.publicLink(timetableId);
+
+    const timetable = await this.prisma.generatedTimetable.findUnique({
+      where: { id: timetableId },
+      select: { slots: { select: { teacher_id: true } } },
+    });
+    const teacherIds = [...new Set((timetable?.slots ?? []).map((s) => s.teacher_id))];
+
+    const teachers = await this.prisma.teacher.findMany({
+      where: { id: { in: teacherIds } },
+      select: { id: true, code: true, full_name: true },
+      orderBy: { full_name: 'asc' },
+    });
+
+    return {
+      token,
+      links: await Promise.all(
+        teachers.map(async (teacher) => {
+          const personal = `${url}?teacher=${encodeURIComponent(teacher.full_name)}`;
+          return {
+            teacherId: teacher.id,
+            code: teacher.code,
+            name: teacher.full_name,
+            url: personal,
+            qrSvg: await QRCode.toString(personal, { type: 'svg', margin: 1, width: 160 }),
+          };
+        }),
+      ),
+    };
+  }
 }

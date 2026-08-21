@@ -124,6 +124,13 @@ export class AlgorithmController {
         return this.swapGraph.applyCycle(body.slotIds ?? [], this.actorOf(req));
     }
 
+    /** One QR per teacher, each opening straight to that person's own day. */
+    @Roles('ADMIN')
+    @Get('teacher-links/:timetableId')
+    async teacherLinks(@Param('timetableId') timetableId: string) {
+        return this.variantService.teacherLinks(timetableId);
+    }
+
     /** Public link and QR image for a published timetable. */
     @Roles('ADMIN')
     @Get('public-link/:timetableId')

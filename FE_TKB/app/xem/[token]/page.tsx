@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { API_URL } from '@/lib/api';
 
 interface Period {
@@ -30,11 +30,17 @@ interface DayView {
  */
 export default function PublicSchedulePage() {
   const params = useParams();
+  const search = useSearchParams();
   const token = String(params.token ?? '');
 
+  // A QR printed for one teacher carries ?teacher=<tên>, so scanning it opens that person's
+  // day rather than the whole school for them to hunt through on a phone in a corridor
+  const initialTeacher = search.get('teacher') ?? '';
+  const initialClass = search.get('class') ?? '';
+
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [mode, setMode] = useState<'class' | 'teacher'>('class');
-  const [who, setWho] = useState('');
+  const [mode, setMode] = useState<'class' | 'teacher'>(initialTeacher ? 'teacher' : 'class');
+  const [who, setWho] = useState(initialTeacher || initialClass);
   const [data, setData] = useState<DayView | null>(null);
   const [error, setError] = useState('');
 

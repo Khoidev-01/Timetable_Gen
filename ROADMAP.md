@@ -759,13 +759,47 @@ cách cũ thì chi phí nhân ba.
 
 ---
 
-### D6 — PWA cho giáo viên 🟡
+### D6 — PWA cho giáo viên ✅ **ĐÃ LÀM**
 **Ngày công:** 2 · **Phụ thuộc:** D1, B5
 
+**Chạm vào:** `app/manifest.ts` · `public/sw.js` · `ServiceWorkerRegistrar` ·
+`GET /algorithm/teacher-links/:timetableId`
+
 **Hoàn thành khi:**
-- [ ] Cài được lên màn hình chính điện thoại
-- [ ] Xem lịch tuần offline sau lần tải đầu
-- [ ] Quét QR từ B5 mở thẳng lịch cá nhân
+- [x] Cài được lên màn hình chính điện thoại — manifest + biểu tượng 192/512, `display: standalone`, mở thẳng vào `/teacher/schedule`
+- [x] Xem lịch tuần offline sau lần tải đầu
+- [x] Quét QR từ B5 mở thẳng lịch cá nhân — mỗi giáo viên một mã riêng
+
+**Service worker cố ý dè dặt.** Thời khóa biểu chậm một lần làm mới còn hơn không có gì khi
+đứng ở hành lang, nhưng phục vụ **mã nguồn** cũ hàng tuần thì là ác mộng khi gỡ lỗi:
+
+| Loại | Cách xử lý |
+| :--- | :--- |
+| Trang và mã nguồn | Mạng trước, cache chỉ là phương án dự phòng |
+| API lịch | Mạng trước, giữ lại câu trả lời tốt gần nhất |
+| Ảnh, biểu tượng | Cache trước — chúng vốn đã gắn mã băm nội dung |
+| Đăng nhập, captcha | **Không bao giờ cache** — trả lời cũ ở đây là lỗ hổng bảo mật |
+
+Mất mạng mà chưa có gì trong cache thì hiện trang tiếng Việt giải thích phải làm gì, thay vì
+con khủng long của trình duyệt.
+
+**Chỉ đăng ký ở bản production.** Bật khi phát triển thì nó cache mã của dev server rồi trả
+lại sau mỗi lần sửa — trông y hệt một bản build lặng lẽ ngừng nhận thay đổi.
+
+**QR riêng từng giáo viên:** mã chung ở bảng tin mở ra cả trường, trên điện thoại nghĩa là
+cuộn qua 21 cái tên để tìm mình. Mã riêng mở thẳng vào ngày của người đó.
+
+---
+
+### 0.21 — Seed trỏ vào file đã bị xoá ✅ **ĐÃ LÀM**
+**Ngày công:** 0.25 · **Phụ thuộc:** —
+
+`prisma/seed.ts` trỏ cứng vào `Mau_phan_cong_giang_day_THPT_GDPT2018_co_du_lieu_mau.xlsx`,
+file này **đã bị xoá** trong đợt dọn repo. Nghĩa là `prisma db seed` — lệnh đầu tiên một
+người mới clone về sẽ chạy — hỏng, và không ai phát hiện vì database sẵn có đã có dữ liệu.
+
+Nay thử lần lượt danh sách file ứng viên và báo lỗi rõ ràng nếu không có file nào, thay vì
+trỏ cứng một tên.
 
 ---
 ---
