@@ -40,6 +40,8 @@ describe('FairnessService', () => {
     const constraints = {
       initialize: async () => undefined,
       estimatedFloor: () => null,
+      // No teacher registered a wish in these fixtures
+      preferenceReportFor: () => ({ granted: 0, asked: 0 }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -59,7 +61,14 @@ describe('FairnessService', () => {
       providers: [
         FairnessService,
         { provide: PrismaService, useValue: prisma },
-        { provide: ConstraintService, useValue: { initialize: async () => undefined, estimatedFloor: () => null } },
+        {
+          provide: ConstraintService,
+          useValue: {
+            initialize: async () => undefined,
+            estimatedFloor: () => null,
+            preferenceReportFor: () => ({ granted: 0, asked: 0 }),
+          },
+        },
       ],
     }).compile();
 

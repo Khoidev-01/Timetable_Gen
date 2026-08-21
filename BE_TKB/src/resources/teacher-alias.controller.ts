@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Body, NotFoundException, ForbiddenException, Req, Logger } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, NotFoundException, ForbiddenException, BadRequestException, Req, Logger } from '@nestjs/common';
 import type { Request } from 'express';
 import { TeacherService } from './teacher.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -118,6 +118,14 @@ export class TeacherAliasController {
         return this.readTeacher(id);
     }
 
+    /**
+     * A teacher's three-level answer for the week.
+     *
+     * BUSY is a fact the timetable must respect. AVOID and PREFER are wishes weighed
+     * against everyone else's - keeping them apart is what lets a teacher say "I would
+     * rather not" without it being read as "I cannot", which is how a school ends up
+     * with a timetable nobody can build.
+     */
     @Patch(':id/busy-time')
     async updateBusyTime(@Param('id') id: string, @Body() body: any, @Req() req: Request) {
         await this.assertOwnership(req, id);
@@ -126,15 +134,58 @@ export class TeacherAliasController {
             return { success: false, message: 'busySlots must be an array' };
         }
 
-        // busySlots format from FE: [{ day: 2, period: 1, session: 0 }, ...]
+        const ALLOWED = ['BUSY', 'AVOID', 'PREFER'];
+        for (const slot of busySlots) {
+            if (slot.type !== undefined && !ALLOWED.includes(slot.type)) {
+                throw new BadRequestException(
+                    `Mức "${slot.type}" không hợp lệ. Chỉ nhận BUSY (bận), AVOID (hạn chế) hoặc PREFER (mong muốn).`,
+                );
+            }
+        }
+
+        // FE gửi: [{ day: 2, period: 1, session: 0, type: 'AVOID' }, ...]
+        // Thiếu type thì hiểu là BUSY, giữ nguyên hành vi của phiên bản một mức
         const constraints = busySlots.map((s: any) => ({
             day: s.day,
             period: s.period,
             session: s.session,
-            type: 'BUSY'
+            type: s.type ?? 'BUSY',
         }));
 
+        const teacher = await this.teacherService.findOne(id);
         await this.teacherService.updateConstraints(id, constraints);
-        return { success: true, message: 'Đã cập nhật lịch bận' };
+
+        // Tell the admins - a request entered after the timetable was built changes it
+        const busyCount = constraints.filter((c) => c.type === 'BUSY').length;
+        try {
+            await this.notificationService.notifyBusyScheduleUpdate(
+                teacher.full_name,
+                teacher.code,
+                busyCount,
+            );
+        } catch (e) {
+            this.logger.warn(`Không tạo được thông báo lịch bận: ${e}`);
+        }
+
+        return {
+            success: true,
+            message: 'Đã cập nhật đăng ký',
+            counts: {
+                busy: busyCount,
+                avoid: constraints.filter((c) => c.type === 'AVOID').length,
+                prefer: constraints.filter((c) => c.type === 'PREFER').length,
+            },
+        };
+    }
+
+    /** What this teacher has registered, so the grid can be drawn from the truth. */
+    @Get(':id/preferences')
+    async getPreferences(@Param('id') id: string, @Req() req: Request) {
+        await this.assertOwnership(req, id);
+        const rows = await this.prisma.teacherConstraint.findMany({
+            where: { teacher_id: id },
+            select: { day_of_week: true, period: true, session: true, type: true },
+        });
+        return rows.map((r) => ({ day: r.day_of_week, period: r.period, session: r.session, type: r.type }));
     }
 }

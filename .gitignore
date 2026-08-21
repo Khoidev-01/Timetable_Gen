@@ -38,6 +38,9 @@ Thumbs.db
 
 # Scratch / Temp files
 *.sql
+# ...but Prisma migrations are source, not scratch. Without this the *.sql rule above
+# silently drops every new migration and the next deploy runs against an old schema.
+!BE_TKB/prisma/migrations/**/*.sql
 *.tmp
 *.bak
 .qa_*

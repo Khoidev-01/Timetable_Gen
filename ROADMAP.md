@@ -721,15 +721,30 @@ Thay 4 con số hardcode (45 GV / 24 lớp / 12 môn / 30 phòng) ở `app/admin
 
 ---
 
-### D2 — Nguyện vọng ba mức 🟡
+### D2 — Nguyện vọng ba mức ✅ **ĐÃ LÀM**
 **Ngày công:** 1 · **Phụ thuộc:** —
 
-`ConstraintType.AVOID` đã khai báo trong schema nhưng chưa bao giờ được dùng.
+`ConstraintType.AVOID` đã khai báo trong schema nhưng chưa bao giờ được dùng. Thêm mức thứ
+ba `PREFER`.
+
+**Chạm vào:** enum `ConstraintType` · `ConstraintService` (3 tập chỉ mục) ·
+`PATCH /giao-vien/:id/busy-time` · `GET /giao-vien/:id/preferences` · `/teacher/preferences`
 
 **Hoàn thành khi:**
-- [ ] Giao diện 3 mức: Bận cứng (đỏ) / Hạn chế (vàng) / Mong muốn (xanh)
-- [ ] Bận cứng = ràng buộc cứng, Hạn chế = phạt mềm, Mong muốn = thưởng
-- [ ] `getFitnessDetails` báo % nguyện vọng được đáp ứng
+- [x] Giao diện 3 mức: Bận (đỏ) / Hạn chế (vàng) / Mong muốn (xanh)
+- [x] Bận = ràng buộc cứng, Hạn chế = phạt mềm (14đ), Mong muốn = thưởng (6đ)
+- [x] `getFitnessDetails` báo % nguyện vọng được đáp ứng
+
+**Vì sao ba mức chứ không phải hai.** Một hệ thống coi mọi yêu cầu là tuyệt đối thì hoặc từ
+chối xếp được lịch, hoặc âm thầm bỏ qua những yêu cầu không đáp ứng nổi. Tách "không thể"
+khỏi "không muốn" là điều cho phép giáo viên nói thật mà trường vẫn xếp được lịch.
+
+**Đo trên dữ liệu thật:** đăng ký 2 nguyện vọng đang được đáp ứng → điểm tăng đúng 12
+(2 × trọng số 6), báo cáo `Đáp ứng nguyện vọng giáo viên: +12 điểm (2/2)`.
+
+**Sửa kèm:** `isTeacherBusy` trước đây quét toàn bộ danh sách ràng buộc của giáo viên mỗi
+lần gọi, ngay trong vòng lặp chấm điểm. Nay dùng `Set` tra cứu O(1) — ba mức mà giữ nguyên
+cách cũ thì chi phí nhân ba.
 
 ---
 
@@ -868,7 +883,7 @@ Làm **ngay sau** orchestrator, trước khi mở giao diện cho người dùng
 **Chạm vào:** `FairnessService` · `GET /algorithm/fairness/:semesterId` · `/admin/fairness`
 
 **Hoàn thành khi:**
-- [x] Điểm chất lượng lịch từng GV = f(tiết trống, số buổi đến trường, ngày nghỉ, tiết cuối buổi, đổi tầng, chuỗi dạy liên tục) — *thiếu "% nguyện vọng đáp ứng" vì `D2` chưa làm*
+- [x] Điểm chất lượng lịch từng GV = f(tiết trống, số buổi đến trường, ngày nghỉ, tiết cuối buổi, đổi tầng, chuỗi dạy liên tục, nguyện vọng không được đáp ứng)
 - [x] Hệ số Gini + đường cong Lorenz
 - [x] Liệt kê GV thiệt thòi nhất kèm phương án cải thiện
 - [ ] Thanh trượt Hiệu quả ↔ Công bằng sinh đường Pareto

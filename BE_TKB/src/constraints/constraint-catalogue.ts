@@ -268,6 +268,26 @@ export const CONSTRAINT_CATALOGUE: CatalogueEntry[] = [
     defaultWeight: 12,
     canDisable: true,
   },
+  {
+    key: 'teacherAvoid',
+    kind: 'SOFT',
+    code: 'SC_17',
+    name: 'Tránh giờ giáo viên xin né',
+    description:
+      'Giáo viên đánh dấu "hạn chế" ở khung giờ nào thì thuật toán cố tránh, nhưng vẫn xếp được nếu không còn cách khác — khác với "bận" là tuyệt đối không xếp.',
+    defaultWeight: 14,
+    canDisable: true,
+  },
+  {
+    key: 'teacherPrefer',
+    kind: 'SOFT',
+    code: 'SC_18',
+    name: 'Đáp ứng giờ giáo viên mong muốn',
+    description:
+      'Khoản duy nhất cộng điểm thay vì trừ: mỗi tiết xếp đúng khung giờ giáo viên đã đánh dấu "mong muốn" được thưởng.',
+    defaultWeight: 6,
+    canDisable: true,
+  },
 ];
 
 export const CATALOGUE_BY_KEY = new Map(CONSTRAINT_CATALOGUE.map((entry) => [entry.key, entry]));

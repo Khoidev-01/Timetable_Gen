@@ -32,6 +32,17 @@ export class ConstraintService {
     public teacherMapByName: Map<string, any> = new Map();
     // Teacher constraints cache: Map<teacherId, Array<{day, period, session, type}>>
     private teacherConstraints: Map<string, any[]> = new Map();
+    /**
+     * Teacher requests indexed by `teacherId|day|absolutePeriod`.
+     *
+     * The lookup used to scan the teacher's whole constraint list on every call, inside
+     * the scoring loop. Three levels of request would have multiplied that by three.
+     */
+    private busyCells: Set<string> = new Set();
+    private avoidCells: Set<string> = new Set();
+    private preferCells: Set<string> = new Set();
+    /** How many PREFER slots each teacher asked for, to report a percentage met. */
+    private preferAsked: Map<string, number> = new Map();
     // Assignments of the semester being solved - used to verify period completeness
     private assignments: any[] = [];
     // Map<teacherId, max periods per week> (0 = no limit configured)
@@ -84,6 +95,9 @@ export class ConstraintService {
         // Taken from the main branch when the two lines of work were merged
         outdoorTiming: 10,
         blockRules: 12,
+        // Three-level teacher requests
+        teacherAvoid: 14,
+        teacherPrefer: 6,
     };
 
     public weights = { ...this.defaultWeights };
@@ -123,6 +137,21 @@ export class ConstraintService {
             this.teacherMapByName.set(t.code, t);
             // Cache constraints from TeacherConstraint table
             this.teacherConstraints.set(t.id, t.constraints || []);
+            for (const c of t.constraints ?? []) {
+                // session 2 means the request covers the same period in both halves of the day
+                const sessions = c.session === 2 ? [0, 1] : [c.session];
+                for (const session of sessions) {
+                    const absolute = session === 0 ? c.period : c.period + 5;
+                    const key = `${t.id}|${c.day_of_week}|${absolute}`;
+                    if (c.type === 'BUSY') this.busyCells.add(key);
+                    else if (c.type === 'AVOID') this.avoidCells.add(key);
+                    else if (c.type === 'PREFER') this.preferCells.add(key);
+                }
+                if (c.type === 'PREFER') {
+                    const asked = c.session === 2 ? 2 : 1;
+                    this.preferAsked.set(t.id, (this.preferAsked.get(t.id) ?? 0) + asked);
+                }
+            }
             this.teacherLimits.set(t.id, t.max_periods_per_week || 0);
             this.mobilityWeight.set(t.id, t.mobility_weight ?? 10);
         });
@@ -261,20 +290,64 @@ export class ConstraintService {
      * Uses cached constraints from initialize().
      */
     public isTeacherBusy(teacherId: string, day: number, period: number): boolean {
-        const constraints = this.teacherConstraints.get(teacherId);
-        if (!constraints || constraints.length === 0) return false;
+        return this.busyCells.has(`${teacherId}|${day}|${period}`);
+    }
 
-        // Period 1-5 = Session 0 (Sang), 6-10 = Session 1 (Chieu)
-        const session = period <= 5 ? 0 : 1;
-        // Relative period within session (1-5)
-        const relativePeriod = period <= 5 ? period : period - 5;
+    /** A slot the teacher can work but asked not to. Costs points, never blocks. */
+    public isTeacherAvoiding(teacherId: string, day: number, period: number): boolean {
+        return this.avoidCells.has(`${teacherId}|${day}|${period}`);
+    }
 
-        return constraints.some(c =>
-            c.day_of_week === day &&
-            c.period === relativePeriod &&
-            (c.session === session || c.session === 2) && // 2 = All Day
-            c.type === 'BUSY'
-        );
+    /** A slot the teacher asked for. Earns points when the timetable grants it. */
+    public isTeacherPreferring(teacherId: string, day: number, period: number): boolean {
+        return this.preferCells.has(`${teacherId}|${day}|${period}`);
+    }
+
+    /** The same reading for one teacher, for the per-teacher fairness score. */
+    public preferenceReportFor(teacherId: string, own: TimeSlot[]): { granted: number; asked: number } {
+        let granted = 0;
+        for (const slot of own) {
+            if (this.isTeacherPreferring(teacherId, slot.day, slot.period)) granted++;
+        }
+        return { granted, asked: this.preferAsked.get(teacherId) ?? 0 };
+    }
+
+    /**
+     * How the timetable answered the teachers' wishes.
+     *
+     * Reported as a percentage because that is the number a head teacher can act on: a
+     * total penalty says nothing about how many people got what they asked for.
+     */
+    public preferenceReport(schedule: TimeSlot[]): {
+        avoidedUsed: number;
+        preferGranted: number;
+        preferAsked: number;
+        percentMet: number;
+    } {
+        // Scanning every period to find wishes nobody registered was the most expensive
+        // part of the scoring loop. A school with no requests should pay nothing for the
+        // feature, and 100% of nothing asked for is met.
+        if (this.avoidCells.size === 0 && this.preferCells.size === 0) {
+            return { avoidedUsed: 0, preferGranted: 0, preferAsked: 0, percentMet: 100 };
+        }
+
+        let avoidedUsed = 0;
+        let preferGranted = 0;
+
+        for (const slot of schedule) {
+            if (this.isTeacherAvoiding(slot.teacherId, slot.day, slot.period)) avoidedUsed++;
+            if (this.isTeacherPreferring(slot.teacherId, slot.day, slot.period)) preferGranted++;
+        }
+
+        let asked = 0;
+        for (const count of this.preferAsked.values()) asked += count;
+
+        return {
+            avoidedUsed,
+            preferGranted,
+            preferAsked: asked,
+            percentMet: asked === 0 ? 100 : Math.round((preferGranted / asked) * 100),
+        };
     }
 
     public getRoomIds(): number[] {
@@ -599,6 +672,12 @@ export class ConstraintService {
         score += this.checkMobilityCost(teacherSchedule) * this.weights.mobility;
         score += this.checkOutdoorTiming(schedule) * this.weights.outdoorTiming;
         score += this.checkBlockRules(classSchedule) * this.weights.blockRules;
+
+        // A granted wish subtracts from the penalty rather than adding to a separate
+        // reward total, so the solvers keep minimising one number.
+        const wishes = this.preferenceReport(schedule);
+        score += wishes.avoidedUsed * this.weights.teacherAvoid;
+        score -= wishes.preferGranted * this.weights.teacherPrefer;
 
         return score;
     }
@@ -1074,6 +1153,7 @@ export class ConstraintService {
         }
 
         // --- SOFT ---
+        const wishes = this.preferenceReport(schedule);
         const soft: Array<{ label: string; count: number; weight: number }> = [
             { label: 'Môn học dồn cục', count: this.checkSpreadSubjects(classSchedule), weight: w.spreadSubjects },
             { label: 'Môn nặng học liền nhau', count: this.checkHeavySubjects(classSchedule), weight: w.heavySubjects },
@@ -1091,6 +1171,7 @@ export class ConstraintService {
             { label: 'Giáo viên phải leo cầu thang', count: this.checkMobilityCost(teacherSchedule), weight: w.mobility },
             { label: 'Thể dục xếp vào giờ nắng', count: this.checkOutdoorTiming(schedule), weight: w.outdoorTiming },
             { label: 'Môn nặng dồn trong một buổi', count: this.checkBlockRules(classSchedule), weight: w.blockRules },
+            { label: 'Xếp vào giờ giáo viên xin tránh', count: wishes.avoidedUsed, weight: w.teacherAvoid },
         ];
 
         let softPenalty = 0;
@@ -1101,13 +1182,20 @@ export class ConstraintService {
             details.push(`${item.label}: -${cost} điểm (${item.count})`);
         }
 
-        const score = 1000 - (hardViolations * w.hardViolation) - softPenalty;
+        // Granted wishes are the one thing that gives points back
+        const wishBonus = wishes.preferGranted * w.teacherPrefer;
+        if (wishBonus > 0) {
+            details.push(`Đáp ứng nguyện vọng giáo viên: +${wishBonus} điểm (${wishes.preferGranted}/${wishes.preferAsked})`);
+        }
+
+        const score = 1000 - (hardViolations * w.hardViolation) - softPenalty + wishBonus;
 
         return {
             score,
             details,
             hardViolations,
             softPenalty,
+            preferences: wishes,
             isValid: hardViolations === 0,
             offenders: this.locateHardViolations(schedule),
             breakdown: {

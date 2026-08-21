@@ -158,9 +158,15 @@ model TeacherConstraint {
   @@map("teacher_constraints")
 }
 
+/// The three things a teacher can say about a time slot.
+///
+/// BUSY is a fact about their life the timetable must respect. AVOID and PREFER are
+/// wishes, and separating them matters: a system that treats every request as absolute
+/// either refuses to build a timetable or quietly ignores the requests it cannot meet.
 enum ConstraintType {
-  BUSY  // Hard constraint
-  AVOID // Soft constraint
+  BUSY   // Hard: khong the day - hop, di hoc, con nho
+  AVOID  // Soft: day duoc nhung khong muon - bi tru diem
+  PREFER // Soft: mong muon day gio nay - duoc cong diem
 }
 
 enum BusyStatus {

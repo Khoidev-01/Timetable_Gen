@@ -1184,3 +1184,88 @@ chức năng.
 
 Nếu đọc cấu hình thất bại, thuật toán **quay về trọng số mặc định và ghi log**, không dừng
 lại — một trang cấu hình hỏng không được ngăn trường xếp thời khóa biểu.
+
+---
+
+# Phụ lục H — Nguyện vọng ba mức và hai phát hiện kèm theo
+
+## H.1 — Vì sao ba mức chứ không phải hai
+
+`ConstraintType.AVOID` đã nằm trong schema từ lâu nhưng **chưa dòng code nào đọc nó**. Chỉ
+có `BUSY` được dùng, và nó là ràng buộc cứng tuyệt đối.
+
+Hệ quả thực tế: giáo viên chỉ có một cách nói — "tôi bận". Không có cách nào nói "dạy được
+nhưng tôi không muốn" hay "tôi thích dạy giờ này". Nên hoặc họ khai bận cả những khung giờ
+thật ra vẫn dạy được (làm bài toán không giải nổi), hoặc không khai gì (nguyện vọng biến
+mất). Cả hai đều tệ.
+
+Nay có ba mức:
+
+| Mức | Bản chất | Thuật toán |
+| :--- | :--- | :--- |
+| Bận | Sự thật về cuộc sống — họp, đi học, đưa đón con | Ràng buộc cứng, tuyệt đối không xếp |
+| Hạn chế | Dạy được nhưng không muốn | Trừ 14 điểm, vẫn xếp nếu không còn cách |
+| Mong muốn | Thích dạy giờ này | **Cộng 6 điểm** — khoản duy nhất cộng thay vì trừ |
+
+Đo trên dữ liệu thật: đăng ký 2 nguyện vọng đang được đáp ứng → điểm tăng đúng 12, báo cáo
+`Đáp ứng nguyện vọng giáo viên: +12 điểm (2/2)`.
+
+## H.2 — Phát hiện: hai nơi cùng nói "đăng ký bận", chỉ một nơi tới được thuật toán
+
+Sau khi gộp hai hướng làm việc, hệ thống có **hai luồng** cùng tên:
+
+| | Ghi vào bảng | Thuật toán có đọc? |
+| :--- | :--- | :---: |
+| `/teacher/feedback` — "Đăng ký lịch bận" | `teacher_busy_requests` | **Không** |
+| `/teacher/preferences` — nguyện vọng | `teacher_constraints` | Có |
+
+Kiểm chứng bằng cách đếm tham chiếu chéo:
+
+```
+busy-schedule chạm bảng teacher_constraints:        0 lần
+thuật toán đọc bảng teacher_busy_requests:          0 lần
+busy-schedule tạo schedule_overlays:                0 lần
+```
+
+**Nghĩa là:** giáo viên đăng ký bận ở `/teacher/feedback`, admin bấm duyệt, và **thời khóa
+biểu sinh ra sau đó không hề biết**. Yêu cầu đã duyệt chỉ dùng cho tính năng phát hiện xung
+đột và gợi ý đổi tiết trong chính module đó.
+
+**Đây không hẳn là lỗi thiết kế** — hai bảng có bản chất khác nhau: `teacher_busy_requests`
+có `week_number` nên là nghỉ **một tuần cụ thể**, còn `teacher_constraints` là bận **lặp
+hàng tuần**. Nghỉ một tuần lẽ ra phải đi vào `schedule_overlays` của kiến trúc hai tầng
+(mục `B1`) rồi kích hoạt luồng dạy thay, chứ không phải sinh lại thời khóa biểu.
+
+**Nhưng chưa có gì nối chúng lại.** Đã duyệt một yêu cầu nghỉ tuần thì không sinh overlay,
+không ai được phân dạy thay. Cần một mục riêng trong lộ trình; chưa làm vì nằm ngoài phạm vi
+`D2`.
+
+Giao diện đã đổi tên để bớt nhầm: *"Nguyện vọng"* (lặp hàng tuần) và *"Xin nghỉ theo tuần"*.
+
+## H.3 — Phát hiện: thời khóa biểu càng nhiều ràng buộc càng chạy chậm
+
+Mỗi ràng buộc thêm vào đều được tính lại **từ đầu trên toàn bộ 217 tiết, ở mọi lần đánh
+giá**. Đo thực tế:
+
+```
+217 tiết, 2000 lần gọi mỗi hàm:
+  0.484 ms   checkHardConstraints
+  0.453 ms   calculatePenalty
+  ─────────
+  0.94 ms một lần đánh giá  →  12000 vòng x 12 lần khởi động lại ≈ 2,2 phút
+```
+
+Thực tế còn lâu hơn con số đó vì mỗi vòng lặp đánh giá nhiều phương án. Trong quá trình làm
+mục này, một lần chạy đã vượt 10 phút và bị cắt.
+
+Hai chỗ đã sửa được ngay:
+
+- `getSubjectCode` quét mảng tuyến tính + `toUpperCase()` mỗi lần gọi → cache theo id
+- `preferenceReport` quét toàn bộ tiết để tìm nguyện vọng **mà chưa ai đăng ký** — nó đang là
+  thành phần đắt nhất của `calculatePenalty` (0.085 ms). Nay thoát sớm khi không có gì để
+  tính: **0.000 ms**
+- `isTeacherBusy` quét danh sách ràng buộc của giáo viên mỗi lần gọi → `Set` tra cứu O(1)
+
+**Cách sửa tận gốc là đánh giá tăng dần**: một thao tác đổi chỗ chỉ đụng 2 tiết, nên chỉ cần
+tính lại phần điểm liên quan tới 2 tiết đó thay vì cả 217. Đây là việc riêng, đáng đưa vào
+lộ trình — nếu không, mỗi ràng buộc mới sẽ tiếp tục làm mọi lần chạy chậm thêm.

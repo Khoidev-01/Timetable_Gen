@@ -9,6 +9,8 @@ export interface TeacherQuality {
   /** 0-100, where 100 is the best schedule this teacher's load could give them. */
   quality: number;
   periods: number;
+  /** Null when this teacher registered no wishes at all. */
+  preferencesMet: number | null;
   /** The things that cost this teacher points, worst first. */
   burdens: Array<{ label: string; count: number; cost: number }>;
 }
@@ -41,6 +43,8 @@ const BURDEN_COST = {
   lastPeriod: 3,
   floorChange: 2,
   longRun: 4,
+  /** Per wish the timetable did not grant. */
+  wishIgnored: 4,
 };
 
 /**
@@ -184,6 +188,11 @@ export class FairnessService {
     const sixDayWeek = byDay.size >= 6 ? 1 : 0;
     const floorChanges = this.countFloorChanges(own);
 
+    // Wishes this teacher registered and the timetable did not honour. A teacher who
+    // asked for nothing is not marked down - they simply have nothing to measure.
+    const wishes = this.constraints.preferenceReportFor(teacherId, own);
+    const wishesIgnored = wishes.asked - wishes.granted;
+
     const burdens = [
       { label: 'Tiết trống phải chờ', count: gaps, cost: gaps * BURDEN_COST.gap },
       { label: 'Buổi đến trường dư', count: extraSessions, cost: extraSessions * BURDEN_COST.extraSession },
@@ -191,6 +200,7 @@ export class FairnessService {
       { label: 'Tiết cuối buổi', count: lastPeriods, cost: lastPeriods * BURDEN_COST.lastPeriod },
       { label: 'Phải đổi tầng', count: floorChanges, cost: floorChanges * BURDEN_COST.floorChange },
       { label: 'Dạy 5 tiết liền', count: longRuns, cost: longRuns * BURDEN_COST.longRun },
+      { label: 'Nguyện vọng không được đáp ứng', count: wishesIgnored, cost: wishesIgnored * BURDEN_COST.wishIgnored },
     ]
       .filter((b) => b.count > 0)
       .sort((a, b) => b.cost - a.cost);
@@ -203,6 +213,7 @@ export class FairnessService {
       name,
       quality: Math.max(0, 100 - total),
       periods: own.length,
+      preferencesMet: wishes.asked === 0 ? null : Math.round((wishes.granted / wishes.asked) * 100),
       burdens,
     };
   }
@@ -284,6 +295,7 @@ export class FairnessService {
       'Tiết cuối buổi': 'Chuyển bớt tiết cuối buổi sang khung giờ sớm hơn.',
       'Phải đổi tầng': 'Xếp các tiết liền nhau vào cùng tầng, hoặc chèn một tiết trống giữa hai tầng.',
       'Dạy 5 tiết liền': 'Chèn một tiết nghỉ vào giữa chuỗi dạy liên tục.',
+      'Nguyện vọng không được đáp ứng': 'Xem lại các khung giờ giáo viên đã đăng ký mong muốn — có thể đổi được với đồng nghiệp.',
     };
 
     return {
