@@ -92,21 +92,33 @@ export class FairnessService {
       };
     }
 
+    return this.reportFor(
+      semesterId,
+      timetable.slots.map((s) => ({
+        id: s.id,
+        day: s.day,
+        period: s.period,
+        classId: s.class_id,
+        subjectId: s.subject_id,
+        teacherId: s.teacher_id,
+        roomId: s.room_id ?? undefined,
+      })),
+    );
+  }
+
+  /**
+   * The same reading for a schedule the caller already has.
+   *
+   * The Pareto sweep needs this: `report()` looks up the published timetable, so scoring
+   * a run it just produced would have measured the published one instead - six runs and
+   * six identical fairness numbers, which is exactly what happened.
+   */
+  async reportFor(semesterId: string, slots: TimeSlot[]): Promise<FairnessReport> {
     await this.constraints.initialize(semesterId);
     const teachers = await this.prisma.teacher.findMany({
       select: { id: true, code: true, full_name: true },
     });
     const byId = new Map(teachers.map((t) => [t.id, t]));
-
-    const slots: TimeSlot[] = timetable.slots.map((s) => ({
-      id: s.id,
-      day: s.day,
-      period: s.period,
-      classId: s.class_id,
-      subjectId: s.subject_id,
-      teacherId: s.teacher_id,
-      roomId: s.room_id ?? undefined,
-    }));
 
     const perTeacher = new Map<string, TimeSlot[]>();
     for (const slot of slots) {

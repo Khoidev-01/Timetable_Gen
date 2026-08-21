@@ -18,7 +18,7 @@ const SUBJECTS = [
 
 const ROOMS = [
   { id: 1, name: 'P101', type: 'LY_THUYET', floor: 1 },
-  { id: 2, name: 'SAN', type: 'SAN_BAI', floor: 0 },
+  { id: 2, name: 'SAN', type: 'YARD', floor: 0 },
 ];
 
 const CLASSES = [
@@ -168,6 +168,76 @@ describe('chấm điểm tăng dần', () => {
     expect(scorer.fitness()).toBe(fullFitness(slots));
     // Thể dục chuyển từ tiết 4 lên tiết 1 nên điểm phải đổi
     expect(scorer.fitness()).not.toBe(before);
+  });
+
+  it('vẫn khớp khi bật trọng số công bằng', () => {
+    // Khoản phạt công bằng đọc độ chênh giữa các giáo viên, nên nó phụ thuộc vào TOÀN BỘ
+    // bảng điểm chứ không riêng giáo viên vừa đổi chỗ — đúng chỗ phép tính tăng dần dễ lệch nhất
+    constraints.weights.fairness = 3;
+
+    const random = makeRandom(99);
+    const slots = randomSchedule(random, 40);
+    const scorer = new IncrementalScorer(constraints, slots);
+
+    for (let i = 0; i < 200; i++) {
+      const a = slots[Math.floor(random() * slots.length)];
+      const b = slots[Math.floor(random() * slots.length)];
+      [a.day, b.day] = [b.day, a.day];
+      [a.period, b.period] = [b.period, a.period];
+      scorer.touch(a, b);
+
+      expect(scorer.fitness()).toBe(fullFitness(slots));
+    }
+  });
+
+  it('trọng số công bằng khác 0 làm điểm đổi', () => {
+    const slots = randomSchedule(makeRandom(5), 30);
+
+    constraints.weights.fairness = 0;
+    const neutral = constraints.calculatePenalty(slots);
+    constraints.weights.fairness = 10;
+    const weighted = constraints.calculatePenalty(slots);
+
+    expect(weighted).toBeGreaterThan(neutral);
+  });
+
+  it('gọi initialize lần hai không làm sai lệch gì', async () => {
+    // Service là singleton và được khởi tạo lại ở mỗi lần giải, mỗi lần báo cáo và mỗi
+    // điểm trên đường Pareto. Trước đây sức chứa phòng và số nguyện vọng cộng dồn mỗi
+    // lần gọi, nên thuật toán tin rằng trường có gấp đôi số phòng thực hành thật có.
+    const slots = randomSchedule(makeRandom(31), 40);
+    const before = constraints.calculatePenalty(slots);
+    const beforeHard = constraints.checkHardConstraints(slots);
+
+    await constraints.initialize('sem1');
+    await constraints.initialize('sem1');
+
+    expect(constraints.calculatePenalty(slots)).toBe(before);
+    expect(constraints.checkHardConstraints(slots)).toBe(beforeHard);
+  });
+
+  it('sức chứa phòng chức năng không tăng theo số lần khởi tạo', async () => {
+    // Chỉ có một sân bãi trong dữ liệu thử: hai lớp cùng học Thể dục một tiết là quá tải
+    const clash: TimeSlot[] = [
+      { id: 'a', day: 2, period: 1, classId: '10A1', subjectId: 3, teacherId: 'T1' },
+      { id: 'b', day: 2, period: 1, classId: '10A2', subjectId: 3, teacherId: 'T2' },
+    ];
+    const once = constraints.checkRoomTypeCapacity(clash);
+
+    await constraints.initialize('sem1');
+    await constraints.initialize('sem1');
+    await constraints.initialize('sem1');
+
+    expect(constraints.checkRoomTypeCapacity(clash)).toBe(once);
+    expect(once).toBeGreaterThan(0);
+  });
+
+  it('không phạt gì khi mọi giáo viên gánh như nhau', () => {
+    constraints.weights.fairness = 10;
+    // Ba giáo viên, mỗi người một điểm phạt giống hệt nhau
+    expect(constraints.fairnessPenalty([40, 40, 40])).toBe(0);
+    // Một người gánh nặng hơn hẳn thì bị phạt
+    expect(constraints.fairnessPenalty([0, 0, 90])).toBeGreaterThan(0);
   });
 
   it('tính đúng cả nguyện vọng và lịch bận của giáo viên', () => {

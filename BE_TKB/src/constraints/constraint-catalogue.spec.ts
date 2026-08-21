@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { CONSTRAINT_CATALOGUE, HARD_KEYS, SOFT_KEYS } from './constraint-catalogue';
+import { CONSTRAINT_CATALOGUE, HARD_KEYS } from './constraint-catalogue';
 
 const SERVICE_SOURCE = readFileSync(
   join(__dirname, '..', 'algorithm', 'constraint.service.ts'),
@@ -18,7 +18,11 @@ describe('constraint catalogue', () => {
     expect(declared).not.toBeNull();
 
     const solverKeys = [...declared![1].matchAll(/^\s*(\w+):/gm)].map((m) => m[1]);
-    const catalogueKeys = new Set([...SOFT_KEYS, 'hardViolation']);
+    // Every catalogue entry that carries a number, whatever kind it is - naming the
+    // penalty keys individually is how `fairness` slipped past once already
+    const catalogueKeys = new Set(
+      CONSTRAINT_CATALOGUE.filter((e) => e.kind !== 'HARD').map((e) => e.key),
+    );
 
     expect([...solverKeys].sort()).toEqual([...catalogueKeys].sort());
   });

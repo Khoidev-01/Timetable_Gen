@@ -1326,3 +1326,66 @@ Nhanh gấp 100 lần thì tự nhiên nghĩ tới việc đổi tốc độ l�
 (`plateauLimit`) tính theo ngân sách, nên tăng ngân sách thì tìm kiếm không còn thoát sớm
 nữa. Giữ nguyên 12.000. Muốn chỉnh cho đúng thì nên dùng Benchmark Lab (`A1`) chứ không phải
 đoán.
+
+---
+
+# Phụ lục K — Đường Pareto: cái giá của công bằng, và một lỗi tìm ra khi đo
+
+## K.1 — Câu hỏi hệ thống chưa trả lời được
+
+Phụ lục trước đo được **mức độ** bất công (Gini 0.146, chênh 55 điểm) nhưng không trả lời
+được câu tiếp theo mà bất kỳ hiệu trưởng nào cũng hỏi: **sửa cho công bằng hơn thì mất gì?**
+
+Thêm một khoản phạt cho độ chênh giữa giáo viên vào hàm mục tiêu, rồi **giải lại cùng một
+bài toán ở nhiều mức ưu tiên khác nhau**. Mỗi điểm là một lần giải thật, không phải ngoại suy.
+
+## K.2 — Kết quả, và một điều bất ngờ
+
+| Mức ưu tiên | Điểm tổng | Gini | Chênh lệch | GV tệ nhất | Đáng chọn |
+| ---: | ---: | ---: | ---: | ---: | :--- |
+| 0 (như hiện tại) | −274 | 0.170 | 80 | 15 | bị lấn át |
+| 5 | −346 | 0.141 | 58 | 37 | bị lấn át |
+| **15** | **−263** | **0.123** | **52** | **42** | **có** |
+| 40 | −967 | 0.230 | 75 | 20 | bị lấn át |
+
+**Mức 15 tốt hơn mức hiện tại ở cả hai mặt cùng lúc** — điểm cao hơn (−263 so với −274) *và*
+đồng đều hơn (Gini 0.123 so với 0.170). Không phải đánh đổi gì cả.
+
+Điều này có lý khi nghĩ kỹ: hàm mục tiêu cũ **không có lý do gì để tránh dồn bất tiện lên một
+người**, nên nó sẵn sàng dừng ở một lời giải mà một giáo viên gánh hết. Cho thuật toán một lý
+do để trải đều ra, nó tìm được lời giải gọn hơn về tổng thể. Sức ép quá mạnh (mức 40) thì
+ngược lại: bóp méo lời giải, tệ cả hai mặt.
+
+## K.3 — Một hạn chế phải nói rõ
+
+Mỗi mức chỉ chạy **một lần**, mà thuật toán có yếu tố ngẫu nhiên: hai lần chạy cùng cấu hình
+cho điểm chênh nhau hàng chục. Nên bảng trên chỉ ra **xu hướng**, không phải phép đo chính
+xác. Muốn kết luận chắc chắn thì chạy nhiều lần mỗi mức rồi lấy trung bình — Benchmark Lab
+(`A1`) đã có sẵn hạ tầng cho việc đó.
+
+## K.4 — Lỗi tìm ra trong lúc đo: `initialize()` không gọi lại được
+
+Lần quét đầu tiên cho **Gini giống hệt nhau ở cả bốn lần chạy**. Nguyên nhân đầu: `report()`
+đọc bản thời khóa biểu **đã công bố** chứ không đọc bản vừa sinh ra — đã tách thành
+`reportFor(slots)`.
+
+Sửa xong thì quét chạy **quá 10 phút** rồi bị cắt. Tôi đo từng phần và thấy giải bài chỉ mất
+4,6 giây — vậy chậm nằm ở chỗ khác. Đọc kỹ `initialize()`:
+
+```ts
+this.roomTypeCapacity.set(r.type, (this.roomTypeCapacity.get(r.type) || 0) + 1);
+this.roomsByType.get(r.type)!.push(r.id);
+this.preferAsked.set(t.id, (this.preferAsked.get(t.id) ?? 0) + asked);
+```
+
+**Không có gì dọn cache cũ, mà ba chỗ này cộng dồn.** `ConstraintService` là singleton, được
+khởi tạo lại ở mỗi lần giải, mỗi lần báo cáo và mỗi điểm Pareto — nên sau vài lần, thuật toán
+tin rằng trường có **gấp đôi, gấp ba số phòng thực hành thật có**, và mảng phòng dài ra mãi.
+
+Đây là lỗi có thật, ảnh hưởng cả ngoài phạm vi Pareto: bất kỳ đường chạy nào gọi
+`initialize()` hai lần đều làm hỏng sức chứa phòng. Đã thêm `resetCaches()` và hai test khoá
+lại — thử bỏ lời gọi đó ra thì test đỏ đúng như thiết kế.
+
+**Bài học lặp lại lần thứ ba trong dự án này:** khi một phép đo cho kết quả *quá đều* hoặc
+*không đổi*, đó gần như luôn là dấu hiệu phép đo đang nhìn nhầm chỗ, chứ không phải hệ thống
+ổn định.

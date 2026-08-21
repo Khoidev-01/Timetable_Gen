@@ -11,6 +11,7 @@ import { ChangeLogService } from './change-log.service';
 import { AnalyticsService } from './analytics.service';
 import { PatternMiningService } from './pattern-mining.service';
 import { FairnessService } from './fairness.service';
+import { ParetoService } from './pareto.service';
 
 describe('AlgorithmController', () => {
   let controller: AlgorithmController;
@@ -30,6 +31,7 @@ describe('AlgorithmController', () => {
         { provide: AnalyticsService, useValue: {} },
         { provide: PatternMiningService, useValue: {} },
         { provide: FairnessService, useValue: {} },
+        { provide: ParetoService, useValue: {} },
       ],
     }).compile();
 

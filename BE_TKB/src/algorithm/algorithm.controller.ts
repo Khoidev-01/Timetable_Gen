@@ -13,6 +13,7 @@ import { ChangeLogService } from './change-log.service';
 import { AnalyticsService } from './analytics.service';
 import { PatternMiningService } from './pattern-mining.service';
 import { FairnessService } from './fairness.service';
+import { ParetoService } from './pareto.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Thuật toán')
@@ -30,8 +31,22 @@ export class AlgorithmController {
         private readonly changeLog: ChangeLogService,
         private readonly analytics: AnalyticsService,
         private readonly patternMining: PatternMiningService,
-        private readonly fairness: FairnessService
+        private readonly fairness: FairnessService,
+        private readonly pareto: ParetoService
     ) { }
+
+    /**
+     * What a fairer timetable costs in total quality. Solves the same term repeatedly at
+     * different fairness weights - minutes of computation, so it is never automatic.
+     */
+    @Roles('ADMIN')
+    @Post('pareto/:semesterId')
+    async paretoSweep(
+        @Param('semesterId') semesterId: string,
+        @Body() body: { weights?: number[] },
+    ) {
+        return this.pareto.sweep(semesterId, body?.weights);
+    }
 
     /**
      * Is the timetable fair, and to whom is it unfair? A good total score says nothing

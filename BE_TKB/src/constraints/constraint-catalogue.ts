@@ -35,6 +35,17 @@ export const CONSTRAINT_CATALOGUE: CatalogueEntry[] = [
     canDisable: false,
   },
 
+  {
+    key: 'fairness',
+    kind: 'PENALTY',
+    code: 'PEN_2',
+    name: 'Mức ưu tiên công bằng',
+    description:
+      'Đặt lớn hơn 0 để thuật toán kéo tuần của giáo viên thiệt thòi nhất về gần mọi người, đổi lại chất lượng tổng giảm. Trang Công bằng có bảng đo cái giá của từng mức.',
+    defaultWeight: 0,
+    canDisable: false,
+  },
+
   // --- Hard constraints: a schedule that breaks one of these is not usable ---
   {
     key: 'teacherConflict',

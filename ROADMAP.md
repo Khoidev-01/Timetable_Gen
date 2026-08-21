@@ -877,7 +877,7 @@ Làm **ngay sau** orchestrator, trước khi mở giao diện cho người dùng
 
 ---
 
-### A5 — Chỉ số công bằng Gini 🟨 **MỘT PHẦN**
+### A5 — Chỉ số công bằng Gini ✅ **ĐÃ LÀM**
 **Ngày công:** 3 · **Phụ thuộc:** A6, D2
 
 **Chạm vào:** `FairnessService` · `GET /algorithm/fairness/:semesterId` · `/admin/fairness`
@@ -886,7 +886,7 @@ Làm **ngay sau** orchestrator, trước khi mở giao diện cho người dùng
 - [x] Điểm chất lượng lịch từng GV = f(tiết trống, số buổi đến trường, ngày nghỉ, tiết cuối buổi, đổi tầng, chuỗi dạy liên tục, nguyện vọng không được đáp ứng)
 - [x] Hệ số Gini + đường cong Lorenz
 - [x] Liệt kê GV thiệt thòi nhất kèm phương án cải thiện
-- [ ] Thanh trượt Hiệu quả ↔ Công bằng sinh đường Pareto
+- [x] Thanh trượt Hiệu quả ↔ Công bằng sinh đường Pareto — `ParetoService`, `POST /algorithm/pareto/:semesterId`
 
 **Đo trên dữ liệu thật:**
 
@@ -1093,6 +1093,30 @@ tuần-ra-ngày ở hai nơi là hai nơi có thể ra hai kết quả khác nha
 4. Còn chờ duyệt: 0 đơn
 5. Phần phân dạy thay mở ra: 2 tiết, tiết đầu có 3 ứng viên
 ```
+
+---
+
+### 0.20 — `initialize()` phải gọi lại được ✅ **ĐÃ LÀM**
+**Ngày công:** 0.5 · **Phụ thuộc:** —
+
+`ConstraintService` là singleton và được khởi tạo lại ở **mỗi lần giải, mỗi lần báo cáo, và
+mỗi điểm trên đường Pareto**. Nhưng `initialize()` chưa bao giờ dọn cache cũ, mà vài cache
+lại **cộng dồn**:
+
+```ts
+this.roomTypeCapacity.set(r.type, (this.roomTypeCapacity.get(r.type) || 0) + 1);
+this.roomsByType.get(r.type)!.push(r.id);
+this.preferAsked.set(t.id, (this.preferAsked.get(t.id) ?? 0) + asked);
+```
+
+Gọi lần thứ hai thì thuật toán tin rằng **trường có gấp đôi số phòng thực hành thật có**, và
+số nguyện vọng đăng ký cũng nhân đôi. Càng gọi nhiều càng sai.
+
+Đây là lý do quét Pareto lần đầu cho **Gini giống hệt nhau ở cả bốn lần chạy** rồi sau đó
+chạy quá 10 phút — tôi đi tìm nguyên nhân ở thuật toán, hoá ra nằm ở đây.
+
+Đã thêm `resetCaches()` gọi ngay đầu `initialize()`, kèm hai test khoá lại. Thử bỏ lời gọi
+đó ra thì test đỏ đúng như thiết kế.
 
 ---
 

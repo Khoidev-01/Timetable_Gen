@@ -108,7 +108,11 @@ export class IncrementalScorer {
     let total = 0;
     for (const value of this.classSoft.values()) total += value;
     for (const value of this.teacherSoft.values()) total += value;
-    return total;
+
+    // The fairness term reads the spread across teachers. Those numbers are already
+    // cached here, so measuring inequality costs one pass over the teacher list rather
+    // than a second scoring of the whole schedule.
+    return total + this.constraints.fairnessPenalty(this.teacherSoft.values());
   }
 
   private refresh() {

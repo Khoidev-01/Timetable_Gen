@@ -20,6 +20,7 @@ import { ChangeLogService } from './change-log.service';
 import { AnalyticsService } from './analytics.service';
 import { PatternMiningService } from './pattern-mining.service';
 import { FairnessService } from './fairness.service';
+import { ParetoService } from './pareto.service';
 
 @Module({
   imports: [
@@ -32,7 +33,7 @@ import { FairnessService } from './fairness.service';
     forwardRef(() => WorkerModule)
   ],
   controllers: [AlgorithmController],
-  providers: [AlgorithmService, ExportService, ConstraintService, FeasibilityService, AlgorithmGateway, BenchmarkService, VariantService, SwapGraphService, ChangeLogService, AnalyticsService, PatternMiningService, FairnessService],
+  providers: [AlgorithmService, ExportService, ConstraintService, FeasibilityService, AlgorithmGateway, BenchmarkService, VariantService, SwapGraphService, ChangeLogService, AnalyticsService, PatternMiningService, FairnessService, ParetoService],
   exports: [AlgorithmService, AlgorithmGateway, ConstraintService]
 })
 export class AlgorithmModule { }

@@ -98,6 +98,15 @@ export class ConstraintService {
         // Three-level teacher requests
         teacherAvoid: 14,
         teacherPrefer: 6,
+        /**
+         * How hard to push the worst-off teacher's week toward everyone else's.
+         *
+         * Zero by default, which is the objective the solver has always had: minimise the
+         * total and say nothing about who carries it. Raising it trades total quality for
+         * a narrower gap between teachers - the two cannot both be maximised, which is
+         * what the Pareto sweep exists to show.
+         */
+        fairness: 0,
     };
 
     public weights = { ...this.defaultWeights };
@@ -108,6 +117,13 @@ export class ConstraintService {
     async initialize(semesterId: string) {
         this.logger.log('Initializing Constraint Service...');
 
+        // Every cache is rebuilt from scratch. Several of them accumulate - room capacity
+        // counts up per room, preference counts add per request - so calling initialize a
+        // second time on the same instance used to double them: the solver would believe
+        // the school had twice the labs it has, and the numbers drifted further with every
+        // call. The service is a singleton and gets re-initialised per solve, per report
+        // and per Pareto sweep point, so this ran often.
+        this.resetCaches();
         await this.loadSettings();
 
         const rooms = await this.prisma.room.findMany();
@@ -178,6 +194,33 @@ export class ConstraintService {
             `Loaded ${rooms.length} rooms, ${subjects.length} subjects, ` +
             `${teachers.length} teachers, ${this.assignments.length} assignments.`
         );
+    }
+
+    /** Empty every cache so `initialize()` can be called any number of times safely. */
+    private resetCaches() {
+        this.roomMap.clear();
+        this.roomTypeCapacity.clear();
+        this.roomsByType.clear();
+        this.roomTypeFloor.clear();
+        this.subjectMap.clear();
+        this.subjectCode.clear();
+        this.subjectRoomType.clear();
+        this.ceremonySubjects.clear();
+        this.teacherMap.clear();
+        this.teacherMapByName.clear();
+        this.teacherConstraints.clear();
+        this.teacherLimits.clear();
+        this.mobilityWeight.clear();
+        this.classFloor.clear();
+        this.classSessionMap.clear();
+        this.busyCells.clear();
+        this.avoidCells.clear();
+        this.preferCells.clear();
+        this.preferAsked.clear();
+        this.subjects = [];
+        this.assignments = [];
+        this.fixedRules = [];
+        this.disabledHard = new Set();
     }
 
     /**
@@ -656,10 +699,40 @@ export class ConstraintService {
         for (const slots of this.groupBy(schedule, 'classId').values()) {
             score += this.classPenalty(slots);
         }
+
+        const perTeacher: number[] = [];
         for (const [teacherId, slots] of this.groupBy(schedule, 'teacherId')) {
-            score += this.teacherPenalty(teacherId, slots);
+            const penalty = this.teacherPenalty(teacherId, slots);
+            perTeacher.push(penalty);
+            score += penalty;
         }
-        return score;
+        return score + this.fairnessPenalty(perTeacher);
+    }
+
+    /**
+     * What the gap between the worst-off teacher and the average costs.
+     *
+     * Summing everyone's burden is blind to how it is shared: one teacher carrying a
+     * miserable week and everyone else comfortable scores the same as the load spread
+     * evenly. This term gives the search a reason to prefer the second, and the weight
+     * decides how much total quality that preference is worth paying.
+     */
+    public fairnessPenalty(perTeacher: Iterable<number>): number {
+        // Takes an iterable so the hot path can pass a Map's values straight in. Spreading
+        // them into an array first allocated on every single scoring call.
+        if (this.weights.fairness === 0) return 0;
+
+        let total = 0;
+        let worst = 0;
+        let count = 0;
+        for (const value of perTeacher) {
+            total += value;
+            if (value > worst) worst = value;
+            count++;
+        }
+        if (count < 2) return 0;
+
+        return Math.round((worst - total / count) * this.weights.fairness);
     }
 
     /**

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, Scale, TriangleAlert } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import ParetoCurve from '../../components/admin/ParetoCurve';
 
 interface TeacherQuality {
   teacherId: string;
@@ -38,6 +39,7 @@ function readGini(gini: number): { label: string; tone: string } {
 export default function FairnessPage() {
   const [report, setReport] = useState<FairnessReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [semesterId, setSemesterId] = useState('');
 
   const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem('token') ?? ''}`,
@@ -52,6 +54,7 @@ export default function FairnessPage() {
       const years = await yearRes.json();
       const semester = years[0]?.semesters?.[0];
       if (!semester) return;
+      setSemesterId(semester.id);
 
       const res = await fetch(`${API_URL}/algorithm/fairness/${semester.id}`, {
         headers: authHeaders(),
@@ -173,6 +176,8 @@ export default function FairnessPage() {
           ))}
         </ul>
       </div>
+
+      {semesterId && <ParetoCurve semesterId={semesterId} />}
 
       <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6">
         <h2 className="mb-1 font-semibold text-[var(--text-primary)]">Điểm lịch từng giáo viên</h2>

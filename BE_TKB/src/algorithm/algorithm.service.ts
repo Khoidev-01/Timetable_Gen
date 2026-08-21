@@ -59,7 +59,12 @@ export class AlgorithmService {
         return slots.map(s => [s.classId, s.day, s.period, s.subjectId, s.teacherId] as SlotTuple);
     }
 
-    async runAlgorithm(semesterId: string) {
+    /**
+     * @param options.fairnessWeight Overrides the saved fairness weight for this run only.
+     *   The Pareto sweep solves the same term repeatedly at different values to show what
+     *   a fairer schedule costs in total quality.
+     */
+    async runAlgorithm(semesterId: string, options?: { fairnessWeight?: number }) {
         const debugLogs: string[] = [];
         const log = (msg: string) => {
             this.logger.log(msg);
@@ -71,6 +76,11 @@ export class AlgorithmService {
 
             // 0. Load Cache & Data
             await this.constraintService.initialize(semesterId);
+            // After initialize(), which loads the admin's saved weights and would
+            // otherwise overwrite the value this run was asked to use
+            if (options?.fairnessWeight !== undefined) {
+                this.constraintService.weights.fairness = options.fairnessWeight;
+            }
             const data = await this.loadData(semesterId);
             log(`[DEBUG] Data Loaded: ${data.classes.length} Classes, ${data.subjects.length} Subjects.`);
 
