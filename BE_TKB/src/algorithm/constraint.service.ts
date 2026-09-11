@@ -550,7 +550,11 @@ export class ConstraintService {
             if (periods.length < 2) continue;
             periods.sort((a, b) => a - b);
             for (let i = 0; i < periods.length - 1; i++) {
-                gaps += periods[i + 1] - periods[i] - 1;
+                // Two periods of one class at the SAME time give -1 here, and a negative
+                // gap silently cancelled a real double-booking counted elsewhere: a class
+                // clash plus this made the total zero, so an invalid timetable reported
+                // itself as valid. A gap is a count of empty periods and cannot be below 0.
+                gaps += Math.max(0, periods[i + 1] - periods[i] - 1);
             }
         }
         return gaps;
@@ -1303,9 +1307,12 @@ export class ConstraintService {
 
         let hardViolations = 0;
         for (const item of hard) {
-            if (!item.count) continue;
-            hardViolations += item.count;
-            details.push(`${item.label}: -${item.count * w.hardViolation} điểm (${item.count} lỗi)`);
+            // Never let one check subtract from another's count. A violation is a thing
+            // that happened; nothing that happened can un-happen something else.
+            const count = Math.max(0, item.count);
+            if (!count) continue;
+            hardViolations += count;
+            details.push(`${item.label}: -${count * w.hardViolation} điểm (${count} lỗi)`);
         }
 
         // --- SOFT ---

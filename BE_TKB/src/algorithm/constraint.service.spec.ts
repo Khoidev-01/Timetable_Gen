@@ -64,6 +64,43 @@ describe('ConstraintService', () => {
         await service.initialize('semester-1');
     });
 
+    describe('lỗi cứng không được triệt tiêu lẫn nhau', () => {
+        /**
+         * Gặp thật khi chạy luồng đổi tiết trên dữ liệu thật: hai tiết cùng lớp trùng giờ
+         * làm `periods[i+1] - periods[i] - 1` ra -1, và khoảng trống âm đó triệt tiêu đúng
+         * một lỗi trùng giờ. Tổng về 0, nên một thời khóa biểu SAI tự báo là hợp lệ.
+         */
+        it('hai tiết cùng lớp trùng giờ không tạo ra khoảng trống âm', () => {
+            const clash: TimeSlot[] = [
+                { id: 'a', day: 2, period: 1, classId: 'C1', subjectId: 1, teacherId: 'T1' },
+                { id: 'b', day: 2, period: 1, classId: 'C1', subjectId: 2, teacherId: 'T2' },
+            ];
+            expect(service.checkClassGaps(clash)).toBe(0);
+        });
+
+        it('thời khóa biểu có lớp trùng giờ KHÔNG được báo là hợp lệ', () => {
+            // Ca tối giản tái hiện đúng lỗi: chỉ hai tiết, trùng giờ.
+            // Trước khi vá: trùng giờ +1, khoảng trống -1, tổng 0 -> báo HỢP LỆ.
+            const broken: TimeSlot[] = [
+                { id: 'a', day: 2, period: 1, classId: 'C1', subjectId: 1, teacherId: 'T1' },
+                { id: 'b', day: 2, period: 1, classId: 'C1', subjectId: 2, teacherId: 'T2' },
+            ];
+            const fitness = service.getFitnessDetails(broken);
+
+            expect(fitness.hardViolations).toBeGreaterThan(0);
+            expect(fitness.isValid).toBe(false);
+        });
+
+        it('vẫn đếm đúng khoảng trống thật', () => {
+            const withGap: TimeSlot[] = [
+                { id: 'a', day: 2, period: 1, classId: 'C1', subjectId: 1, teacherId: 'T1' },
+                { id: 'b', day: 2, period: 4, classId: 'C1', subjectId: 2, teacherId: 'T2' },
+            ];
+            // Tiết 2 và 3 trống
+            expect(service.checkClassGaps(withGap)).toBe(2);
+        });
+    });
+
     describe('checkClassGaps', () => {
         it('reports no gap for a contiguous morning', () => {
             const schedule = [1, 2, 3].map(period => slot({ period }));
