@@ -58,16 +58,36 @@ describe('ScheduleTools', () => {
       },
       teacher: {
         findUnique: async () => ({ id: 'T1', max_periods_per_week: 17 }),
+        // `major_subject` is null here on purpose: it is null for every teacher in the real
+        // database, and a fixture that fills it in would hide exactly the bug this checks
         findMany: async ({ where }: any) => {
           const all = [
-            { id: 'T1', code: 'GV1', full_name: 'Cô Lan', major_subject: 'TOAN' },
-            { id: 'T2', code: 'GV2', full_name: 'Thầy Minh', major_subject: 'VAN' },
-            { id: 'T3', code: 'GV3', full_name: 'Cô Hoa', major_subject: 'TOAN' },
+            { id: 'T1', code: 'GV1', full_name: 'Cô Lan', major_subject: null },
+            { id: 'T2', code: 'GV2', full_name: 'Thầy Minh', major_subject: null },
+            { id: 'T3', code: 'GV3', full_name: 'Cô Hoa', major_subject: null },
           ];
-          return where?.major_subject ? all.filter((t) => t.major_subject === where.major_subject) : all;
+          if (where?.major_subject?.in) return [];
+          if (where?.id?.in) return all.filter((t) => where.id.in.includes(t.id));
+          return all;
         },
       },
-      subject: { findMany: async () => [{ id: 1, name: 'Toán' }, { id: 2, name: 'Ngữ văn' }] },
+      teachingAssignment: {
+        findMany: async ({ where }: any) =>
+          where.subject_id === 1
+            ? [{ teacher_id: 'T1' }, { teacher_id: 'T3' }]
+            : [{ teacher_id: 'T2' }],
+      },
+      subject: {
+        findMany: async () => [{ id: 1, name: 'Toán' }, { id: 2, name: 'Ngữ văn' }],
+        findFirst: async ({ where }: any) => {
+          const wanted = String(where.OR[0].code.equals).toLowerCase();
+          const all = [
+            { id: 1, code: 'TOAN', name: 'Toán' },
+            { id: 2, code: 'VAN', name: 'Ngữ văn' },
+          ];
+          return all.find((x) => x.code.toLowerCase() === wanted || x.name.toLowerCase() === wanted) ?? null;
+        },
+      },
       room: { findMany: async () => [{ id: 1, name: 'P101' }] },
     };
 
@@ -160,6 +180,24 @@ describe('ScheduleTools', () => {
     expect(allowed.ok).toBe(true);
     // T1 đang dạy, T3 đã đăng ký bận -> chỉ còn T2
     expect(allowed.data.free.map((t: any) => t.teacherId)).toEqual(['T2']);
+  });
+
+  it('lọc theo môn dựa trên phân công, không dựa vào major_subject đang rỗng', async () => {
+    // T1 và T3 đều dạy Toán theo phân công; T1 đang có tiết, T3 đã đăng ký bận
+    const toan: any = await call('find_free_teachers', { day: 2, period: 1, subject: 'Toán' }, ADMIN);
+    expect(toan.ok).toBe(true);
+    expect(toan.data.candidatesConsidered).toBe(2);
+    expect(toan.data.free).toEqual([]);
+
+    // Cùng môn đó, giờ khác: T1 và T3 đều rảnh
+    const later: any = await call('find_free_teachers', { day: 4, period: 5, subject: 'TOAN' }, ADMIN);
+    expect(later.data.free.map((t: any) => t.teacherId)).toEqual(['T1', 'T3']);
+  });
+
+  it('nói rõ là không có môn đó, thay vì trả lời "không ai rảnh"', async () => {
+    const result = await call('find_free_teachers', { day: 2, period: 1, subject: 'Thiên văn học' }, ADMIN);
+    expect(result.ok).toBe(false);
+    expect((result as any).reason ?? (result as any).message).toContain('Thiên văn học');
   });
 
   it('từ chối thứ và tiết nằm ngoài khoảng hợp lệ', async () => {

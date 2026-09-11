@@ -135,15 +135,16 @@ export class ScheduleTools {
       description:
         'Những giáo viên không có tiết vào một khung giờ cụ thể. ' +
         'Chỉ cần thứ và tiết là gọi được — KHÔNG hỏi lại người dùng về môn, ' +
-        'bỏ trống subjectCode thì trả về mọi giáo viên rảnh.',
+        'bỏ trống subject thì trả về mọi giáo viên rảnh.',
       parameters: {
         type: 'object',
         properties: {
           day: { type: 'number', description: 'Thứ, từ 2 đến 7' },
           period: { type: 'number', description: 'Tiết, từ 1 đến 10' },
-          subjectCode: {
+          subject: {
             type: 'string',
-            description: 'TUỲ CHỌN. Chỉ điền khi người dùng nêu rõ môn, ví dụ TOAN. Bỏ trống để lấy tất cả.',
+            description:
+              'TUỲ CHỌN. Chỉ điền khi người dùng nêu rõ môn. Nhận cả mã lẫn tên: TOAN hoặc Toán. Bỏ trống để lấy tất cả.',
           },
         },
         required: ['day', 'period'],
@@ -158,11 +159,42 @@ export class ScheduleTools {
           return denied('Thứ phải từ 2 đến 7 và tiết phải từ 1 đến 10.');
         }
 
+        // The model writes whatever the user said, so both spellings are accepted
+        const wanted = String(args.subject ?? args.subjectCode ?? '').trim();
+        let teachesIt: Set<string> | undefined;
+
+        if (wanted) {
+          const subject = await this.prisma.subject.findFirst({
+            where: { OR: [{ code: { equals: wanted, mode: 'insensitive' } }, { name: { equals: wanted, mode: 'insensitive' } }] },
+            select: { id: true, code: true, name: true },
+          });
+          if (!subject) return denied(`Không có môn nào tên "${wanted}" trong hệ thống.`);
+
+          // Who teaches a subject comes from the teaching assignments, not from the
+          // optional `major_subject` field: that field is blank for every teacher here, and
+          // reading it would answer "không có ai" for a question whose real answer is "hai
+          // người" - a confident wrong answer being the worst kind
+          const assigned = await this.prisma.teachingAssignment.findMany({
+            where: { subject_id: subject.id },
+            select: { teacher_id: true },
+            distinct: ['teacher_id'],
+          });
+          const byMajor = await this.prisma.teacher.findMany({
+            where: { major_subject: { in: [subject.code, subject.name] } },
+            select: { id: true },
+          });
+
+          teachesIt = new Set([...assigned.map((a) => a.teacher_id), ...byMajor.map((t) => t.id)]);
+          if (teachesIt.size === 0) {
+            return denied(`Chưa có ai được phân công dạy môn ${subject.name}, nên không tra được ai dạy thay.`);
+          }
+        }
+
         const slots = await this.slotsOf(context.semesterId);
         const busy = new Set(slots.filter((s) => s.day === day && s.period === period).map((s) => s.teacherId));
 
         const teachers = await this.prisma.teacher.findMany({
-          where: args.subjectCode ? { major_subject: String(args.subjectCode) } : {},
+          where: teachesIt ? { id: { in: [...teachesIt] } } : {},
           select: { id: true, code: true, full_name: true, major_subject: true },
         });
 
@@ -171,7 +203,11 @@ export class ScheduleTools {
           .filter((t) => !this.constraints.isTeacherBusy(t.id, day, period))
           .map((t) => ({ teacherId: t.id, code: t.code, name: t.full_name, subject: t.major_subject }));
 
-        return answer({ when: `${DAY_LABEL[day]} tiết ${period}`, free });
+        return answer({
+          when: `${DAY_LABEL[day]} tiết ${period}`,
+          ...(wanted ? { subject: wanted, candidatesConsidered: teachers.length } : {}),
+          free,
+        });
       },
     };
   }
