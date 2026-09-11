@@ -215,7 +215,10 @@ export class ScheduleTools {
   private findSwapCandidates(): ToolDefinition {
     return {
       name: 'find_swap_candidates',
-      description: 'Những tiết có thể đổi chỗ với một tiết cho trước, kèm chi phí từng phương án.',
+      description:
+        'Những tiết có thể đổi chỗ với một tiết cho trước. ' +
+        'Mọi phương án trả về ĐÃ ĐƯỢC KIỂM TRA RÀNG BUỘC SẴN, kèm tên giáo viên và lớp — ' +
+        'KHÔNG cần gọi thêm check_swap_feasibility hay explain_slot cho những phương án này.',
       parameters: {
         type: 'object',
         properties: { slotId: { type: 'string', description: 'Mã tiết cần đổi' } },
@@ -228,8 +231,73 @@ export class ScheduleTools {
         const scope = resolveTeacherScope(context.actor, slot.teacher_id);
         if (!scope.allowed) return denied('Bạn chỉ đổi được tiết của chính mình.');
 
-        const options = await this.swapGraph.previewMoves(slot.id);
-        return answer(options);
+        const preview = await this.swapGraph.previewMoves(slot.id);
+
+        // `previewMoves` da cham diem tung o bang dung ConstraintService, nhung truoc day
+        // cong cu tra ve nguyen khoi du lieu tho: mo hinh khong doc ra duoc la da kiem roi
+        // nen goi check_swap_feasibility them ba lan, roi explain_slot ba lan nua de biet
+        // ai day tiet kia - tam muoi lam giay cho mot cau tra loi da nam san trong tay.
+        // Nen cau tra loi duoc dung thanh hinh ngay tai day.
+        const allSlots = await this.slotsOf(context.semesterId);
+        const slotTeacherId = new Map(allSlots.map((x) => [x.id, x.teacherId]));
+
+        // Doi cho voi mot tiet cua CHINH MINH thi van phai dung lop dung gio cu - hai tiet
+        // chi hoan doi mon cho nhau. Nguoi hoi dang ban gio do, nen day khong phai phuong
+        // an, du bo cham diem noi la hop le.
+        const usable = preview.targets.filter(
+          (t) => t.valid && (!t.swapsWith || slotTeacherId.get(t.swapsWith) !== slot.teacher_id),
+        );
+        const selfSwapsSkipped = preview.targets.filter(
+          (t) => t.valid && t.swapsWith && slotTeacherId.get(t.swapsWith) === slot.teacher_id,
+        ).length;
+
+        const valid = [...usable].sort((a, b) => (b.deltaScore ?? 0) - (a.deltaScore ?? 0)).slice(0, 8);
+        const partnerIds = new Set(valid.map((t) => t.swapsWith).filter(Boolean) as string[]);
+        const described = new Map(
+          (await this.describe(allSlots.filter((s) => partnerIds.has(s.id!)))).map((d) => [d.slotId, d]),
+        );
+
+        const teacherName = new Map(
+          (await this.prisma.teacher.findMany({ select: { id: true, full_name: true } })).map((t) => [t.id, t.full_name]),
+        );
+
+
+        const options = valid.map((target) => {
+          const partner = target.swapsWith ? described.get(target.swapsWith) : undefined;
+          return {
+            day: DAY_LABEL[target.day],
+            period: target.period,
+            scoreDelta: target.deltaScore ?? 0,
+            ...(partner
+              ? {
+                  swapsWithSlotId: target.swapsWith,
+                  partnerTeacher: teacherName.get(slotTeacherId.get(target.swapsWith!) ?? '') ?? 'không rõ',
+                  partnerSubject: partner.subject,
+                  partnerClass: partner.className,
+                }
+              : { note: 'Ô này đang trống, chuyển thẳng sang được, không cần ai đổi cùng' }),
+          };
+        });
+
+        if (options.length === 0) {
+          return denied(
+            selfSwapsSkipped > 0
+              ? 'Không có đồng nghiệp nào đổi được tiết này. Chỉ còn phương án đổi chỗ với tiết khác của chính bạn, mà làm vậy thì bạn vẫn phải đứng lớp đúng giờ đó.'
+              : 'Không có phương án nào đổi được tiết này mà không vi phạm ràng buộc.',
+          );
+        }
+
+        return answer({
+          slotId: slot.id,
+          alreadyCheckedByConstraintService: true,
+          rejectedCount: preview.targets.filter((t) => !t.valid).length,
+          selfSwapsSkipped,
+          selfSwapNote:
+            selfSwapsSkipped > 0
+              ? 'Đã loại các phương án đổi với tiết khác của chính người hỏi: đổi xong vẫn phải đứng lớp đúng giờ đang bận.'
+              : undefined,
+          options,
+        });
       },
     };
   }

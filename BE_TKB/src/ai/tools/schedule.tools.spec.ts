@@ -113,7 +113,22 @@ describe('ScheduleTools', () => {
         ScheduleTools,
         { provide: PrismaService, useValue: prisma },
         { provide: ConstraintService, useValue: constraints },
-        { provide: SwapGraphService, useValue: { previewMoves: async () => [{ day: 4, period: 1, cost: 10 }] } },
+        {
+          provide: SwapGraphService,
+          useValue: {
+            // Giong hinh dang that: da cham diem san tung o, ke ca o dang bi vi pham
+            previewMoves: async () => ({
+              slotId: 's1',
+              baseScore: 100,
+              targets: [
+                { day: 4, period: 1, valid: true, deltaScore: -2, swapsWith: 's2' },
+                { day: 2, period: 2, valid: true, deltaScore: 5, swapsWith: 's3' },
+                { day: 5, period: 3, valid: true, deltaScore: -8 },
+                { day: 6, period: 1, valid: false, reason: 'Vi phạm ràng buộc cứng' },
+              ],
+            }),
+          },
+        },
         { provide: FairnessService, useValue: fairness },
       ],
     }).compile();
@@ -203,6 +218,31 @@ describe('ScheduleTools', () => {
   it('từ chối thứ và tiết nằm ngoài khoảng hợp lệ', async () => {
     expect((await call('find_free_teachers', { day: 9, period: 1 }, ADMIN)).ok).toBe(false);
     expect((await call('find_free_teachers', { day: 2, period: 99 }, ADMIN)).ok).toBe(false);
+  });
+
+  it('không chào phương án đổi với tiết của chính mình — đổi xong vẫn phải đứng lớp giờ đó', async () => {
+    const result: any = await call('find_swap_candidates', { slotId: 's1' }, TEACHER);
+    expect(result.ok).toBe(true);
+
+    // s3 cũng là tiết của T1, nên phương án thứ hai phải bị loại dù điểm cao nhất
+    expect(result.data.selfSwapsSkipped).toBe(1);
+    expect(result.data.options.map((o: any) => o.period)).toEqual([1, 3]);
+    expect(result.data.options.some((o: any) => o.partnerTeacher === 'Cô Lan')).toBe(false);
+  });
+
+  it('nói rõ phương án đã được kiểm sẵn, kèm tên người và lớp', async () => {
+    const result: any = await call('find_swap_candidates', { slotId: 's1' }, TEACHER);
+
+    expect(result.data.alreadyCheckedByConstraintService).toBe(true);
+    expect(result.data.rejectedCount).toBe(1);
+
+    const swap = result.data.options.find((o: any) => o.swapsWithSlotId === 's2');
+    expect(swap.partnerTeacher).toBe('Thầy Minh');
+    expect(swap.partnerClass).toBe('10A1');
+
+    // Ô trống thì nói là chuyển thẳng, không bịa ra một người để đổi cùng
+    const empty = result.data.options.find((o: any) => !o.swapsWithSlotId);
+    expect(empty.note).toContain('trống');
   });
 
   it('tính khả thi của việc đổi tiết bằng ConstraintService, không tự phán', async () => {
