@@ -210,8 +210,12 @@ export class FeasibilityService {
 
   private checkTeacherQuota(issues: FeasibilityIssue[], teachers: any[], assignments: any[]) {
     for (const teacher of teachers) {
+      // Chao co va sinh hoat cuoi tuan khong phai tiet day. Nhiem vu chu nhiem duoc bu
+      // bang `workload_reduction`, nen tinh chung vao dinh muc la tinh hai lan - bo giai
+      // da loai chung ra tu lau, con phep kiem nay thi chua, nen no bao chan mot phan cong
+      // ma bo giai san sang xep.
       const assigned = assignments
-        .filter((a) => a.teacher_id === teacher.id)
+        .filter((a) => a.teacher_id === teacher.id && !a.subject?.is_special)
         .reduce((sum, a) => sum + a.total_periods, 0);
       if (assigned === 0) continue;
 
