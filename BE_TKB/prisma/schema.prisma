@@ -44,6 +44,7 @@ model Semester {
   generated_timetables  GeneratedTimetable[]
   overlays              ScheduleOverlay[]
   busy_requests         TeacherBusyRequest[]
+  swap_requests         SwapRequest[]
 
   @@map("semesters")
 }
@@ -140,6 +141,8 @@ model Teacher {
   teaching_assignments TeachingAssignment[]
   timetable_slots     TimetableSlot[]
   busy_requests       TeacherBusyRequest[]
+  swaps_requested     SwapRequest[]        @relation("SwapRequester")
+  swaps_received      SwapRequest[]        @relation("SwapPartner")
 
   @@map("teachers")
 }
@@ -458,5 +461,50 @@ enum NotificationCategory {
   TIMETABLE     // TKB generation status
   FEEDBACK      // Teacher feedback/request
   BUSY_SCHEDULE // Teacher busy time registration
+  SWAP_REQUEST  // Hai giao vien xin doi tiet cho nhau
   SYSTEM        // General system events
+}
+
+/// One teacher asking another to trade a period, and the trail of who said what.
+///
+/// Deliberately three-sided. A swap two teachers agree on can still be impossible - the
+/// partner may have picked up a class since, or the move may break a room booking - so the
+/// timetable is never touched until an admin approves AND the constraints are re-checked
+/// against the schedule as it stands at that moment, not as it stood when asked.
+model SwapRequest {
+  id                   String           @id @default(uuid())
+  semester_id          String
+  requester_teacher_id String
+  requester_slot_id    String
+  partner_teacher_id   String
+  partner_slot_id      String
+  /// Why the requester wants the trade - the partner reads this before deciding
+  reason               String
+  status               SwapStatus       @default(PENDING_PARTNER)
+  partner_note         String?
+  admin_note           String?
+  reviewed_by          String?
+  reviewed_at          DateTime?
+  /// Set when approved, linking to the dated overlay that carries out the trade
+  overlay_id           String?
+  created_at           DateTime         @default(now())
+  updated_at           DateTime         @updatedAt
+
+  semester             Semester         @relation(fields: [semester_id], references: [id], onDelete: Cascade)
+  requester_teacher    Teacher          @relation("SwapRequester", fields: [requester_teacher_id], references: [id], onDelete: Cascade)
+  partner_teacher      Teacher          @relation("SwapPartner", fields: [partner_teacher_id], references: [id], onDelete: Cascade)
+
+  @@index([semester_id, status])
+  @@index([partner_teacher_id, status])
+  @@index([requester_teacher_id, status])
+  @@map("swap_requests")
+}
+
+enum SwapStatus {
+  PENDING_PARTNER  // cho dong nghiep tra loi
+  PARTNER_REJECTED // dong nghiep tu choi
+  PENDING_ADMIN    // dong nghiep dong y, cho quan tri vien duyet
+  APPROVED         // da duyet va da ap dung
+  REJECTED         // quan tri vien tu choi
+  CANCELLED        // nguoi gui rut lai
 }

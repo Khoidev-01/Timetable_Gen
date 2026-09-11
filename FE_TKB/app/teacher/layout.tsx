@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { LayoutDashboard, CalendarDays, Clock, KeyRound, LogOut, PanelLeftClose, PanelLeft, Bell, Check , CalendarOff } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Clock, KeyRound, LogOut, PanelLeftClose, PanelLeft, Bell, Check , CalendarOff, ArrowLeftRight } from 'lucide-react';
 import AppLogo from '../components/AppLogo';
 import ThemeToggle from '../components/ThemeToggle';
 import { API_URL } from '@/lib/api';
@@ -15,6 +15,7 @@ const teacherMenuItems = [
   { name: 'Thời khóa biểu', href: '/teacher/schedule', icon: CalendarDays },
   { name: 'Nguyện vọng', href: '/teacher/preferences', icon: Clock },
   { name: 'Xin nghỉ theo tuần', href: '/teacher/feedback', icon: CalendarOff },
+  { name: 'Đổi tiết', href: '/teacher/swaps', icon: ArrowLeftRight },
   { name: 'Đổi mật khẩu', href: '/teacher/profile', icon: KeyRound },
 ];
 

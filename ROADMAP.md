@@ -769,14 +769,52 @@ cách cũ thì chi phí nhân ba.
 
 ---
 
-### D3 — Đề xuất đổi tiết hai chiều 🟠 ★★
+### D3 — Đề xuất đổi tiết hai chiều ✅ **ĐÃ LÀM**
 **Ngày công:** 2 · **Phụ thuộc:** A4, D4
 
+**Chạm vào:** `swap-request.service.ts` · `swap-request.controller.ts` ·
+`SwapRequestPanel.tsx` · `app/teacher/swaps` · `app/admin/swaps` ·
+migration `20260911080000_add_swap_requests`
+
 **Hoàn thành khi:**
-- [ ] GV A chọn tiết → hệ thống gợi ý danh sách đổi được (từ A4)
-- [ ] B nhận thông báo, đồng ý / từ chối kèm lý do
-- [ ] Admin duyệt cuối, hệ thống kiểm tra lại ràng buộc trước khi áp dụng
-- [ ] Áp dụng → sinh overlay loại `SWAP`
+- [x] GV A chọn tiết → hệ thống gợi ý danh sách đổi được (từ A4) — 16–18 phương án trên dữ liệu thật
+- [x] B nhận thông báo, đồng ý / từ chối kèm lý do
+- [x] Admin duyệt cuối, hệ thống kiểm tra lại ràng buộc trước khi áp dụng
+- [x] Áp dụng → sinh overlay loại `SWAP`
+
+**Ba bên, vì hai bên là không đủ.** Một cuộc đổi mà cả hai giáo viên đều hài lòng vẫn có thể
+không thực hiện được: từ lúc họ đồng ý đến lúc duyệt, người kia có thể đã nhận thêm lớp,
+phòng thực hành có thể đã bị trùng, hoặc một trong hai đã chạm trần số tiết trong tuần. Nên
+ràng buộc được kiểm **hai lần** — một lần để gợi ý, một lần nữa **ngay tại thời điểm duyệt**,
+đối chiếu với thời khóa biểu lúc ấy chứ không phải lúc viết yêu cầu.
+
+**Đổi chỗ phải đi qua một ô trống.** Bảng có ràng buộc duy nhất trên `(lớp, thứ, tiết, tuần)`,
+nên ghi thẳng tiết A vào chỗ tiết B là đụng luôn ràng buộc đó ngay giữa chừng. Tiết A được đỗ
+tạm ở `(-1, -1)` trong cùng một giao dịch rồi mới vào chỗ mới.
+
+**Đo trên dữ liệu thật** (`scripts/swap-http-check.ts`, gọi qua HTTP với tài khoản thật):
+
+| Bước | Kết quả |
+| :--- | :--- |
+| `GET /doi-tiet/goi-y/:slotId` | 16 phương án, đều không sinh lỗi cứng |
+| Người gửi / đồng nghiệp / người ngoài thấy yêu cầu | `true` / `true` / **`false`** |
+| Người ngoài trả lời hộ | 403 — *Chỉ giáo viên được hỏi mới trả lời được yêu cầu này.* |
+| Người gửi tự duyệt | 403 — *Chỉ quản trị viên duyệt được.* |
+| Đồng nghiệp đồng ý | `PENDING_ADMIN`, thời khóa biểu **chưa đổi** |
+| Admin duyệt | hai tiết đổi đúng chỗ cho nhau, overlay `SWAP`, điểm −15 |
+
+**Một lỗi tìm được nhờ chạy thật.** Bản chạy đầu tiên báo lỗi trùng khóa từ PostgreSQL trong
+khi bộ chấm điểm nói phương án khả thi. Truy ra: `checkClassGaps` trả **số âm** khi một lớp có
+hai tiết cùng giờ, và số âm đó triệt tiêu một lỗi cứng có thật ở phép kiểm khác — tổng bằng
+không, nên một thời khóa biểu hỏng tự nhận là hợp lệ. Khoảng trống là số tiết trống nên không
+thể âm; nay bị chặn ở 0, kèm một lớp chặn nữa ở `getFitnessDetails` để không phép kiểm nào trừ
+được vào phép kiểm khác. Mock không bắt được lỗi này — chỉ ràng buộc duy nhất của cơ sở dữ
+liệu thật mới bắt được.
+
+**Còn thiếu:** không tài khoản nào trong CSDL hiện tại được liên kết với hồ sơ giáo viên
+(`teacher_profile_id` đều rỗng), nên giáo viên chưa đăng nhập vào dùng được — kịch bản kiểm
+tra tự tạo tài khoản tạm rồi xóa. Quản trị viên cần gán hồ sơ ở trang **Tài khoản** trước khi
+mở tính năng cho trường.
 
 ---
 
