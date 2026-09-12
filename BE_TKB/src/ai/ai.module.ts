@@ -5,6 +5,7 @@ import { ScheduleTools } from './tools/schedule.tools';
 import { ToolsController } from './tools/tools.controller';
 import { AssistantController } from './assistant.controller';
 import { OrchestratorService } from './orchestrator.service';
+import { KnowledgeService } from './knowledge/knowledge.service';
 import { AssistantEvalService } from './eval/assistant-eval.service';
 import { LLM_PROVIDER } from './providers/llm-provider.interface';
 import { OpenAiCompatibleProvider } from './providers/openai-compatible.provider';
@@ -18,9 +19,10 @@ import { AiService } from './ai.service';
         ScheduleTools,
         OrchestratorService,
         AssistantEvalService,
+        KnowledgeService,
         // Swapping provider is an .env change; the interface is what the orchestrator sees
         { provide: LLM_PROVIDER, useClass: OpenAiCompatibleProvider },
     ],
-    exports: [AiService, ScheduleTools, OrchestratorService, AssistantEvalService],
+    exports: [AiService, ScheduleTools, OrchestratorService, AssistantEvalService, KnowledgeService],
 })
 export class AiModule { }

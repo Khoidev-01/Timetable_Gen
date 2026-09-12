@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConstraintService, TimeSlot } from '../../algorithm/constraint.service';
 import { SwapGraphService } from '../../algorithm/swap-graph.service';
+import { KnowledgeService } from '../knowledge/knowledge.service';
 import { FairnessService } from '../../algorithm/fairness.service';
 import { answer, denied, ToolContext, ToolDefinition, ToolResult } from './tool.types';
 import { requireAdmin, resolveTeacherScope } from './guardrails';
@@ -28,6 +29,7 @@ export class ScheduleTools {
     private constraints: ConstraintService,
     private swapGraph: SwapGraphService,
     private fairness: FairnessService,
+    private knowledge: KnowledgeService,
   ) {}
 
   all(): ToolDefinition[] {
@@ -410,29 +412,33 @@ export class ScheduleTools {
   private searchRegulations(): ToolDefinition {
     return {
       name: 'search_regulations',
-      description: 'Tra quy định về định mức tiết dạy và cách xếp thời khóa biểu THPT.',
+      description:
+        'Tra quy định về định mức tiết dạy, quy tắc xếp thời khóa biểu THPT và cách dùng hệ thống. ' +
+        'Mỗi kết quả kèm tên văn bản gốc để trích dẫn lại cho người dùng.',
       parameters: {
         type: 'object',
-        properties: { query: { type: 'string', description: 'Từ khoá cần tra' } },
+        properties: { query: { type: 'string', description: 'Câu hỏi hoặc từ khoá cần tra' } },
         required: ['query'],
       },
       run: async (args) => {
-        const query = String(args.query ?? '').toLowerCase().trim();
+        const query = String(args.query ?? '').trim();
         if (!query) return denied('Cần từ khoá để tra.');
 
-        const hits = REGULATIONS.filter(
-          (item) =>
-            item.title.toLowerCase().includes(query) ||
-            item.body.toLowerCase().includes(query) ||
-            item.keywords.some((k) => query.includes(k)),
-        );
+        const hits = await this.knowledge.search(query, 3);
 
         if (hits.length === 0) {
+          // Noi thang la khong co, thay vi dua ra mau gan dung nhat. Mot cau tra loi sai kem
+          // so hieu van ban trong dang tin hon han mot cau tra loi sai khong co gi kem theo.
           return denied(
-            'Không tìm thấy quy định nào khớp. Hệ thống chỉ tra được các văn bản đã nạp sẵn, chưa tra toàn văn.',
+            'Không có nội dung nào về việc này trong tài liệu đã nạp. ' +
+              'Tôi chỉ tra được những văn bản đã đưa vào hệ thống, và tôi không đoán thêm.',
           );
         }
-        return answer(hits.slice(0, 3));
+
+        return answer({
+          citeEveryClaim: 'Mỗi ý rút ra từ đây phải nói rõ lấy từ văn bản nào.',
+          hits,
+        });
       },
     };
   }
@@ -545,35 +551,3 @@ export class ScheduleTools {
  * "what is my quota" by summarising a random search result is worse than one that says it
  * does not know. Every entry names its source so the answer can be checked.
  */
-const REGULATIONS = [
-  {
-    title: 'Định mức tiết dạy giáo viên THPT',
-    source: 'Thông tư 05/2025/TT-BGDĐT',
-    body: 'Giáo viên trung học phổ thông dạy 17 tiết mỗi tuần. Giáo viên chủ nhiệm được giảm 4 tiết mỗi tuần.',
-    keywords: ['định mức', 'dinh muc', '17 tiết', 'số tiết', 'quota', 'chủ nhiệm'],
-  },
-  {
-    title: 'Chào cờ và sinh hoạt lớp',
-    source: 'Thông tư 05/2025/TT-BGDĐT',
-    body: 'Chào cờ và sinh hoạt lớp là nhiệm vụ của giáo viên chủ nhiệm, đã được tính trong phần giảm trừ định mức, nên không cộng thêm vào số tiết dạy.',
-    keywords: ['chào cờ', 'chao co', 'sinh hoạt', 'gvcn', 'chủ nhiệm'],
-  },
-  {
-    title: 'Chương trình giáo dục phổ thông 2018',
-    source: 'Thông tư 32/2018/TT-BGDĐT',
-    body: 'Quy định khung chương trình tổng thể cho cấp trung học phổ thông, gồm môn bắt buộc và môn lựa chọn theo tổ hợp.',
-    keywords: ['gdpt', 'chương trình', 'chuong trinh', 'tổ hợp', '2018'],
-  },
-  {
-    title: 'Lịch sử là môn bắt buộc ở THPT',
-    source: 'Thông tư 13/2022/TT-BGDĐT',
-    body: 'Điều chỉnh chương trình GDPT 2018: Lịch sử trở thành nội dung bắt buộc ở cấp trung học phổ thông với 2 tiết mỗi tuần.',
-    keywords: ['lịch sử', 'lich su', 'bắt buộc', '13/2022'],
-  },
-  {
-    title: 'Số tiết tối đa trong một buổi',
-    source: 'Điều lệ trường trung học',
-    body: 'Mỗi buổi học chính khoá không quá 5 tiết. Buổi học thứ hai trong ngày không quá 3 tiết.',
-    keywords: ['bao nhiêu tiết', 'một buổi', 'tối đa', 'buổi chiều', '5 tiết'],
-  },
-];

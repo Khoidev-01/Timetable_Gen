@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ConstraintService } from '../../algorithm/constraint.service';
 import { SwapGraphService } from '../../algorithm/swap-graph.service';
 import { FairnessService } from '../../algorithm/fairness.service';
+import { KnowledgeService } from '../knowledge/knowledge.service';
 import { ScheduleTools } from './schedule.tools';
 import { Actor, ToolContext } from './tool.types';
 
@@ -127,6 +128,17 @@ describe('ScheduleTools', () => {
                 { day: 6, period: 1, valid: false, reason: 'Vi phạm ràng buộc cứng' },
               ],
             }),
+          },
+        },
+        {
+          provide: KnowledgeService,
+          useValue: {
+            // Kho tai lieu that duoc do rieng o knowledge.service.spec.ts; o day chi can
+            // biet cong cu chuyen tiep dung cau hoi va xu ly dung truong hop khong tim thay
+            search: async (query: string) =>
+              query.includes('định mức')
+                ? [{ source: 'Thông tư 05/2025/TT-BGDĐT', article: null, title: 'Định mức tiết dạy', body: '17 tiết mỗi tuần.', score: 1 }]
+                : [],
           },
         },
         { provide: FairnessService, useValue: fairness },
@@ -266,14 +278,20 @@ describe('ScheduleTools', () => {
     expect(result.data.when).toBe('Thứ hai tiết 2');
   });
 
-  it('tra được quy định, và nói thẳng khi không có', async () => {
+  it('tra được quy định, kèm nguồn để trích dẫn lại', async () => {
     const found: any = await call('search_regulations', { query: 'định mức' }, TEACHER);
-    expect(found.ok).toBe(true);
-    expect(found.data[0].source).toContain('05/2025');
 
+    expect(found.ok).toBe(true);
+    expect(found.data.hits[0].source).toContain('05/2025');
+    // Mo hinh phai duoc nhac rang moi y rut ra tu day deu can dan nguon
+    expect(found.data.citeEveryClaim).toBeTruthy();
+  });
+
+  it('không có trong tài liệu thì nói thẳng, không đưa mẩu gần đúng nhất', async () => {
     const missing = await call('search_regulations', { query: 'luật hàng hải' }, TEACHER);
+
     expect(missing.ok).toBe(false);
-    expect(missing.message).toContain('chưa tra toàn văn');
+    expect(missing.message).toContain('không đoán thêm');
   });
 
   it('công cụ ghi KHÔNG tự thực hiện, chỉ trả thẻ xác nhận', async () => {

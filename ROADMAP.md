@@ -1055,17 +1055,65 @@ nhận lỗi.
 
 ---
 
-### C4 — RAG pgvector 🟠 ★★
+### C4 — Tra cứu quy định có trích dẫn ✅ **ĐÃ LÀM** *(không dùng pgvector — xem bên dưới)*
 **Ngày công:** 2 · **Phụ thuộc:** C1
 
-**Nạp vào:** quy định định mức tiết dạy · quy chế chuyên môn trường · quy tắc xếp lịch trích từ `readme.md` · hướng dẫn sử dụng
+**Đã nạp:** quy định định mức tiết dạy · quy tắc xếp lịch trích từ `readme.md` · hướng dẫn
+sử dụng — **13 mẩu**, 4 mẩu có số hiệu mục.
 
-**Chạm vào:** extension `pgvector`, model `KnowledgeChunk`, script ingest
+**Chạm vào:** model `KnowledgeChunk` · migration bật `unaccent` và `pg_trgm` ·
+`src/ai/knowledge/` *(mới)* · công cụ `search_regulations`
 
 **Hoàn thành khi:**
-- [ ] Chia đoạn theo Điều / Khoản, không cắt mù theo ký tự
-- [ ] Mỗi câu trả lời trích dẫn được nguồn và số điều khoản
-- [ ] Không tìm thấy → nói thẳng "không có trong tài liệu", không bịa
+- [x] Chia đoạn theo Điều / Khoản, không cắt mù theo ký tự
+- [x] Mỗi câu trả lời trích dẫn được nguồn và số điều khoản
+- [x] Không tìm thấy → nói thẳng "không có trong tài liệu", không bịa
+
+**Không dùng pgvector, và đây là lý do.** Hai thứ cần cho RAG vector đều không có trên môi
+trường này: cổng mô hình đang dùng chỉ có mô hình chat, gọi `/embeddings` trả về
+`No credentials for provider: openai`; và PostgreSQL 18 trên máy không có sẵn extension
+`vector` (chỉ có `pg_trgm` và `unaccent`). Không có vector nhúng thì bảng vector rỗng nghĩa,
+nên phần tra cứu làm bằng khớp từ trên văn bản đã bỏ dấu. **Điểm khớp gom hết vào đúng một
+hàm** `score()`, nên khi nào có mô hình nhúng thì thay hàm đó, phần còn lại giữ nguyên.
+
+**Cắt theo Điều/Khoản, không cắt theo số ký tự.** Cắt giữa câu thì mẩu lấy ra không còn là
+một quy định hoàn chỉnh, và trợ lý sẽ trích một nửa điều khoản như thể đó là toàn bộ — người
+đọc không có cách nào biết phần còn lại nói ngược lại.
+
+**Không gán số Điều cho văn bản pháp quy.** Nội dung trong kho là bản tóm tắt phục vụ xếp
+lịch chứ không phải bản sao nguyên văn, nên gán "Điều 7 khoản 2" vào đó là bịa ra một trích
+dẫn không kiểm chứng được — đúng thứ mà việc tra cứu này sinh ra để tránh. Các mẩu dẫn thông
+tư chỉ ghi tên thông tư; các mẩu về quy tắc của chính hệ thống thì có số mục thật.
+
+**Hai cái bẫy của tiếng Việt, tìm ra bằng cách chạy thử.** Bỏ dấu là cách duy nhất để người
+gõ `dinh muc tiet day` vẫn tìm được, nhưng nó làm **"vàng" trùng "vắng"**; và khớp chuỗi con
+làm **"gia" trúng "giáo"**. Cộng hai thứ lại thì câu hỏi *"giá vàng hôm nay"* trả về một
+điều khoản về giáo viên báo vắng — **điểm khớp 1.0**, kèm tên văn bản, trông rất đáng tin.
+
+Ba lớp chặn, và phải đủ cả ba:
+
+| | |
+| :--- | :--- |
+| Khớp theo **từ**, không theo chuỗi con | "gia" không còn trúng "giáo" |
+| Gõ có dấu thì **dấu phải khớp** ít nhất 1/3 số từ | "vàng" không còn trúng "vắng" |
+| Độ phủ là **cửa chặn**, không phải điểm cộng | quá nửa số từ có nghĩa phải xuất hiện |
+
+Lớp thứ ba là lớp khó thấy nhất: thiếu nó thì một câu khớp đúng một từ vẫn được điểm thưởng
+tiêu đề đẩy qua ngưỡng.
+
+**Đo thật qua trợ lý:**
+
+```
+"GVCN được giảm bao nhiêu tiết, căn cứ văn bản nào?"
+  → gọi search_regulations, trả lời "giảm 4 tiết/tuần, định mức còn 13"
+    Căn cứ: Thông tư 05/2025/TT-BGDĐT
+
+"Chào cờ có tính vào định mức tiết dạy không?"
+  → "Không... nếu cộng thêm sẽ thành tính hai lần." Nguồn: Thông tư 05/2025/TT-BGDĐT
+
+"Hệ thống có quy định gì về mức lương giáo viên không?"
+  → không gọi công cụ nào, từ chối: ngoài phạm vi
+```
 
 ---
 

@@ -471,6 +471,25 @@ enum NotificationCategory {
 /// partner may have picked up a class since, or the move may break a room booking - so the
 /// timetable is never touched until an admin approves AND the constraints are re-checked
 /// against the schedule as it stands at that moment, not as it stood when asked.
+/// Một mẩu tài liệu đủ nhỏ để trích dẫn nguyên văn, cắt theo Điều/Khoản chứ không cắt mù
+/// theo số ký tự: cắt giữa câu thì mẩu lấy ra không còn là một quy định hoàn chỉnh, và
+/// trợ lý sẽ trích dẫn một nửa điều khoản như thể đó là toàn bộ.
+model KnowledgeChunk {
+  id          String   @id @default(uuid())
+  /// Văn bản gốc, ví dụ "Thông tư 05/2025/TT-BGDĐT"
+  source      String
+  /// Số hiệu trong văn bản gốc, ví dụ "Điều 7 khoản 2" hoặc "Mục 4.1"
+  article     String?
+  title       String
+  body        String
+  /// Bản đã bỏ dấu và hạ chữ thường, để tra không phụ thuộc dấu tiếng Việt
+  search_text String
+  created_at  DateTime @default(now())
+
+  @@index([source])
+  @@map("knowledge_chunks")
+}
+
 model SwapRequest {
   id                   String           @id @default(uuid())
   semester_id          String
