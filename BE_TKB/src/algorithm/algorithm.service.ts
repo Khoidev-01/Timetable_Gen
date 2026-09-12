@@ -285,40 +285,64 @@ export class AlgorithmService {
      */
     private assignRooms(solution: any, data: any, log: (msg: string) => void) {
         const assembly = data.subjects.find((s: any) => s.code === 'CHAO_CO');
+        const roomOfClass = new Map<string, number | undefined>(
+            data.classes.map((c: any) => [c.id, c.fixed_room_id ?? undefined]),
+        );
+
         const placed: TimeSlot[] = [];
+        const leftovers: TimeSlot[] = [];
         let unresolved = 0;
 
-        // Specialised subjects book first - they have the fewest rooms to choose from
-        const ordered = [...(solution.slots as TimeSlot[])].sort((a, b) => {
-            const aSpecial = this.constraintService.getRequiredRoomType(a.subjectId) ? 0 : 1;
-            const bSpecial = this.constraintService.getRequiredRoomType(b.subjectId) ? 0 : 1;
-            return aSpecial - bSpecial;
-        });
+        const slots = solution.slots as TimeSlot[];
+        const needsSpecialRoom = (slot: TimeSlot) =>
+            Boolean(this.constraintService.getRequiredRoomType(slot.subjectId));
 
-        for (const slot of ordered) {
+        // Lượt 1: môn cần phòng chức năng đặt trước — chúng có ít phòng để chọn nhất
+        for (const slot of slots) {
             if (assembly && slot.subjectId === assembly.id) {
                 slot.roomId = undefined;
                 placed.push(slot);
                 continue;
             }
+            if (!needsSpecialRoom(slot)) continue;
 
-            const cls = data.classes.find((c: any) => c.id === slot.classId);
-            const room = this.constraintService.pickRoom(
-                slot.subjectId, slot.day, slot.period, placed, cls?.fixed_room_id ?? undefined);
-
-            if (room === undefined && this.constraintService.getRequiredRoomType(slot.subjectId)) {
-                // Every specialised room is taken; fall back to the class room so the
-                // period is still taught rather than dropped
-                slot.roomId = cls?.fixed_room_id ?? undefined;
-                unresolved++;
-            } else {
-                slot.roomId = room;
+            const room = this.constraintService.pickRoom(slot.subjectId, slot.day, slot.period, placed);
+            if (room === undefined) {
+                leftovers.push(slot);
+                continue;
             }
+            slot.roomId = room;
+            placed.push(slot);
+        }
+
+        // Lượt 2: tiết thường về phòng của lớp mình. Phải đi trước lượt ba, nếu không một
+        // tiết trái buổi hết sân sẽ chiếm mất phòng của chính lớp đang ngồi trong đó.
+        for (const slot of slots) {
+            if (placed.includes(slot) || leftovers.includes(slot)) continue;
+
+            const own = roomOfClass.get(slot.classId);
+            slot.roomId = this.constraintService.isRoomTaken(own, slot.day, slot.period, placed)
+                ? undefined
+                : own;
+            if (slot.roomId === undefined) leftovers.push(slot);
+            else placed.push(slot);
+        }
+
+        // Lượt 3: những tiết chưa có phòng nhận bất cứ phòng nào còn trống thật sự. Cấp bừa
+        // một phòng đang có lớp khác ngồi thì cơ sở dữ liệu chặn lúc lưu và tiết biến mất —
+        // tệ hơn hẳn so với một tiết chưa ghi phòng.
+        for (const slot of leftovers) {
+            const room = this.constraintService.findFreeRoom(
+                slot.day, slot.period, placed,
+                this.constraintService.getRequiredRoomType(slot.subjectId) ?? undefined,
+            );
+            slot.roomId = room;
+            if (needsSpecialRoom(slot)) unresolved++;
             placed.push(slot);
         }
 
         if (unresolved > 0) {
-            log(`[WARN] ${unresolved} tiết thực hành không còn phòng chức năng trống, phải học tại phòng lớp.`);
+            log(`[WARN] ${unresolved} tiết thực hành không còn phòng chức năng trống, phải học tại phòng khác.`);
         }
     }
 
@@ -778,29 +802,47 @@ export class AlgorithmService {
         // Filling a shortfall must not push the teacher past their weekly quota
         if (this.constraintService.isTeacherAtWeeklyLimit(assign.teacher_id, solution.slots)) return false;
 
-        for (let day = 2; day <= 7; day++) {
-            for (let period = minP; period <= maxP; period++) {
-                if (!this.isCellAllowed(day, period)) continue;
-                if (this.isSlotOccupied(solution.slots, cls.id, day, period)) continue;
-                if (this.constraintService.isTeacherBusy(assign.teacher_id, day, period)) continue;
-                if (this.constraintService.isRoomTypeFull(assign.subject_id, day, period, solution.slots)) continue;
+        // Vòng một nhận ô trống; vòng hai được phép đẩy một tiết khác của chính lớp này
+        // sang chỗ khác để lấy ô. Lớp nào kín lịch thì vòng một không bao giờ tìm ra ô nào,
+        // và tiết thiếu ở lại thiếu vĩnh viễn dù lịch vẫn còn xoay được.
+        for (const mayDisplaceClassmate of [false, true]) {
+            for (let day = 2; day <= 7; day++) {
+                for (let period = minP; period <= maxP; period++) {
+                    if (!this.isCellAllowed(day, period)) continue;
+                    if (this.constraintService.isTeacherBusy(assign.teacher_id, day, period)) continue;
+                    if (this.constraintService.isRoomTypeFull(assign.subject_id, day, period, solution.slots)) continue;
 
-                const blocker = solution.slots.find((s: TimeSlot) =>
-                    s.day === day && s.period === period && s.teacherId === assign.teacher_id);
+                    const classmate = solution.slots.find((s: TimeSlot) =>
+                        s.classId === cls.id && s.day === day && s.period === period);
 
-                if (blocker && (blocker.isLocked || !this.relocateSlot(solution, blocker))) continue;
+                    if (classmate) {
+                        if (!mayDisplaceClassmate) continue;
+                        if (classmate.isLocked || !this.relocateSlot(solution, classmate)) continue;
+                    }
 
-                solution.slots.push({
-                    id: crypto.randomUUID(),
-                    day,
-                    period,
-                    classId: cls.id,
-                    subjectId: assign.subject_id,
-                    teacherId: assign.teacher_id,
-                    roomId: cls.fixed_room_id,
-                    isLocked: false,
-                });
-                return true;
+                    const blocker = solution.slots.find((s: TimeSlot) =>
+                        s.day === day && s.period === period && s.teacherId === assign.teacher_id);
+
+                    if (blocker && (blocker.isLocked || !this.relocateSlot(solution, blocker))) continue;
+
+                    const slot: TimeSlot = {
+                        id: crypto.randomUUID(),
+                        day,
+                        period,
+                        classId: cls.id,
+                        subjectId: assign.subject_id,
+                        teacherId: assign.teacher_id,
+                        // Phòng phải hợp với môn. Gán thẳng phòng của lớp là xếp tiết thực
+                        // hành Sinh vào phòng không có kính hiển vi, mà bảng điểm không hề
+                        // kêu vì nó chỉ đếm nhu cầu chứ không nhìn phòng đã cấp.
+                        roomId: this.constraintService.pickRoom(
+                            assign.subject_id, day, period, solution.slots, cls.fixed_room_id,
+                        ) ?? cls.fixed_room_id,
+                        isLocked: false,
+                    };
+                    solution.slots.push(slot);
+                    return true;
+                }
             }
         }
         return false;
@@ -819,8 +861,14 @@ export class AlgorithmService {
                 if (this.constraintService.checkTeacherConflict(
                     { day, period, teacherId: slot.teacherId } as any, solution.slots)) continue;
 
+                // Chuyển đi cũng phải còn phòng chức năng ở chỗ mới, và phải cấp lại phòng:
+                // giữ phòng cũ là giữ một chỗ ở giờ khác, giờ đó lớp khác có thể đang dùng
+                const others = solution.slots.filter((s: TimeSlot) => s !== slot);
+                if (this.constraintService.isRoomTypeFull(slot.subjectId, day, period, others)) continue;
+
                 slot.day = day;
                 slot.period = period;
+                this.reassignRoom(slot, solution.slots);
                 return true;
             }
         }
@@ -854,7 +902,7 @@ export class AlgorithmService {
                     const target = this.findBlockPartnerCell(solution.slots, lone, siblings);
                     if (!target) continue;
 
-                    this.swapPositions(lone, target);
+                    this.swapPositions(lone, target, solution.slots);
                     merged++;
                 }
             }
@@ -917,16 +965,57 @@ export class AlgorithmService {
                 (s.teacherId === slot.teacherId || s.classId === slot.classId));
         };
 
-        return legal(a, b.day, b.period) && legal(b, a.day, a.period);
+        if (!legal(a, b.day, b.period) || !legal(b, a.day, a.period)) return false;
+
+        return this.roomTypeSurvivesSwap(slots, a, b) && this.roomTypeSurvivesSwap(slots, b, a);
     }
 
-    private swapPositions(a: TimeSlot, b: TimeSlot) {
+    /**
+     * Would moving `moving` into `target`'s time leave enough special rooms?
+     *
+     * Ghép tiết đôi từng bỏ qua câu hỏi này: một tiết Tin được đẩy sang giờ mà cả ba phòng
+     * máy đã kín, và lỗi chỉ lộ ra ở bảng điểm cuối cùng dưới dạng "thiếu phòng chức năng"
+     * — không ai lần ngược được về phép ghép đã gây ra nó.
+     */
+    private roomTypeSurvivesSwap(slots: TimeSlot[], moving: TimeSlot, target: TimeSlot): boolean {
+        const type = this.constraintService.getRequiredRoomType(moving.subjectId);
+        if (!type) return true;
+
+        // Hai tiết đổi chỗ cho nhau, nên ô đích mất `target` và nhận `moving`: chỉ chật
+        // thêm khi tiết chuyển tới cần phòng mà tiết chuyển đi thì không
+        if (this.constraintService.getRequiredRoomType(target.subjectId) === type) return true;
+
+        const without = slots.filter(s => s !== moving && s !== target);
+        return !this.constraintService.isRoomTypeFull(moving.subjectId, target.day, target.period, without);
+    }
+
+    /**
+     * Đổi chỗ hai tiết, rồi cấp lại phòng cho tiết nào cần phòng chức năng.
+     *
+     * Giữ nguyên `roomId` khi đổi giờ là giữ một chỗ ngồi ở giờ khác: phòng thí nghiệm đó
+     * giờ mới có thể đang có lớp khác, thành trùng phòng.
+     */
+    private swapPositions(a: TimeSlot, b: TimeSlot, slots?: TimeSlot[]) {
         const day = a.day;
         const period = a.period;
         a.day = b.day;
         a.period = b.period;
         b.day = day;
         b.period = period;
+
+        if (slots) {
+            this.reassignRoom(a, slots);
+            this.reassignRoom(b, slots);
+        }
+    }
+
+    /** Cấp lại phòng chức năng cho một tiết vừa đổi giờ. Tiết học phòng thường thì giữ nguyên. */
+    private reassignRoom(slot: TimeSlot, slots: TimeSlot[]) {
+        if (!this.constraintService.getRequiredRoomType(slot.subjectId)) return;
+
+        const others = slots.filter(s => s !== slot);
+        const room = this.constraintService.pickRoom(slot.subjectId, slot.day, slot.period, others, slot.roomId);
+        if (room !== undefined) slot.roomId = room;
     }
 
     private sameSession(a: number, b: number): boolean {
@@ -1119,10 +1208,25 @@ export class AlgorithmService {
         if (a.day === b.day && a.period === b.period) return null;
         if (!this.canSwapPositions(slots, a, b)) return null;
 
-        this.swapPositions(a, b);
-        return {
-            key: `swap:${[a.classId, b.classId].sort().join('|')}`,
-            undo: () => this.swapPositions(a, b),
+        const undo = this.applySwap(slots, a, b);
+        return { key: `swap:${[a.classId, b.classId].sort().join('|')}`, undo };
+    }
+
+    /**
+     * Đổi chỗ hai tiết và trả về cách hoàn tác đúng như cũ.
+     *
+     * Phòng phải nằm trong phép hoàn tác. Đổi giờ có thể kéo theo đổi phòng, nên hoàn tác
+     * mà chỉ trả lại ngày và tiết thì để lại một tiết đứng đúng giờ cũ nhưng ở phòng của
+     * giờ mới — bộ giải tưởng đã lùi về trạng thái trước, thật ra thì chưa.
+     */
+    private applySwap(slots: TimeSlot[], a: TimeSlot, b: TimeSlot): () => void {
+        const rooms = { a: a.roomId, b: b.roomId };
+        this.swapPositions(a, b, slots);
+
+        return () => {
+            this.swapPositions(a, b);
+            a.roomId = rooms.a;
+            b.roomId = rooms.b;
         };
     }
 
@@ -1150,8 +1254,7 @@ export class AlgorithmService {
         if (a.day === b.day && a.period === b.period) return null;
         if (!this.canSwapPositions(slots, a, b)) return null;
 
-        this.swapPositions(a, b);
-        return () => this.swapPositions(a, b);
+        return this.applySwap(slots, a, b);
     }
 
     /**

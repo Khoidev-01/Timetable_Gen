@@ -8,7 +8,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { AlgorithmService } from '../src/algorithm/algorithm.service';
 
 async function main() {
-  const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] });
+  const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn', 'log'] });
   const prisma = app.get(PrismaService);
   const algorithm = app.get(AlgorithmService);
 

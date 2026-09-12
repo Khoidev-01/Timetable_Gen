@@ -46,6 +46,10 @@ const NEW_ROOMS = [
   // 102 tiet thuc hanh Tin moi tuan tren hai phong la kin 85% — vua du tren giay, nhung
   // moi tiet con phai roi dung buoi hoc cua lop, nen thuc te khong xep het
   { name: '318', type: 'Phòng Tin học', floor: 3, capacity: 45, session: 'Cả ngày', note: 'Phòng máy thứ ba' },
+  // Sinh chi can 30 tiet/tuan nen mot phong la du tren giay. Nhung 30 lop deu hoc buoi
+  // chinh cua minh, nen nhu cau don cuc vao vai khung gio: lop nao kin lich thi dung 3 o
+  // con lai deu vuong dung cai phong Sinh duy nhat.
+  { name: '319', type: 'Lab Sinh học', floor: 3, capacity: 45, session: 'Cả ngày', note: 'Phòng thực hành Sinh học thứ hai' },
 ];
 
 /** Chia lai cong viec cua mot nhom mon cho mot nhom giao vien, nguoi nhe tay nhat nhan truoc. */

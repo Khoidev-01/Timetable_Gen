@@ -1275,6 +1275,36 @@ export class ConstraintService {
     }
 
     /**
+     * Phòng nào cũng được, miễn là giờ đó còn trống.
+     *
+     * Phòng của lớp không phải lúc nào cũng là của lớp: hai lớp dùng chung một phòng theo
+     * buổi, nên một tiết trái buổi — Thể dục hay Quốc phòng của lớp học chiều — rơi đúng
+     * vào lúc lớp kia đang ngồi trong đó.
+     */
+    public findFreeRoom(day: number, period: number, schedule: TimeSlot[], preferredType?: string): number | undefined {
+        const taken = new Set(
+            schedule.filter(s => s.day === day && s.period === period).map(s => s.roomId),
+        );
+
+        const order = preferredType
+            ? [preferredType, ...[...this.roomsByType.keys()].filter(t => t !== preferredType)]
+            : [...this.roomsByType.keys()];
+
+        for (const type of order) {
+            for (const roomId of this.roomsByType.get(type) || []) {
+                if (!taken.has(roomId)) return roomId;
+            }
+        }
+        return undefined;
+    }
+
+    /** Phòng này đã có lớp khác ngồi vào giờ đó chưa? */
+    public isRoomTaken(roomId: number | undefined, day: number, period: number, schedule: TimeSlot[]): boolean {
+        if (roomId === undefined) return false;
+        return schedule.some(s => s.day === day && s.period === period && s.roomId === roomId);
+    }
+
+    /**
      * Cached on purpose. This used to scan the subject array and upper-case the result on
      * every call, which was survivable while only a few checks used it - the merged
      * session and outdoor rules call it for every period on every candidate schedule,
