@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, CheckCircle2, ChevronDown, Users } from 'lucide-react';
 
 export interface SoftItem {
   label: string;
@@ -22,6 +23,12 @@ export interface Quality {
   avoidablePerSlot: number;
   forcedPenalty: number;
   fixableCount: number;
+  hardship?: {
+    teacherCount: number;
+    noDayOff: number;
+    worstPerPeriod: number;
+    spread: number;
+  };
 }
 
 const GRADE_TONE: Record<Quality['grade'], string> = {
@@ -96,7 +103,27 @@ export default function QualityBreakdown({
       </div>
 
       {quality && (
-        <p className="px-4 pb-3 text-xs text-[var(--text-muted)]">{quality.usableReason}</p>
+        <p className="px-4 pb-2 text-xs text-[var(--text-muted)]">{quality.usableReason}</p>
+      )}
+
+      {/*
+        Xếp hạng tổng là một con số trung bình, và trung bình che đi cả hai đầu. Lời phàn nàn
+        ở trường không đến từ trung bình — nó đến từ đúng người có lịch xấu nhất, và người đó
+        sẽ không thấy mình trong chữ "Tốt". Những con số này trang Công bằng đã tính từ trước,
+        nhưng nó là một màn hình khác nên người đọc chữ "Tốt" không có lý do nào đi sang đó.
+      */}
+      {quality?.hardship && quality.hardship.noDayOff > 0 && (
+        <div className="mx-4 mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+          <Users size={13} className="shrink-0" />
+          <span>
+            <strong>{quality.hardship.noDayOff}</strong> trong {quality.hardship.teacherCount} giáo
+            viên không có ngày nghỉ nào trong tuần; người chịu nặng nhất gấp{' '}
+            <strong>{quality.hardship.spread} lần</strong> người nhẹ nhất.
+          </span>
+          <Link href="/admin/fairness" className="font-medium underline hover:no-underline">
+            Xem trang Công bằng
+          </Link>
+        </div>
       )}
 
       {isOpen && (

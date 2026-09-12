@@ -23,6 +23,8 @@ async function main() {
   console.log(`  ${q.usableReason}`);
   console.log(`  Chất lượng: ${q.gradeLabel} (${q.grade}) — ${q.avoidablePerSlot} điểm phạt tránh được mỗi tiết`);
   console.log(`  Còn ${q.fixableCount} chỗ sửa được; ${q.forcedPenalty} điểm là bất khả kháng`);
+  const h = q.hardship ?? {};
+  console.log(`  CHO DAU NHAT: ${h.noDayOff}/${h.teacherCount} giao vien khong co ngay nghi · nguoi nang nhat ${h.worstPerPeriod} diem/tiet, gap ${h.spread} lan nguoi nhe nhat`);
   console.log(`
 Diem tho: ${data.fitness_score}`);
   console.log(`Diem phat moi tiet: ${data.penaltyPerSlot}`);
