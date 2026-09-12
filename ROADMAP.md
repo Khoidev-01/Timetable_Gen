@@ -246,18 +246,40 @@ Hiện chỉ tìm slot đích theo `class_id`. Kéo-thả gây trùng giáo viê
 
 ---
 
-### 0.11 — Nối logic phòng thực hành 🟡 — 🟨 **MỘT PHẦN**
+### 0.11 — Nối logic phòng thực hành 🟡 — ✅ **ĐÃ LÀM**
 **Ngày công:** 1 · **Phụ thuộc:** 0.10
 
-> Ràng buộc sức chứa phòng chức năng đã cài (`checkRoomTypeCapacity`, `isRoomTypeFull`) nhưng **chưa kích hoạt được** vì dữ liệu thiếu: chưa môn nào có cờ `is_practice`, chưa lớp nào có `fixed_room_id`, chưa có phòng loại `YARD`. Xem checklist ở `0.17`.
-
-`getValidRooms()` đã viết xong ở `constraint.service.ts:84` nhưng **không nơi nào gọi**. Mọi tiết đang gán cứng `roomId = cls.fixed_room_id`, môn thực hành không được đưa vào Lab.
-
-**Chạm vào:** `algorithm.service.ts` phase 2 — gọi `getValidRooms` khi `assignment.period_type === PRACTICE`
+**Chạm vào:** `assignRooms` trong `algorithm.service.ts` · `pickRoom`, `findFreeRoom`,
+`isRoomTaken`, `roomCountOfType` trong `constraint.service.ts` · `resolveRoomType` trong
+`excel.service.ts`
 
 **Hoàn thành khi:**
-- [ ] Tiết Tin xếp vào phòng 314/315, Lý vào 301, Hóa 302, Sinh 303
-- [ ] Xung đột phòng Lab được đếm vào lỗi cứng
+- [x] Tiết Tin xếp vào phòng máy, Lý vào lab Lý, Hóa vào lab Hóa, Sinh vào lab Sinh
+- [x] Xung đột phòng Lab được đếm vào lỗi cứng
+
+**Đo trên thời khóa biểu thật** (30 lớp, 961 tiết):
+
+| Môn | Phòng được xếp |
+| :--- | :--- |
+| Tin học | 314 · 315 · 318 — đều `LAB_IT` |
+| Vật lý | 301 · 316 — đều `LAB_PHYSICS` |
+| Hóa học | 302 · 317 — đều `LAB_CHEM` |
+| Sinh học | 303 · 319 — đều `LAB_BIO` |
+| Thể dục | Sân A · Sân B · SAN_BANH · SAN_TDTT — đều `YARD` |
+| **Tiết bị trùng phòng** | **0** |
+
+**Hai lỗi phải sửa mới chạy được.** Thứ nhất, `"Phòng Tin học"` rơi xuống loại phòng học
+thường vì bảng đối tên chỉ nhận `lab tin học` và `phòng máy tính` — file mẫu khai đúng hai
+phòng máy mà hệ thống vẫn báo chưa có phòng nào. Thứ hai, `assignRooms` cấp một phòng cho
+hai lớp cùng giờ: hai lớp dùng chung phòng theo buổi, nên tiết trái buổi rơi đúng lúc lớp
+kia đang ngồi trong đó, và ràng buộc duy nhất trên `(phòng, giờ)` chặn chính tiết đó lúc
+lưu — tiết biến mất khỏi thời khóa biểu mà bảng điểm chỉ báo "thiếu tiết".
+
+**Cấp phòng đi ba lượt, và thứ tự là phần quan trọng nhất.** Môn cần phòng chức năng đặt
+trước vì chúng ít lựa chọn nhất; rồi tiết thường về phòng của lớp mình; cuối cùng những
+tiết còn lại nhận phòng nào còn trống thật sự, ưu tiên phòng học thường để một tiết Quốc
+phòng lý thuyết không giành mất cái sân của lớp Thể dục. Đảo hai lượt đầu thì tiết trái
+buổi chiếm mất phòng của chính lớp đang ngồi trong đó — test bắt được đúng chỗ này.
 
 ---
 

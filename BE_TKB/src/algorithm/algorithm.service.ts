@@ -338,9 +338,12 @@ export class AlgorithmService {
         // một phòng đang có lớp khác ngồi thì cơ sở dữ liệu chặn lúc lưu và tiết biến mất —
         // tệ hơn hẳn so với một tiết chưa ghi phòng.
         for (const slot of leftovers) {
+            // Môn không cần phòng chức năng thì ưu tiên phòng học thường. Không nói rõ thì
+            // một tiết Quốc phòng lý thuyết mất phòng có thể nhận luôn cái sân, và lớp Thể
+            // dục giờ đó phải vào phòng học.
             const room = this.constraintService.findFreeRoom(
                 slot.day, slot.period, placed,
-                this.constraintService.getRequiredRoomType(slot.subjectId) ?? undefined,
+                this.constraintService.getRequiredRoomType(slot.subjectId) ?? 'CLASSROOM',
             );
             slot.roomId = room;
             if (needsSpecialRoom(slot)) unresolved++;
