@@ -9,10 +9,21 @@
  * moi so, va ghi de diem cu de man hinh khong con so la.
  */
 import '../src/load-env';
+import { writeSync } from 'fs';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ConstraintService, TimeSlot } from '../src/algorithm/constraint.service';
+
+/**
+ * Ghi thẳng xuống mô tả tệp, không qua bộ đệm.
+ *
+ * `console.log` ghi vào bộ đệm khi đầu ra là một ống dẫn, còn `process.exit` thì cắt ngang
+ * phần chưa kịp xả. Đã mất trọn vẹn đầu ra của kịch bản này một lần vì đúng cặp ấy, và vì
+ * đầu ra trống trông y như "chưa chạy" nên mất thêm một lượt nữa mới nhận ra.
+ */
+const say = (line = '') => writeSync(1, `${line}
+`);
 
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error'] });
@@ -21,7 +32,7 @@ async function main() {
 
   const candidates = await prisma.generatedTimetable.findMany({ include: { slots: true } });
   if (candidates.length === 0) {
-    console.log('Chua co phuong an nao.');
+    say('Chua co phuong an nao.');
     process.exit(1);
   }
 
@@ -52,15 +63,15 @@ async function main() {
   // Mot ban dung duoc luon hon mot ban dep hon ma con loi cung
   scored.sort((a, b) => (a.hard !== b.hard ? a.hard - b.hard : b.score - a.score));
 
-  console.log('Cham lai bang cong thuc hien tai:');
+  say('Cham lai bang cong thuc hien tai:');
   for (const row of scored) {
     const moved = row.was !== null && row.was !== row.score ? ` (luu la ${row.was})` : '';
-    console.log(`  ${String(row.score).padStart(7)}${moved.padEnd(18)} ${row.hard} loi cung  ${row.name}`);
+    say(`  ${String(row.score).padStart(7)}${moved.padEnd(18)} ${row.hard} loi cung  ${row.name}`);
   }
 
   const best = scored[0];
   if (best.hard > 0) {
-    console.log(`\nKhong cong bo: ban tot nhat van con ${best.hard} loi cung.`);
+    say(`\nKhong cong bo: ban tot nhat van con ${best.hard} loi cung.`);
     process.exit(1);
   }
 
@@ -73,9 +84,9 @@ async function main() {
   ]);
 
   const official = await prisma.generatedTimetable.findMany({ where: { is_official: true } });
-  console.log(`\nDa cong bo: "${best.name}", diem ${best.score}`);
-  console.log(`So ban dang mang co chinh thuc: ${official.length} (phai la 1)`);
+  say(`\nDa cong bo: "${best.name}", diem ${best.score}`);
+  say(`So ban dang mang co chinh thuc: ${official.length} (phai la 1)`);
   process.exit(0);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => { say(`Hong: ${e?.stack ?? e}`); process.exit(1); });

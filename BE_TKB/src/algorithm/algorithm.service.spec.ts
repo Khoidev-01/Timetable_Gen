@@ -113,7 +113,7 @@ describe('AlgorithmService', () => {
       expect(large).toBeGreaterThan(small);
       // Trường bé không phải chờ như trường lớn, trường lớn không bị cắt ngắn quá tay
       expect(small).toBeGreaterThanOrEqual(30_000);
-      expect(large).toBeLessThanOrEqual(600_000);
+      expect(large).toBeLessThanOrEqual(1_200_000);
     });
   });
 

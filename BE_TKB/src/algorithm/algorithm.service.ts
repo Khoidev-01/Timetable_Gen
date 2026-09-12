@@ -1171,11 +1171,29 @@ export class AlgorithmService {
      */
     private hotspotShare = 0.75;
 
+    /**
+     * Bao nhiêu nước đi cho vòng tìm kiếm chính.
+     *
+     * Đo bằng cách quét, 3 lần mỗi mức, trên bộ dữ liệu 930 tiết (điểm giữa / giây mỗi lần
+     * dựng — bản chính dựng ba lần để có ba phương án cho người dùng chọn):
+     *
+     *   600.000     -4137    53s   →  khoảng 2,7 phút một lần xếp
+     *   1.200.000   -3690    87s   →  khoảng 4,3 phút
+     *   2.400.000   -3390   160s   →  khoảng 8 phút
+     *
+     * Đường cong chưa phẳng ở 2,4 triệu — vẫn còn 323 điểm nữa nếu chịu gấp đôi thời gian.
+     * Lấy 1,2 triệu làm mặc định vì đó là chỗ +457 điểm chỉ tốn thêm 63% thời gian; ai muốn
+     * đi xa hơn thì đặt `TKB_SEARCH_MAIN`.
+     *
+     * Xếp thời khoá biểu chạy trong hàng đợi nền khi có Redis, nên thời gian dài không chặn
+     * giao diện. Không có Redis thì nó chạy thẳng trong một yêu cầu HTTP — và ở đường ấy
+     * ngay cả mức cũ cũng đã quá lâu cho một proxy đặt mặc định.
+     */
     private searchBudget(slotCount: number): number {
         const fromEnv = Number(process.env.TKB_SEARCH_MAIN ?? 0);
         if (fromEnv > 0) return fromEnv;
 
-        return Math.min(600_000, Math.max(30_000, slotCount * 650));
+        return Math.min(1_200_000, Math.max(30_000, slotCount * 1_300));
     }
 
     /**

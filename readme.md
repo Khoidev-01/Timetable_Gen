@@ -269,8 +269,31 @@ kéo giáo viên tới trường thêm buổi, và `scripts/probe-production-gap
 tệ đi **409 điểm mỗi lần xếp** — không hiện ở đâu cả. Nay chỉ kế thừa tiết quản trị viên
 thật sự ghim; tiết lễ để phase 1 dựng lại.
 
-Cộng cả hai, trên cùng bộ dữ liệu: **−4982 → −3882**, 930 tiết thay vì 956, xếp hạng từ
-*Khá* về lại *Tốt*.
+**Ba — tìm lâu hơn.** Không khéo léo gì, nhưng đo được nên biết trả giá bao nhiêu
+(`scripts/probe-budget.ts`, 3 lần mỗi mức, giây là thời gian một lần dựng — bản chính dựng
+ba lần để có ba phương án cho người dùng chọn):
+
+```
+600.000 nước đi     -4137     53s   ≈ 2,7 phút một lần xếp
+1.200.000           -3690     87s   ≈ 4,3 phút
+2.400.000           -3390    160s   ≈ 8 phút
+```
+
+Đường cong **chưa phẳng** ở 2,4 triệu — vẫn còn 323 điểm nữa nếu chịu gấp đôi thời gian. Mặc
+định lấy 1,2 triệu: +457 điểm mà chỉ tốn thêm 63% thời gian. Muốn đi xa hơn thì đặt
+`TKB_SEARCH_MAIN`. Xếp thời khoá biểu chạy trong hàng đợi nền khi có Redis nên thời gian dài
+không chặn giao diện.
+
+Cộng cả ba, trên cùng bộ dữ liệu:
+
+| | Đầu phiên | Sau |
+| :--- | ---: | ---: |
+| Điểm thô | −4982 | **−3532** |
+| Điểm phạt mỗi tiết | 6,26 | **4,87** |
+| Số tiết | 956 *(26 tiết lễ lặp)* | **930** |
+| Xếp hạng | Khá | **Tốt** |
+| Giáo viên không có ngày nghỉ | 3/76 | **2/76** |
+| Người nặng nhất so với người nhẹ nhất | 8,8 lần | **8,6 lần** |
 
 ### 5.3. Định mức và quy định tham chiếu
 
