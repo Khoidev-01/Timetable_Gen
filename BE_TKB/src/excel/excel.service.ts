@@ -826,7 +826,18 @@ export class ExcelService {
       return RoomType.LAB_CHEM;
     if (normalized.includes('labsinhhoc') || normalized.includes('labsinh') || normalized.includes('thinghiemsinhhoc'))
       return RoomType.LAB_BIO;
-    if (normalized.includes('labtinhoc') || normalized.includes('labtin') || normalized.includes('labmaytinh') || normalized.includes('phongmaytinh'))
+    // "Phong Tin hoc" la cach goi thong thuong nhat cua mot phong may, va no tung roi
+    // xuong CLASSROOM: file mau khai dung hai phong may, he thong bao "chua khai bao phong
+    // may tinh", roi bo giai xep 19 tiet thuc hanh Tin vao phong hoc thuong.
+    if (
+      normalized.includes('labtinhoc') ||
+      normalized.includes('labtin') ||
+      normalized.includes('labmaytinh') ||
+      normalized.includes('phongmaytinh') ||
+      normalized.includes('phongtinhoc') ||
+      normalized.includes('phongtin') ||
+      normalized.includes('phongvitinh')
+    )
       return RoomType.LAB_IT;
     if (normalized.includes('san') || normalized.includes('sanbai') || normalized.includes('sanchoi'))
       return RoomType.YARD;

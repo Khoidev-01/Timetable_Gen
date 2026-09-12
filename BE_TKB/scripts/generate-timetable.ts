@@ -30,7 +30,8 @@ async function main() {
   const slots = await prisma.timetableSlot.count({ where: { timetable_id: timetable!.id } });
   console.log(`\nThoi khoa bieu "${timetable!.name}": ${slots} tiet, diem ${timetable!.fitness_score}, chinh thuc=${timetable!.is_official}`);
 
-  await app.close();
+  // app.close() treo o day vi ket noi Redis khong dong, ma viec da xong roi
+  process.exit(0);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
