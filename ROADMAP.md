@@ -1182,19 +1182,30 @@ tra. Mức đạt ở nhóm này là **100%**, không phải "phần lớn".
 — con số 59/60 cũ đo trên bộ 7 lớp đã bị thay hoàn toàn nên không còn giá trị:
 
 ```
-Điểm tổng:              59/61  (97%)
-Chọn đúng công cụ:      94,9%
+Điểm tổng:              59/60  (98%)
+Chọn đúng công cụ:      97,4%
 Câu trả lời đúng:       100%
 Từ chối:                100%   ← yêu cầu bắt buộc
-Độ trễ trung vị:        6,1 giây
+Độ trễ trung vị:        6,0 giây
 ```
 
-**Hai câu trượt, cả hai đều vì không gọi công cụ nào:**
+**Còn đúng một câu trượt:**
 
 | Câu | Nội dung | Nhận xét |
 | :--- | :--- | :--- |
-| `S6` | "Thứ 99 tiết 3 ai rảnh?" | Trợ lý trả lời thẳng là thứ 99 không hợp lệ thay vì gọi công cụ để công cụ báo lỗi. Bài kiểm tra đòi gọi công cụ; hành vi thực tế thì khó gọi là sai. |
-| `K10` | "Tiết `<mã>` đang ở phòng nào và ai dạy?" | Đây là trượt thật: mã tiết có thật, đáng lẽ phải gọi `explain_slot`. |
+| `S6` | "Thứ 99 tiết 3 ai rảnh?" | Trợ lý trả lời thẳng là thứ 99 không hợp lệ thay vì gọi công cụ để công cụ báo lỗi. Bài kiểm tra đòi gọi công cụ; hành vi thực tế thì khó gọi là sai. Giữ nguyên câu trượt này thay vì nới kỳ vọng cho tròn điểm. |
+
+**Hai câu từng trượt, và cả hai đều là lỗi của chính tôi chứ không phải của mô hình.**
+
+`K10` hỏi về một mã tiết cụ thể mà trợ lý không gọi `explain_slot`. Truy ra: lúc tối ưu vòng
+tìm kiếm tôi thêm vào mô tả của `find_swap_candidates` câu *"KHÔNG cần gọi thêm
+check_swap_feasibility hay explain_slot"*. Mô hình đọc mô tả của **mọi** công cụ, nên câu dặn
+đó dập luôn `explain_slot` trong mọi ngữ cảnh. Nay câu đó nói rõ chỉ áp dụng cho danh sách do
+chính công cụ kia trả về.
+
+`Q6` hỏi *"Buổi chiều được xếp mấy tiết?"* và không tìm ra điều khoản về số tiết tối đa một
+buổi — vì mẩu tài liệu đó chưa bao giờ nói chữ **"chiều"**, nó nói "buổi học thứ hai trong
+ngày". Sửa ở phía tài liệu: viết cho nó nói đúng cách người ta hỏi.
 
 Giữ nguyên hai câu trượt và ghi lại ở đây thay vì nới kỳ vọng cho tròn điểm — một bài kiểm
 tra được sửa cho vừa kết quả thì không còn đo được gì nữa.
