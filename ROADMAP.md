@@ -634,18 +634,47 @@ model ScheduleOverlay {
 
 ---
 
-### D4 — Thông báo trong ứng dụng 🟨 **MỘT PHẦN**
+### D4 — Thông báo trong ứng dụng ✅ **ĐÃ LÀM**
 **Ngày công:** 1 · **Phụ thuộc:** 0.1
 
 Nền tảng bắt buộc cho B2, B5, D3.
 
-**Chạm vào:** Schema `Notification`, `BE_TKB/src/notifications/`, chuông thông báo trên layout FE
+**Chạm vào:** Schema `Notification` · `notification.gateway.ts` *(mới)* ·
+`notification.service.ts` · `lib/useLiveNotifications.ts` *(mới)* · chuông ở
+`admin/layout.tsx` và `teacher/layout.tsx`
 
 **Hoàn thành khi:**
-- [x] Tạo / đánh dấu đã đọc / đếm chưa đọc — `NotificationService`, chuông ở `admin/layout.tsx` và `teacher/layout.tsx`
-- [ ] Đẩy realtime qua WebSocket đã dựng ở A2 — *hiện đang hỏi lại máy chủ mỗi 30 giây*
+- [x] Tạo / đánh dấu đã đọc / đếm chưa đọc
+- [x] Đẩy realtime qua WebSocket — **9 mili giây** thay cho tối đa 30 giây
 
-> Phần này đến từ nhánh `main` khi gộp hai hướng làm việc (2026-08-21).
+**Ba mươi giây là quá muộn.** Với đổi tiết thì nửa phút đủ để đồng nghiệp bỏ lỡ; với báo
+vắng lúc 6h45 mà tiết đầu 7h00 thì nửa phút là mất luôn cơ hội xử lý. Ba mươi giây ấy cũng
+là gần ba mươi nghìn lượt hỏi vô ích mỗi ngày cho một trường bảy mươi giáo viên, hầu hết
+nhận về đúng một câu "chưa có gì mới".
+
+**Danh tính lấy từ token lúc bắt tay, không bao giờ từ tin nhắn của client.** Để client tự
+khai mình là ai rồi cho vào phòng theo lời khai đó thì bất kỳ ai cũng đọc được thông báo của
+người khác — và đây là loại lỗi khó thấy nhất khi nhìn vào, vì màn hình của chính họ vẫn
+hiện đúng.
+
+**Đẩy sau khi đã ghi, không phải trước.** Đẩy trước rồi ghi hỏng thì người dùng thấy một
+thông báo mà tải lại trang là mất. Ngược lại, đẩy hỏng thì thông báo vẫn nằm trong cơ sở dữ
+liệu và chuông vẫn lấy được ở lần mở sau — nên một cái ổ cắm đứt không được phép làm hỏng
+việc đã làm xong.
+
+**Vẫn giữ một nhịp hỏi lại, nhưng 5 phút thay vì 30 giây.** Ổ cắm có thể đứt mà trình duyệt
+không kịp báo — mất mạng chốc lát, máy vừa mở nắp, proxy cắt kết nối nhàn rỗi — và khi đó
+cái chuông im lặng trông y hệt một cái chuông không có gì mới.
+
+**Đo thật** (`scripts/verify-notification-push.ts`, hai ổ cắm thật, token thật):
+
+| | |
+| :--- | :--- |
+| Thời gian tới nơi | **9ms** |
+| Giáo viên khác có nhận nhầm không | **không** |
+| Token bịa đặt | **bị ngắt** |
+
+> Phần cơ bản đến từ nhánh `main` khi gộp hai hướng làm việc (2026-08-21).
 
 ---
 

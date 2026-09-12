@@ -6,6 +6,7 @@ import AdminSidebar from '../components/admin/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import { Bell, LogOut, User, Settings, Check, FileSpreadsheet, Calendar, MessageSquare, Clock, Monitor } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import { useLiveNotifications } from '@/lib/useLiveNotifications';
 import { Toaster } from '@/lib/toast';
 import AssistantWidget from '../components/AssistantWidget';
 
@@ -42,8 +43,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<any>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -57,29 +56,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setUser(userData);
   }, [router]);
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      const [notifRes, countRes] = await Promise.all([
-        fetch(`${API_URL}/notifications`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/notifications/unread-count`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-      if (notifRes.ok) setNotifications(await notifRes.json());
-      if (countRes.ok) {
-        const data = await countRes.json();
-        setUnreadCount(data.count);
-      }
-    } catch (e) { console.error(e); }
-  }, []);
-
-  // Poll notifications every 30s
-  useEffect(() => {
-    if (!user) return;
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [user, fetchNotifications]);
+  // Nhan day tu may chu thay vi hoi lai moi 30 giay
+  const {
+    notifications,
+    unreadCount,
+    refresh: fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+  } = useLiveNotifications(Boolean(user));
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -97,29 +81,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.push('/');
   };
 
-  const markAsRead = async (id: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/notifications/${id}/read`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (e) { console.error(e); }
-  };
 
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/notifications/read-all`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-    } catch (e) { console.error(e); }
-  };
 
   const filteredNotifications = activeCategory
     ? notifications.filter(n => n.category === activeCategory)
@@ -211,7 +173,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       </div>
                     ) : (
                       filteredNotifications.map((notif) => {
-                        const cfg = CATEGORY_CONFIG[notif.category] ?? CATEGORY_CONFIG.SYSTEM;
+                        const cfg = CATEGORY_CONFIG[notif.category ?? 'SYSTEM'] ?? CATEGORY_CONFIG.SYSTEM;
                         const Icon = cfg.icon;
                         return (
                           <div

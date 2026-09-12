@@ -7,6 +7,7 @@ import { LayoutDashboard, CalendarDays, Clock, KeyRound, LogOut, PanelLeftClose,
 import AppLogo from '../components/AppLogo';
 import ThemeToggle from '../components/ThemeToggle';
 import { API_URL } from '@/lib/api';
+import { useLiveNotifications } from '@/lib/useLiveNotifications';
 import { Toaster } from '@/lib/toast';
 import AssistantWidget from '../components/AssistantWidget';
 
@@ -95,8 +96,6 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -108,25 +107,14 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
     setUser(userData);
   }, [router]);
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      const [notifRes, countRes] = await Promise.all([
-        fetch(`${API_URL}/notifications`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/notifications/unread-count`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-      if (notifRes.ok) setNotifications(await notifRes.json());
-      if (countRes.ok) { const d = await countRes.json(); setUnreadCount(d.count); }
-    } catch (e) { console.error(e); }
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [user, fetchNotifications]);
+  // Nhan day tu may chu thay vi hoi lai moi 30 giay
+  const {
+    notifications,
+    unreadCount,
+    refresh: fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+  } = useLiveNotifications(Boolean(user));
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -142,23 +130,6 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
     router.push('/');
   };
 
-  const markAsRead = async (id: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (e) { console.error(e); }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/notifications/read-all`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-    } catch (e) { console.error(e); }
-  };
 
   if (!user) return null;
 

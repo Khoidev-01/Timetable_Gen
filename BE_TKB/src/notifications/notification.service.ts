@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationCategory } from '@prisma/client';
+import { NotificationGateway } from './notification.gateway';
 
 @Injectable()
 export class NotificationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private gateway: NotificationGateway,
+  ) {}
 
   /** Get notifications for a user (admins also get broadcast ones where user_id is null) */
   async findForUser(userId: string, role: string) {
@@ -59,7 +63,7 @@ export class NotificationService {
     message: string;
     metadata?: any;
   }) {
-    return this.prisma.notification.create({
+    const notification = await this.prisma.notification.create({
       data: {
         user_id: data.userId ?? null,
         category: data.category,
@@ -68,6 +72,19 @@ export class NotificationService {
         metadata: data.metadata ?? undefined,
       },
     });
+
+    // Đẩy sau khi đã ghi, không phải trước. Đẩy trước rồi ghi hỏng thì người dùng thấy một
+    // thông báo mà tải lại trang là mất — và không ai biết vì sao.
+    //
+    // Đẩy hỏng thì thông báo vẫn nằm trong cơ sở dữ liệu và chuông vẫn lấy được ở lần mở
+    // sau, nên một cái ổ cắm đứt không được phép làm hỏng việc đã làm xong.
+    try {
+      this.gateway.publish(notification);
+    } catch {
+      // không làm gì: thông báo đã được lưu, đẩy chỉ là đường nhanh
+    }
+
+    return notification;
   }
 
   // ---- Convenience helpers for common events ----

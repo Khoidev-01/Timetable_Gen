@@ -7,8 +7,9 @@ import { NotificationService } from '../src/notifications/notification.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 const prisma = new PrismaService();
-// Stub notification service for seeding (no real notifications needed)
-const notificationService = new NotificationService(prisma);
+// Stub notification service for seeding (no real notifications needed).
+// Không có ổ cắm WebSocket nào trong lúc seed, nên cổng đẩy là một cái rỗng.
+const notificationService = new NotificationService(prisma, { publish: () => undefined } as any);
 const excelService = new ExcelService(prisma, notificationService);
 
 /**
