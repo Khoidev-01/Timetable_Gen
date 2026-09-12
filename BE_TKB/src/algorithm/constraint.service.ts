@@ -1319,6 +1319,57 @@ export class ConstraintService {
         return this.subjectCode.get(id) ?? '';
     }
 
+    /**
+     * Bao nhiêu tiết lẻ loi là KHÔNG THỂ tránh, dù xếp giỏi đến đâu.
+     *
+     * Một môn có số tiết lẻ thì hai tiết ghép thành một cặp và tiết còn lại không bao giờ có
+     * ai bên cạnh — đó là số học, không phải chất lượng xếp lịch. Trên dữ liệu 30 lớp, 104
+     * trong 146 cặp (lớp, môn) có đúng 3 tiết mỗi tuần, nên 104 trong tổng số lỗi báo ra là
+     * bất khả kháng. Báo "109 lỗi" mà không nói điều đó là để người đọc đi tìm 109 chỗ sửa,
+     * trong khi chỉ có 5 chỗ sửa được.
+     */
+    private blockSplitFloor(classSchedule: Map<string, TimeSlot[]>): number {
+        const blocks = ['TOAN', 'VAN', 'NGU_VAN', 'TIN', 'LY', 'HOA', 'SINH'];
+        let floor = 0;
+
+        for (const [, slots] of classSchedule) {
+            const perSubject = new Map<number, number>();
+            for (const slot of slots) {
+                const code = this.getSubjectCode(slot.subjectId);
+                if (!blocks.some((b) => code.includes(b))) continue;
+                perSubject.set(slot.subjectId, (perSubject.get(slot.subjectId) ?? 0) + 1);
+            }
+            for (const count of perSubject.values()) {
+                if (count > 1 && count % 2 === 1) floor += 1;
+            }
+        }
+        return floor;
+    }
+
+    /**
+     * Số buổi thừa mà công thức đếm nhưng dữ liệu không cho phép bỏ.
+     *
+     * `checkTeacherAttendance` lấy sàn là `ceil(số tiết / 5)`, tức coi như mọi tiết của giáo
+     * viên đều dồn được vào bất kỳ buổi nào. Thực tế không: lớp học sáng thì tiết của lớp đó
+     * buộc phải nằm ở buổi sáng. Sàn thật là tổng của hai buổi tính riêng.
+     */
+    private attendanceFloor(teacherSchedule: Map<string, TimeSlot[]>): number {
+        let unavoidable = 0;
+
+        for (const [, slots] of teacherSchedule) {
+            let morning = 0;
+            let afternoon = 0;
+            for (const slot of slots) {
+                if (slot.period <= 5) morning += 1;
+                else afternoon += 1;
+            }
+            const formula = Math.ceil(slots.length / 5);
+            const real = Math.ceil(morning / 5) + Math.ceil(afternoon / 5);
+            if (real > formula) unavoidable += real - formula;
+        }
+        return unavoidable;
+    }
+
     public getFitnessDetails(schedule: TimeSlot[]): any {
         const details: string[] = [];
         const w = this.weights;
@@ -1372,12 +1423,29 @@ export class ConstraintService {
             { label: 'Xếp vào giờ giáo viên xin tránh', count: wishes.avoidedUsed, weight: w.teacherAvoid },
         ];
 
+        // Hai khoản dưới đây có một phần KHÔNG THỂ xóa, do chính dữ liệu quy định. Báo con
+        // số tổng mà không nói phần nào sửa được là để người đọc đi tìm những chỗ không tồn
+        // tại — và khi họ tìm không ra, con số trở thành thứ họ ngừng tin.
+        const floors: Record<string, number> = {
+            'Môn 2 tiết bị xé lẻ': this.blockSplitFloor(classSchedule),
+            'Giáo viên phải đến trường thêm buổi': this.attendanceFloor(teacherSchedule),
+        };
+
         let softPenalty = 0;
         for (const item of soft) {
             if (!item.count) continue;
             const cost = item.count * item.weight;
             softPenalty += cost;
-            details.push(`${item.label}: -${cost} điểm (${item.count})`);
+
+            const floor = Math.min(floors[item.label] ?? 0, item.count);
+            (item as any).floor = floor;
+            (item as any).avoidable = item.count - floor;
+
+            details.push(
+                floor > 0
+                    ? `${item.label}: -${cost} điểm (${item.count}, trong đó ${floor} không thể tránh — còn ${item.count - floor} chỗ sửa được)`
+                    : `${item.label}: -${cost} điểm (${item.count})`,
+            );
         }
 
         // Granted wishes are the one thing that gives points back
@@ -1388,11 +1456,20 @@ export class ConstraintService {
 
         const score = 1000 - (hardViolations * w.hardViolation) - softPenalty + wishBonus;
 
+        // Điểm là một TỔNG TUYỆT ĐỐI trên toàn bộ tiết, nên nó lớn lên theo quy mô trường.
+        // Trường 30 lớp có 961 tiết, gấp 4,4 lần bộ dữ liệu 217 tiết, nên cùng một chất
+        // lượng trên mỗi tiết vẫn cho ra một con số lớn hơn 4,4 lần. Đem hai con số đó so
+        // với nhau là so hai thứ khác nhau; chia cho số tiết thì mới so được.
+        const penaltyPerSlot = schedule.length > 0
+            ? Number((softPenalty / schedule.length).toFixed(2))
+            : 0;
+
         return {
             score,
             details,
             hardViolations,
             softPenalty,
+            penaltyPerSlot,
             preferences: wishes,
             isValid: hardViolations === 0,
             offenders: this.locateHardViolations(schedule),

@@ -260,6 +260,51 @@ describe('ConstraintService', () => {
         });
     });
 
+    describe('phần khoản phạt không thể tránh', () => {
+        /**
+         * Một môn có số tiết lẻ thì hai tiết ghép thành một cặp và tiết còn lại không bao
+         * giờ có ai bên cạnh. Đó là số học, không phải chất lượng xếp lịch.
+         *
+         * Bảng điểm từng báo "109 lỗi tiết đôi bị xé lẻ" trong khi 104 trong số đó bất khả
+         * kháng — người đọc đi tìm 109 chỗ sửa và tìm ra 5, rồi ngừng tin con số.
+         */
+        it('môn 3 tiết luôn còn đúng một tiết lẻ loi, dù xếp thế nào', () => {
+            const threePeriods = [
+                slot({ classId: 'C1', subjectId: 1, day: 2, period: 1 }),
+                slot({ classId: 'C1', subjectId: 1, day: 2, period: 2 }),
+                slot({ classId: 'C1', subjectId: 1, day: 4, period: 1 }),
+            ];
+
+            const result = service.getFitnessDetails(threePeriods);
+            const split = result.breakdown.soft.find((item: any) => item.label === 'Môn 2 tiết bị xé lẻ');
+
+            expect(split.count).toBe(1);
+            expect(split.floor).toBe(1);
+            expect(split.avoidable).toBe(0);
+        });
+
+        it('môn 4 tiết thì không có gì bất khả kháng — xé lẻ là do xếp', () => {
+            // Bốn tiết rải bốn ngày: bốn tiết đều lẻ loi, và cả bốn đều sửa được
+            const fourPeriods = [2, 3, 4, 5].map((day) =>
+                slot({ classId: 'C1', subjectId: 1, day, period: 1 }),
+            );
+
+            const result = service.getFitnessDetails(fourPeriods);
+            const split = result.breakdown.soft.find((item: any) => item.label === 'Môn 2 tiết bị xé lẻ');
+
+            expect(split.count).toBe(4);
+            expect(split.floor).toBe(0);
+            expect(split.avoidable).toBe(4);
+        });
+
+        it('điểm phạt trên mỗi tiết được tính ra, để so được giữa hai trường khác quy mô', () => {
+            const schedule = [1, 2, 3, 4].map((period) => slot({ period }));
+            const result = service.getFitnessDetails(schedule);
+
+            expect(result.penaltyPerSlot).toBeCloseTo(result.softPenalty / schedule.length, 2);
+        });
+    });
+
     describe('placement guards', () => {
         it('detects a teacher registered as busy, converting absolute to relative period', () => {
             expect(service.isTeacherBusy('T2', 3, 2)).toBe(true);

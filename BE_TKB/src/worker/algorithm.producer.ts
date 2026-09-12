@@ -183,6 +183,10 @@ export class AlgorithmProducer {
             offenders,
             fitness_score: latestTkb.fitness_score,
             fitnessDetails: fitnessResult.details,
+            // Điểm là tổng tuyệt đối nên nó lớn lên theo quy mô trường; chia cho số tiết
+            // thì mới so được giữa hai trường khác quy mô
+            penaltyPerSlot: fitnessResult.penaltyPerSlot,
+            softBreakdown: fitnessResult.breakdown?.soft ?? [],
             fitnessViolations: fitnessResult.violations,
             hardViolations: fitnessResult.hardViolations,
             softPenalty: fitnessResult.softPenalty,

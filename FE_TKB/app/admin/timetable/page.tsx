@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import TimetableGrid from '../../components/admin/TimetableGrid';
+import QualityBreakdown from '../../components/admin/QualityBreakdown';
 import SolverMonitor, { SolveProgress } from '../../components/admin/SolverMonitor';
 import VariantComparison from '../../components/admin/VariantComparison';
 import CascadeSwapDialog from '../../components/admin/CascadeSwapDialog';
@@ -224,7 +225,16 @@ export default function TimetablePage() {
       }
 
       if (schedule.length > 0) {
-        setResult({ fitness_score: fitness, bestSchedule: schedule, fitnessDetails: data.fitnessDetails, offenders: data.offenders ?? [], timetableId: data.timetableId });
+        setResult({
+          fitness_score: fitness,
+          bestSchedule: schedule,
+          fitnessDetails: data.fitnessDetails,
+          penaltyPerSlot: data.penaltyPerSlot,
+          softBreakdown: data.softBreakdown ?? [],
+          hardViolations: data.hardViolations,
+          offenders: data.offenders ?? [],
+          timetableId: data.timetableId,
+        });
         setLogs((previous) => [...previous, `Đã tải ${schedule.length} tiết học cho học kỳ đang chọn.`]);
         setIsGenerating(false);
       }
@@ -604,8 +614,14 @@ export default function TimetablePage() {
           <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div>
               <h2 className="text-xl font-bold text-gray-800">Thời khóa biểu hoàn chỉnh</h2>
-              <div className="mt-1 text-sm text-gray-500">
-                Fitness: {result.fitness_score ?? '---'}
+              <div className="mt-2 max-w-xl">
+                <QualityBreakdown
+                  score={result.fitness_score ?? null}
+                  slotCount={result.bestSchedule?.length ?? 0}
+                  penaltyPerSlot={result.penaltyPerSlot}
+                  hardViolations={result.hardViolations}
+                  items={result.softBreakdown ?? []}
+                />
               </div>
             </div>
 
