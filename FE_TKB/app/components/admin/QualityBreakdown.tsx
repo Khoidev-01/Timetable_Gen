@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown } from 'lucide-react';
 
 export interface SoftItem {
   label: string;
@@ -13,28 +13,47 @@ export interface SoftItem {
   avoidable?: number;
 }
 
+export interface Quality {
+  usable: boolean;
+  usableLabel: string;
+  usableReason: string;
+  grade: 'GOOD' | 'FAIR' | 'AVERAGE' | 'UNOPTIMISED';
+  gradeLabel: string;
+  avoidablePerSlot: number;
+  forcedPenalty: number;
+  fixableCount: number;
+}
+
+const GRADE_TONE: Record<Quality['grade'], string> = {
+  GOOD: 'text-emerald-700 dark:text-emerald-400',
+  FAIR: 'text-blue-700 dark:text-blue-400',
+  AVERAGE: 'text-amber-700 dark:text-amber-400',
+  UNOPTIMISED: 'text-red-700 dark:text-red-400',
+};
+
 /**
- * Điểm chất lượng, và phần nào của nó thật sự sửa được.
+ * Thời khóa biểu này dùng được chưa, và tốt đến đâu.
  *
- * Con số điểm là một TỔNG TUYỆT ĐỐI trên toàn bộ tiết, nên nó lớn lên theo quy mô trường:
- * cùng một chất lượng trên mỗi tiết, trường 30 lớp cho ra con số gấp hơn bốn lần trường 7
- * lớp. Hiện mỗi con số tổng thì người xem chỉ biết nó to, không biết nó có tệ hay không.
+ * Trước đây chỗ này hiện đúng một dòng: `Fitness: -5211`. Không ai nhìn một số âm năm nghìn
+ * mà dám đem thời khóa biểu đó ra dùng, kể cả khi nó hoàn toàn hợp lệ — mà nó hợp lệ thật.
+ * Con số ấy là ngôn ngữ của thuật toán: một tổng tuyệt đối trên gần một nghìn tiết, lớn lên
+ * theo quy mô trường, và không có mốc nào để biết bao nhiêu là đủ.
  *
- * Và một phần khoản phạt là bất khả kháng. Môn có 3 tiết mỗi tuần thì hai tiết ghép thành
- * một cặp và tiết thứ ba không bao giờ có ai bên cạnh — bảng điểm từng báo 104 lỗi loại đó
- * như thể có 104 chỗ cần sửa. Người đi tìm 104 chỗ và không tìm ra chỗ nào sẽ ngừng tin cả
- * những con số đúng.
+ * Hai câu hỏi được tách hẳn ra, vì trộn chúng lại là chỗ dễ hiểu sai nhất. **Dùng được hay
+ * chưa** là nhị phân và chỉ phụ thuộc lỗi cứng. **Chất lượng** là thang bậc, và nó không có
+ * quyền phủ quyết: một thời khóa biểu "Trung bình" mà không lỗi cứng vẫn in ra treo lên
+ * tường được.
  */
 export default function QualityBreakdown({
+  quality,
   score,
   slotCount,
-  penaltyPerSlot,
   hardViolations,
   items,
 }: {
+  quality?: Quality;
   score: number | null;
   slotCount: number;
-  penaltyPerSlot?: number;
   hardViolations?: number;
   items: SoftItem[];
 }) {
@@ -44,55 +63,64 @@ export default function QualityBreakdown({
     .filter((item) => item.count > 0)
     .sort((a, b) => b.count * b.weight - a.count * a.weight);
 
-  const totalFloor = ranked.reduce((sum, item) => sum + (item.floor ?? 0) * item.weight, 0);
-  const isValid = (hardViolations ?? 0) === 0;
+  const usable = quality?.usable ?? (hardViolations ?? 0) === 0;
 
   return (
-    <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)]">
-      <button
-        onClick={() => setIsOpen((open) => !open)}
-        className="flex w-full items-center gap-3 px-3 py-2 text-left"
-      >
+    <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
         <span
-          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-            isValid ? 'bg-emerald-500/10 text-emerald-700' : 'bg-red-500/10 text-red-700'
+          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold ${
+            usable ? 'bg-emerald-500/10 text-emerald-700' : 'bg-red-500/10 text-red-700'
           }`}
         >
-          {isValid ? 'Hợp lệ' : `${hardViolations} lỗi cứng`}
+          {usable ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
+          {quality?.usableLabel ?? (usable ? 'Dùng được' : `Chưa dùng được — ${hardViolations} lỗi cứng`)}
         </span>
 
-        <span className="text-sm text-[var(--text-secondary)]">
-          Điểm <span className="font-semibold text-[var(--text-primary)]">{score ?? '---'}</span>
-          {penaltyPerSlot !== undefined && (
-            <span className="text-[var(--text-muted)]"> · {penaltyPerSlot} điểm phạt mỗi tiết</span>
-          )}
-          {slotCount > 0 && <span className="text-[var(--text-muted)]"> · {slotCount} tiết</span>}
-        </span>
+        {quality && (
+          <span className="text-sm text-[var(--text-secondary)]">
+            Chất lượng:{' '}
+            <span className={`font-semibold ${GRADE_TONE[quality.grade]}`}>{quality.gradeLabel}</span>
+          </span>
+        )}
 
-        <ChevronDown
-          size={16}
-          className={`ml-auto shrink-0 text-[var(--text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
-        />
-      </button>
+        <span className="text-sm text-[var(--text-muted)]">{slotCount} tiết</span>
+
+        <button
+          onClick={() => setIsOpen((open) => !open)}
+          className="ml-auto flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+        >
+          Chi tiết
+          <ChevronDown size={15} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+
+      {quality && (
+        <p className="px-4 pb-3 text-xs text-[var(--text-muted)]">{quality.usableReason}</p>
+      )}
 
       {isOpen && (
-        <div className="border-t border-[var(--border-default)] px-3 py-2">
-          <p className="mb-2 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
-            <Info size={13} className="mt-0.5 shrink-0" />
-            <span>
-              Điểm là tổng trên toàn bộ tiết nên nó lớn lên theo quy mô trường — so hai trường
-              với nhau thì dùng cột &ldquo;điểm phạt mỗi tiết&rdquo;. Lỗi cứng bằng 0 là điều kiện
-              duy nhất để thời khóa biểu dùng được; điểm chất lượng không quyết định điều đó.
-            </span>
+        <div className="border-t border-[var(--border-default)] px-4 py-3">
+          <p className="mb-3 text-xs leading-relaxed text-[var(--text-muted)]">
+            Xếp hạng đo bằng số điểm phạt <strong>còn tránh được</strong> trên mỗi tiết — đã trừ
+            phần bất khả kháng và đã chia cho quy mô trường, nên so được giữa hai trường khác
+            cỡ. Mốc lấy từ đo thật trên bốn mức công sức tối ưu: chưa tối ưu 9,4 · tối ưu đầy
+            đủ 5,3. <strong>&ldquo;Tốt&rdquo; nghĩa là ngang một lần tối ưu đầy đủ</strong>, không phải hoàn
+            hảo.
+            {quality && (
+              <>
+                {' '}
+                Bản này: <strong>{quality.avoidablePerSlot}</strong> điểm phạt tránh được mỗi tiết.
+              </>
+            )}
           </p>
 
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-[var(--text-muted)]">
                 <th className="py-1 font-medium">Tiêu chí</th>
-                <th className="py-1 text-right font-medium">Điểm</th>
-                <th className="py-1 text-right font-medium">Số lỗi</th>
-                <th className="py-1 text-right font-medium">Sửa được</th>
+                <th className="py-1 text-right font-medium">Số chỗ</th>
+                <th className="py-1 text-right font-medium">Còn sửa được</th>
               </tr>
             </thead>
             <tbody>
@@ -103,15 +131,14 @@ export default function QualityBreakdown({
                 return (
                   <tr key={item.label} className="border-t border-[var(--border-light)]">
                     <td className="py-1.5 pr-2 text-[var(--text-primary)]">{item.label}</td>
-                    <td className="py-1.5 text-right text-[var(--text-secondary)]">
-                      −{item.count * item.weight}
-                    </td>
                     <td className="py-1.5 text-right text-[var(--text-secondary)]">{item.count}</td>
                     <td className="py-1.5 text-right">
-                      {forced > 0 ? (
-                        <span className={avoidable === 0 ? 'text-emerald-600' : 'text-amber-600'}>
+                      {avoidable === 0 ? (
+                        <span className="text-emerald-600">đã tối đa</span>
+                      ) : forced > 0 ? (
+                        <span className="text-amber-600">
                           {avoidable}
-                          <span className="text-xs text-[var(--text-muted)]"> / {forced} bất khả kháng</span>
+                          <span className="text-xs text-[var(--text-muted)]"> ({forced} bất khả kháng)</span>
                         </span>
                       ) : (
                         <span className="text-[var(--text-secondary)]">{avoidable}</span>
@@ -123,14 +150,17 @@ export default function QualityBreakdown({
             </tbody>
           </table>
 
-          {totalFloor > 0 && (
-            <p className="mt-2 text-xs text-[var(--text-muted)]">
-              Trong tổng điểm phạt, <span className="font-medium text-[var(--text-secondary)]">{totalFloor} điểm</span>{' '}
-              không thể xóa được dù xếp thế nào — môn có số tiết lẻ thì luôn còn một tiết không
-              có tiết cùng môn bên cạnh, và một giáo viên dạy cả lớp học sáng lẫn lớp học chiều
-              thì buộc phải tới trường ở cả hai buổi.
-            </p>
-          )}
+          <p className="mt-3 text-xs text-[var(--text-muted)]">
+            &ldquo;Đã tối đa&rdquo; nghĩa là không xếp lại kiểu nào tốt hơn được: môn có số tiết lẻ thì
+            luôn còn một tiết không có tiết cùng môn bên cạnh.
+            {score !== null && (
+              <>
+                {' '}
+                Điểm thô của thuật toán: <span className="font-mono">{score}</span> — dùng để so hai
+                phương án của cùng một lần xếp, không dùng để so hai trường.
+              </>
+            )}
+          </p>
         </div>
       )}
     </div>

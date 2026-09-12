@@ -1370,6 +1370,65 @@ export class ConstraintService {
         return unavoidable;
     }
 
+    /**
+     * Xếp hạng một thời khóa biểu bằng chữ, thay vì để người dùng nhìn một con số âm.
+     *
+     * Hai câu hỏi tách hẳn nhau, và trộn chúng lại là chỗ dễ sai nhất:
+     *
+     * **Dùng được hay không** là nhị phân và chỉ phụ thuộc lỗi cứng. Một thời khóa biểu 0
+     * lỗi cứng thì in ra treo lên tường được, dù điểm chất lượng có xấu đến đâu. Ngược lại
+     * một lỗi cứng thôi cũng làm nó vô dụng, dù điểm có đẹp.
+     *
+     * **Chất lượng** là thang bậc, và đo bằng khoản phạt CÓ THỂ TRÁNH trên mỗi tiết. Ba lần
+     * chuẩn hoá, mỗi lần vì một lý do:
+     *
+     * - Trừ phần bất khả kháng: chấm một bộ giải bằng thứ nó không thể sửa là chấm sai chỗ.
+     * - Chia cho số tiết: điểm thô là tổng tuyệt đối nên nó lớn lên theo quy mô trường.
+     * - Đối chiếu với mức đo được: các mốc dưới đây không phải do nghĩ ra.
+     *
+     * Mốc lấy từ `scripts/calibrate-grades.ts`, chạy bốn mức công sức trên cùng một bộ dữ
+     * liệu 30 lớp: dựng thô không tối ưu cho 9,39 điểm phạt tránh được mỗi tiết, tối ưu rất
+     * ngắn 7,09, tối ưu ngắn 6,28, tối ưu đầy đủ 5,25. Nói cách khác **"Tốt" nghĩa là ngang
+     * mức một lần tối ưu đầy đủ**, không phải "hoàn hảo" — thang này đo công sức tối ưu đã
+     * bỏ ra, và nó được hiệu chỉnh trên một bộ dữ liệu nên trường khác có thể lệch đôi chút.
+     */
+    private gradeQuality(
+        schedule: TimeSlot[],
+        hardViolations: number,
+        softPenalty: number,
+        soft: Array<{ label: string; count: number; weight: number; floor?: number }>,
+    ) {
+        const forcedPenalty = soft.reduce((sum, item) => sum + (item.floor ?? 0) * item.weight, 0);
+        const avoidablePenalty = Math.max(0, softPenalty - forcedPenalty);
+        const perSlot = schedule.length > 0 ? avoidablePenalty / schedule.length : 0;
+
+        const usable = hardViolations === 0;
+
+        const BANDS: Array<{ upTo: number; grade: string; label: string }> = [
+            { upTo: 5.5, grade: 'GOOD', label: 'Tốt' },
+            { upTo: 7.0, grade: 'FAIR', label: 'Khá' },
+            { upTo: 9.0, grade: 'AVERAGE', label: 'Trung bình' },
+            { upTo: Infinity, grade: 'UNOPTIMISED', label: 'Chưa tối ưu' },
+        ];
+        const band = BANDS.find((b) => perSlot <= b.upTo)!;
+
+        const fixable = soft.reduce((sum, item) => sum + (item.count - (item.floor ?? 0)), 0);
+
+        return {
+            usable,
+            usableLabel: usable ? 'Dùng được' : `Chưa dùng được — ${hardViolations} lỗi cứng`,
+            usableReason: usable
+                ? 'Không còn lỗi cứng nào: mọi lớp đủ tiết, không ai trùng giờ, không phòng nào bị xếp hai lớp.'
+                : 'Còn lỗi cứng. Thời khóa biểu chưa dùng được cho tới khi số này về 0, bất kể điểm chất lượng.',
+            grade: band.grade,
+            gradeLabel: band.label,
+            avoidablePerSlot: Number(perSlot.toFixed(2)),
+            forcedPenalty,
+            avoidablePenalty,
+            fixableCount: fixable,
+        };
+    }
+
     public getFitnessDetails(schedule: TimeSlot[]): any {
         const details: string[] = [];
         const w = this.weights;
@@ -1470,6 +1529,7 @@ export class ConstraintService {
             hardViolations,
             softPenalty,
             penaltyPerSlot,
+            quality: this.gradeQuality(schedule, hardViolations, softPenalty, soft),
             preferences: wishes,
             isValid: hardViolations === 0,
             offenders: this.locateHardViolations(schedule),

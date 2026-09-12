@@ -129,9 +129,41 @@ Fitness = 1000 − (số lỗi cứng × 100) − tổng phạt mềm
 
 ### 5.2. Ngưỡng đánh giá
 
-TKB **dùng được** khi **số lỗi cứng = 0**. Điểm mềm càng cao càng tốt nhưng không quyết định tính hợp lệ.
+Hệ thống trả về **hai đánh giá tách rời nhau**, và không được trộn chúng lại:
 
-Trên bộ dữ liệu mẫu (7 lớp · 21 giáo viên · 217 tiết), 5/5 lần chạy đạt 0 lỗi cứng, điểm dao động khoảng **−120 đến +150**, mỗi lần chạy 10–25 giây. Điểm khó đạt 1000 vì thang điểm bao gồm 13 tiêu chí chất lượng cùng lúc — chúng mâu thuẫn nhau và không thể thoả mãn đồng thời.
+**Dùng được hay chưa** — nhị phân, chỉ phụ thuộc lỗi cứng. Bằng 0 thì in ra treo lên tường
+được, dù chất lượng có xếp hạng gì. Còn một lỗi cứng thôi thì vô dụng, dù điểm có đẹp.
+
+**Chất lượng** — thang bậc *Tốt · Khá · Trung bình · Chưa tối ưu*, và nó **không có quyền
+phủ quyết** tính dùng được.
+
+Xếp hạng đo bằng **số điểm phạt còn tránh được trên mỗi tiết**, chuẩn hoá ba lần:
+
+| Chuẩn hoá | Vì sao |
+| :--- | :--- |
+| Trừ phần bất khả kháng | Môn có số tiết lẻ thì luôn còn một tiết không có tiết cùng môn bên cạnh. Chấm bộ giải bằng thứ nó không thể sửa là chấm sai chỗ. |
+| Chia cho số tiết | Điểm thô là tổng tuyệt đối nên nó lớn lên theo quy mô trường. |
+| Đối chiếu mốc đo thật | Các mốc dưới đây không phải do nghĩ ra. |
+
+Mốc lấy từ `scripts/calibrate-grades.ts`, chạy bốn mức công sức trên cùng bộ dữ liệu 30 lớp:
+
+```
+Chỉ dựng thô, không tối ưu   9,39 điểm phạt tránh được mỗi tiết
+Tối ưu rất ngắn              7,09
+Tối ưu ngắn                  6,28
+Tối ưu đầy đủ                5,25
+```
+
+Nên **"Tốt" nghĩa là ngang một lần tối ưu đầy đủ**, không phải hoàn hảo. Thang này đo công
+sức tối ưu đã bỏ ra, và nó được hiệu chỉnh trên một bộ dữ liệu nên trường khác có thể lệch.
+
+**Điểm thô vẫn còn**, nhưng chỉ dùng để so hai phương án của cùng một lần xếp. Đem điểm thô
+của hai trường khác quy mô ra so là so hai thứ khác nhau: bộ dữ liệu 217 tiết cho khoảng
+**−120 đến +150**, bộ 961 tiết cho **−5211**, mà chất lượng trên mỗi tiết chỉ chênh nhau
+khoảng 50%.
+
+Điểm thô khó đạt 1000 vì thang điểm gồm 15 tiêu chí chất lượng cùng lúc — chúng mâu thuẫn
+nhau và không thể thoả mãn đồng thời.
 
 ### 5.3. Định mức và quy định tham chiếu
 

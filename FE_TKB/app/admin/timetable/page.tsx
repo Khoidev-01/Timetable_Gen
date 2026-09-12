@@ -230,6 +230,7 @@ export default function TimetablePage() {
           bestSchedule: schedule,
           fitnessDetails: data.fitnessDetails,
           penaltyPerSlot: data.penaltyPerSlot,
+          quality: data.quality,
           softBreakdown: data.softBreakdown ?? [],
           hardViolations: data.hardViolations,
           offenders: data.offenders ?? [],
@@ -616,9 +617,9 @@ export default function TimetablePage() {
               <h2 className="text-xl font-bold text-gray-800">Thời khóa biểu hoàn chỉnh</h2>
               <div className="mt-2 max-w-xl">
                 <QualityBreakdown
+                  quality={result.quality}
                   score={result.fitness_score ?? null}
                   slotCount={result.bestSchedule?.length ?? 0}
-                  penaltyPerSlot={result.penaltyPerSlot}
                   hardViolations={result.hardViolations}
                   items={result.softBreakdown ?? []}
                 />

@@ -17,7 +17,14 @@ async function main() {
     headers: { Authorization: `Bearer ${token}` },
   })).json();
 
-  console.log(`Diem: ${data.fitness_score}`);
+  const q = data.quality ?? {};
+  console.log('ĐÁNH GIÁ:');
+  console.log(`  ${q.usableLabel}`);
+  console.log(`  ${q.usableReason}`);
+  console.log(`  Chất lượng: ${q.gradeLabel} (${q.grade}) — ${q.avoidablePerSlot} điểm phạt tránh được mỗi tiết`);
+  console.log(`  Còn ${q.fixableCount} chỗ sửa được; ${q.forcedPenalty} điểm là bất khả kháng`);
+  console.log(`
+Diem tho: ${data.fitness_score}`);
   console.log(`Diem phat moi tiet: ${data.penaltyPerSlot}`);
   console.log(`Loi cung: ${data.hardViolations}`);
   console.log(`So tiet: ${data.bestSchedule?.length}`);

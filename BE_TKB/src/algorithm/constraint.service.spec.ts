@@ -260,6 +260,48 @@ describe('ConstraintService', () => {
         });
     });
 
+    describe('xếp hạng chất lượng', () => {
+        /**
+         * Hai câu hỏi phải tách hẳn nhau. Trộn chúng lại thì một thời khóa biểu hoàn toàn
+         * hợp lệ bị gán nhãn xấu và không ai dám dùng, hoặc tệ hơn: một thời khóa biểu thiếu
+         * tiết được gán nhãn đẹp rồi đem ra treo lên tường.
+         */
+        it('dùng được là nhị phân, và chỉ lỗi cứng quyết định', () => {
+            const clean = [1, 2, 3].map((period) => slot({ period }));
+            expect(service.getFitnessDetails(clean).quality.usable).toBe(true);
+
+            // Hai tiết cùng lớp cùng giờ: một lỗi cứng
+            const clashing = [slot({ period: 1 }), slot({ period: 1, subjectId: 2 })];
+            const graded = service.getFitnessDetails(clashing).quality;
+            expect(graded.usable).toBe(false);
+            expect(graded.usableLabel).toContain('Chưa dùng được');
+        });
+
+        it('chất lượng kém không làm một thời khóa biểu hợp lệ thành không dùng được', () => {
+            // Rải ba tiết ra ba ngày: xấu về chất lượng nhưng không lỗi cứng nào
+            const scattered = [2, 4, 6].map((day) => slot({ day, period: 1 }));
+            const graded = service.getFitnessDetails(scattered).quality;
+
+            expect(graded.usable).toBe(true);
+            expect(['GOOD', 'FAIR', 'AVERAGE', 'UNOPTIMISED']).toContain(graded.grade);
+        });
+
+        it('xếp hạng đo bằng phần TRÁNH ĐƯỢC, không tính phần bất khả kháng', () => {
+            // Môn 3 tiết: một tiết lẻ loi là bất khả kháng, nên nó không được kéo hạng xuống
+            const threePeriods = [
+                slot({ day: 2, period: 1 }),
+                slot({ day: 2, period: 2 }),
+                slot({ day: 4, period: 1 }),
+            ];
+            const graded = service.getFitnessDetails(threePeriods).quality;
+
+            expect(graded.forcedPenalty).toBeGreaterThan(0);
+            // Khoản phạt tránh được phải nhỏ hơn tổng, đúng bằng phần bất khả kháng
+            const detail = service.getFitnessDetails(threePeriods);
+            expect(graded.avoidablePenalty).toBe(detail.softPenalty - graded.forcedPenalty);
+        });
+    });
+
     describe('phần khoản phạt không thể tránh', () => {
         /**
          * Một môn có số tiết lẻ thì hai tiết ghép thành một cặp và tiết còn lại không bao

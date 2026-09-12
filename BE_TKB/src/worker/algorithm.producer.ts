@@ -186,6 +186,7 @@ export class AlgorithmProducer {
             // Điểm là tổng tuyệt đối nên nó lớn lên theo quy mô trường; chia cho số tiết
             // thì mới so được giữa hai trường khác quy mô
             penaltyPerSlot: fitnessResult.penaltyPerSlot,
+            quality: fitnessResult.quality,
             softBreakdown: fitnessResult.breakdown?.soft ?? [],
             fitnessViolations: fitnessResult.violations,
             hardViolations: fitnessResult.hardViolations,
