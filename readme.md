@@ -170,8 +170,37 @@ của hai trường khác quy mô ra so là so hai thứ khác nhau: bộ dữ l
 **−120 đến +150**, bộ 961 tiết cho **−5211**, mà chất lượng trên mỗi tiết chỉ chênh nhau
 khoảng 50%.
 
-Điểm thô khó đạt 1000 vì thang điểm gồm 15 tiêu chí chất lượng cùng lúc — chúng mâu thuẫn
-nhau và không thể thoả mãn đồng thời.
+### Vì sao điểm thô không bao giờ gần 1000
+
+Câu hỏi đúng phải là: điểm thấp vì **bộ giải chưa giỏi**, hay vì **công thức đo một thứ không
+ai đạt tới được**? Nhìn con số tổng thì không phân biệt được. Đã đo bằng ba cách:
+
+**Một — từng tiêu chí một mình nó xuống được rất sâu** (`scripts/probe-single-criterion.ts`
+tắt hết các tiêu chí khác, chỉ để lại một, rồi cho chạy hết sức):
+
+| Tiêu chí | khi bật hết | riêng nó |
+| :--- | ---: | ---: |
+| Tiết trống giáo viên | 97 | **4** |
+| Môn ưu tiên ở tiết cuối | 42 | **9** |
+| Giáo viên dạy cả sáng lẫn chiều | 19 | **2** |
+| Giáo viên phải đến trường thêm buổi | 159 | **80** |
+| Môn 2 tiết bị xé lẻ | 140 | **89** |
+
+Nên công thức **không** đo thứ bất khả thi. Mỗi khoản phạt đều có chỗ giảm thật.
+
+**Hai — không có hai tiêu chí nào đếm trùng một sự việc**
+(`scripts/probe-double-counting.ts` đổi chỗ một tiết rồi xem tiêu chí nào cùng đổi). Cặp
+trùng nhiều nhất chỉ **47%**; nếu có cặp nào gần 100% thì đó là một sự việc bị tính tiền hai
+lần.
+
+**Ba — đổi trọng số không mua được gì.** Nâng trọng số "buổi đi lại" từ 8 lên 16 thắng rõ ở
+một lần chạy (−4009 so với −4170), nhưng đo lại ba lần mỗi bên thì hoà: −4046 so với −4036.
+Nâng trọng số "tiết trống" cũng vậy. Đã gỡ cả hai.
+
+**Kết luận: điểm thấp vì 15 tiêu chí tranh nhau, không vì công thức sai.** Dồn tiết của một
+giáo viên vào ít buổi thì chính những tiết ấy dồn cục với lớp; xếp môn tư duy vào tiết đầu
+cho lớp này thì lớp khác phải nhận tiết cuối. Không có lời giải nào thoả mãn đồng thời, và
+con số tổng là cái giá của việc phải chọn.
 
 ### 5.3. Định mức và quy định tham chiếu
 
