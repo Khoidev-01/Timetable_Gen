@@ -38,6 +38,11 @@ const NEW_TEACHERS: NewTeacher[] = [
   { code: 'GV073', name: 'Nguyễn Thị Quỳnh Chi', team: 'Tổ Hoạt động', subject: 'HDTN', phone: '0912004501' },
   { code: 'GV074', name: 'Trần Đức Khải', team: 'Tổ Hoạt động', subject: 'HDTN', phone: '0912004502' },
   { code: 'GV075', name: 'Lê Hoàng Nam', team: 'Tổ Tin học', subject: 'TIN', phone: '0912004503' },
+  // Tinh dung giam tru chu nhiem (4 tiet) thi Ly con du dung 3 tiet tren 66 tiet nhu cau, va
+  // bon trong nam nguoi da kin dinh muc. Bon phan tram du la khong du cho mot bo giai xoay:
+  // no phai xep dung nguoi con cho vao dung gio lop can. Hoa cung vay, du 7 tiet.
+  { code: 'GV076', name: 'Nguyễn Thị Bích Hằng', team: 'Tổ Lý - Hóa', subject: 'LY', phone: '0912004504' },
+  { code: 'GV077', name: 'Trương Văn Hậu', team: 'Tổ Lý - Hóa', subject: 'HOA', phone: '0912004505' },
 ];
 
 const NEW_ROOMS = [
@@ -194,6 +199,56 @@ function rebalance(
     roomRow += 1;
   }
   console.log(`\nThem ${NEW_ROOMS.length} phong: ${NEW_ROOMS.map((r) => `${r.name} (${r.type})`).join(', ')}`);
+
+  // ------------------------------------------------------------ giam tru chu nhiem
+  // Giao vien chu nhiem THPT duoc giam 4 tiet moi tuan (Thong tu 05/2025). File mau dang de
+  // 0 cho 37 nguoi va 3 cho 5 nguoi — nghia la cong viec chu nhiem khong duoc tinh vao dau
+  // ca, va bang phan cong nhin thi thay ho ranh hon thuc te.
+  //
+  // He thong luu dinh muc DA TRU vao "Dinh muc hieu luc", nen dat lai ca hai cot: giam tru 4
+  // va hieu luc 13.
+  const HOMEROOM_REDUCTION = 4;
+  if (apply) {
+    // Truong co 30 lop, nhung 42 nguoi tu khai chu nhiem — muoi hai nguoi khai cac lop
+    // 10C11-10C14, 11B10-11B14, 12A12-12A14 khong he ton tai, sot lai tu mot bo cuc truong
+    // lon hon. Ho van day du tai, nen giam tru cho ho la cat mat bon tiet cua mot nguoi
+    // khong lam chu nhiem, va ho lap tuc vuot dinh muc.
+    const realClasses = new Set<string>();
+    const classSheetForHomeroom = book.getWorksheet('DM_Lop');
+    if (classSheetForHomeroom) {
+      const c = columnsOf(classSheetForHomeroom, 2);
+      for (let r = 3; r <= classSheetForHomeroom.rowCount; r++) {
+        const name = String(classSheetForHomeroom.getRow(r).getCell(c['Lớp']).value ?? '').trim();
+        if (name) realClasses.add(name);
+      }
+    }
+
+    let reduced = 0;
+    let cleared = 0;
+    for (let r = 3; r <= gv.rowCount; r++) {
+      const row = gv.getRow(r);
+      const code = String(row.getCell(gvCol['Mã GV']).value ?? '').trim();
+      const homeroom = String(row.getCell(gvCol['GVCN']).value ?? '').trim();
+      if (!code) continue;
+
+      const base = Number(row.getCell(gvCol['Định mức tuần']).value ?? 17);
+
+      if (homeroom && !realClasses.has(homeroom)) {
+        row.getCell(gvCol['GVCN']).value = '';
+        row.getCell(gvCol['Giảm trừ tuần']).value = 0;
+        row.getCell(gvCol['Định mức hiệu lực']).value = base;
+        cleared += 1;
+      } else if (homeroom) {
+        row.getCell(gvCol['Giảm trừ tuần']).value = HOMEROOM_REDUCTION;
+        row.getCell(gvCol['Định mức hiệu lực']).value = base - HOMEROOM_REDUCTION;
+        reduced += 1;
+      }
+      row.commit();
+    }
+    console.log(`
+Giam tru ${HOMEROOM_REDUCTION} tiet cho ${reduced} giao vien chu nhiem that — dinh muc hieu luc con ${17 - HOMEROOM_REDUCTION}.`);
+    console.log(`Xoa ${cleared} dong khai chu nhiem lop khong ton tai.`);
+  }
 
   // ------------------------------------------------------------ dinh muc tiet
   // Dua phan bo tiet ve dung dinh muc GDPT 2018 cho cap THPT (Thong tu 32/2018, sua doi boi

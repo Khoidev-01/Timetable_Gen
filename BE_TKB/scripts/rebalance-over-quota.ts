@@ -18,10 +18,16 @@ const apply = process.argv.includes('--apply');
   const teachers = await prisma.teacher.findMany({
     select: { id: true, code: true, full_name: true, max_periods_per_week: true },
   });
-  const assignments = await prisma.teachingAssignment.findMany({
+  // Chao co va sinh hoat cuoi tuan khong phai tiet day va khong tinh vao dinh muc — dung
+  // quy tac voi phep kiem tien xep lich. Dem chung vao day thi kich ban nay bao vuot dinh
+  // muc cho nhung nguoi that ra khong vuot, roi di tim cho chuyen khong bao gio tim ra.
+  const assignments = (await prisma.teachingAssignment.findMany({
     where: { semester_id: semester!.id },
-    select: { id: true, teacher_id: true, subject_id: true, class_id: true, total_periods: true },
-  });
+    select: {
+      id: true, teacher_id: true, subject_id: true, class_id: true, total_periods: true,
+      subject: { select: { is_special: true } },
+    },
+  })).filter((a) => !a.subject.is_special);
 
   const loadOf = (teacherId: string) =>
     assignments.filter((a) => a.teacher_id === teacherId).reduce((sum, a) => sum + a.total_periods, 0);

@@ -128,9 +128,23 @@ const HOMEROOM_DUTIES = ['CHAO_CO', 'SH_CUOI_TUAN'];
   }
   // Nhiem vu chu nhiem khong tinh vao tran, nhung van phai giu nguyen nguoi
 
+  // Ai day duoc mon nao lay tu cot "Mon chuyen mon chinh" trong danh muc giao vien, KHONG
+  // phai tu bang phan cong. Lay tu bang phan cong thi mot nguoi moi tuyen — chua co dong nao
+  // — se khong bao gio duoc giao viec, va viec them nguoi khong giai quyet duoc gi.
+  const specialists = new Map<string, string[]>();
+  for (let r = 3; r <= gvSheet.rowCount; r++) {
+    const code = String(gvSheet.getRow(r).getCell(gvCol['Mã GV']).value ?? '').trim();
+    const major = String(gvSheet.getRow(r).getCell(gvCol['Môn chuyên môn chính']).value ?? '').trim();
+    if (!code || !major) continue;
+    if (!specialists.has(major)) specialists.set(major, []);
+    specialists.get(major)!.push(code);
+  }
+
   let moved = 0;
   for (const [subject, subjectRows] of bySubject) {
-    const teachers = [...new Set(subjectRows.map((r) => r.teacher))];
+    const fromRows = [...new Set(subjectRows.map((r) => r.teacher))];
+    const fromCatalog = specialists.get(subject) ?? [];
+    const teachers = [...new Set([...fromRows, ...fromCatalog])];
     const demand = { Sáng: 0, Chiều: 0 } as Record<string, number>;
     for (const row of subjectRows) demand[row.session] = (demand[row.session] ?? 0) + row.periods;
 
