@@ -1,13 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bot, Check, Loader2, Send, Sparkles, X } from 'lucide-react';
+import { Bot, Check, ChevronDown, FileText, Loader2, Send, Sparkles, X } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 
 interface Step {
   tool: string;
   ok: boolean;
   note?: string;
+}
+
+interface Citation {
+  source: string;
+  article: string | null;
+  title: string;
+  body: string;
 }
 
 interface Confirmation {
@@ -21,6 +28,7 @@ interface Turn {
   steps: Step[];
   answer?: string;
   error?: string;
+  citations?: Citation[];
   confirmation?: Confirmation;
   confirmed?: 'saving' | 'done' | string;
 }
@@ -127,7 +135,12 @@ export default function AssistantWidget() {
             const data = JSON.parse(raw);
             if (event === 'step') update((t) => ({ ...t, steps: [...t.steps, data] }));
             if (event === 'answer') {
-              update((t) => ({ ...t, answer: data.answer, confirmation: data.confirmation }));
+              update((t) => ({
+                ...t,
+                answer: data.answer,
+                confirmation: data.confirmation,
+                citations: data.citations,
+              }));
             }
             if (event === 'error') update((t) => ({ ...t, error: data.message }));
           }
@@ -226,6 +239,28 @@ export default function AssistantWidget() {
               <p className="max-w-[92%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-[var(--bg-surface-hover)] px-3 py-2 text-sm text-[var(--text-primary)]">
                 {turn.answer}
               </p>
+            )}
+
+            {turn.citations && turn.citations.length > 0 && (
+              <div className="max-w-[92%] space-y-1">
+                {turn.citations.map((citation, i) => (
+                  <details
+                    key={i}
+                    className="group rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1.5"
+                  >
+                    <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                      <FileText size={12} className="shrink-0 text-blue-500" />
+                      <span className="font-medium">{citation.source}</span>
+                      {citation.article && <span className="text-[var(--text-muted)]">· {citation.article}</span>}
+                      <ChevronDown size={12} className="ml-auto shrink-0 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <p className="mt-1.5 text-xs font-medium text-[var(--text-primary)]">{citation.title}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-[var(--text-secondary)]">
+                      {citation.body}
+                    </p>
+                  </details>
+                ))}
+              </div>
             )}
 
             {turn.error && (

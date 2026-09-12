@@ -95,6 +95,7 @@ export class AssistantController {
       send('answer', {
         answer: turn.answer,
         confirmation: turn.confirmation,
+        citations: turn.citations,
         rounds: turn.rounds,
       });
     } catch (error: any) {

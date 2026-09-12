@@ -219,8 +219,10 @@ export class ScheduleTools {
       name: 'find_swap_candidates',
       description:
         'Những tiết có thể đổi chỗ với một tiết cho trước. ' +
-        'Mọi phương án trả về ĐÃ ĐƯỢC KIỂM TRA RÀNG BUỘC SẴN, kèm tên giáo viên và lớp — ' +
-        'KHÔNG cần gọi thêm check_swap_feasibility hay explain_slot cho những phương án này.',
+        'Mọi phương án trả về ĐÃ ĐƯỢC KIỂM TRA RÀNG BUỘC SẴN, kèm tên giáo viên và lớp, ' +
+        'nên không phải kiểm lại từng phương án nữa. ' +
+        'Câu dặn này CHỈ áp dụng cho danh sách do chính công cụ này trả về; ' +
+        'người dùng hỏi về một mã tiết cụ thể thì vẫn dùng explain_slot như bình thường.',
       parameters: {
         type: 'object',
         properties: { slotId: { type: 'string', description: 'Mã tiết cần đổi' } },
@@ -363,10 +365,15 @@ export class ScheduleTools {
   private explainSlot(): ToolDefinition {
     return {
       name: 'explain_slot',
-      description: 'Vì sao một tiết lại nằm ở vị trí đó: ràng buộc nào đã giữ nó ở đây.',
+      description:
+        'Mọi câu hỏi về MỘT TIẾT CỤ THỂ khi người dùng đưa ra mã tiết: tiết đó của lớp nào, ' +
+        'môn gì, ai dạy, ở phòng nào, thứ mấy tiết mấy, và vì sao nó nằm ở đúng chỗ đó. ' +
+        'Có mã tiết trong câu hỏi thì gọi công cụ này, đừng tự trả lời.',
       parameters: {
         type: 'object',
-        properties: { slotId: { type: 'string' } },
+        properties: {
+          slotId: { type: 'string', description: 'Mã tiết, dạng chuỗi định danh dài' },
+        },
         required: ['slotId'],
       },
       run: async (args, context) => {
@@ -435,10 +442,19 @@ export class ScheduleTools {
           );
         }
 
-        return answer({
-          citeEveryClaim: 'Mỗi ý rút ra từ đây phải nói rõ lấy từ văn bản nào.',
-          hits,
-        });
+        return {
+          ok: true,
+          data: {
+            citeEveryClaim: 'Mỗi ý rút ra từ đây phải nói rõ lấy từ văn bản nào.',
+            hits,
+          },
+          citations: hits.map((hit) => ({
+            source: hit.source,
+            article: hit.article,
+            title: hit.title,
+            body: hit.body,
+          })),
+        };
       },
     };
   }

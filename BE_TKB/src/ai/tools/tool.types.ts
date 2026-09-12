@@ -36,6 +36,20 @@ export interface ToolResult {
     summary: string;
     payload: Record<string, unknown>;
   };
+  /**
+   * Những đoạn tài liệu câu trả lời này dựa vào, để người dùng mở ra đọc nguyên văn.
+   *
+   * Tên văn bản in ra dưới dạng chữ thì người đọc phải tin lời trợ lý rằng nó có thật và
+   * nói đúng như vậy. Mở ra đọc được thì không phải tin nữa.
+   */
+  citations?: Citation[];
+}
+
+export interface Citation {
+  source: string;
+  article: string | null;
+  title: string;
+  body: string;
 }
 
 export interface ToolDefinition {

@@ -3,7 +3,7 @@ import type { LlmMessage, LlmProvider } from './providers/llm-provider.interface
 import { LLM_PROVIDER } from './providers/llm-provider.interface';
 import { ScheduleTools } from './tools/schedule.tools';
 import { DATA_IS_NOT_INSTRUCTIONS, fenceData } from './tools/guardrails';
-import { Actor, ToolContext } from './tools/tool.types';
+import { Actor, Citation, ToolContext } from './tools/tool.types';
 
 /** Stop after this many tool rounds, whatever the model wants. */
 const MAX_ROUNDS = 5;
@@ -14,6 +14,8 @@ export interface AssistantTurn {
   steps: Array<{ tool: string; args: Record<string, unknown>; ok: boolean; note?: string }>;
   /** A write the user must approve before anything happens. */
   confirmation?: { action: string; summary: string; payload: Record<string, unknown> };
+  /** Đoạn tài liệu câu trả lời dựa vào, để người dùng mở ra đọc nguyên văn. */
+  citations: Citation[];
   rounds: number;
 }
 
@@ -52,13 +54,14 @@ export class OrchestratorService {
     ];
 
     const steps: AssistantTurn['steps'] = [];
+    const citations: Citation[] = [];
     let confirmation: AssistantTurn['confirmation'];
 
     for (let round = 1; round <= MAX_ROUNDS; round++) {
       const reply = await this.llm.complete(messages, specs);
 
       if (reply.toolCalls.length === 0) {
-        return { answer: reply.content.trim(), steps, confirmation, rounds: round };
+        return { answer: reply.content.trim(), steps, confirmation, citations, rounds: round };
       }
 
       messages.push({ role: 'assistant', content: reply.content, toolCalls: reply.toolCalls });
@@ -97,6 +100,12 @@ export class OrchestratorService {
           const result = await tool.run(args, context);
           steps.push({ tool: tool.name, args, ok: result.ok, note: result.message });
           if (result.confirmation) confirmation = result.confirmation;
+          for (const citation of result.citations ?? []) {
+            // Một vòng hỏi có thể tra cùng một điều khoản hai lần; người đọc chỉ cần một
+            if (!citations.some((existing) => existing.title === citation.title)) {
+              citations.push(citation);
+            }
+          }
 
           messages.push({
             role: 'tool',
@@ -127,6 +136,7 @@ export class OrchestratorService {
         'Bạn thử chia nhỏ câu hỏi giúp tôi.',
       steps,
       confirmation,
+      citations,
       rounds: MAX_ROUNDS,
     };
   }

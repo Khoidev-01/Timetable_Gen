@@ -195,6 +195,92 @@ function rebalance(
   }
   console.log(`\nThem ${NEW_ROOMS.length} phong: ${NEW_ROOMS.map((r) => `${r.name} (${r.type})`).join(', ')}`);
 
+  // ------------------------------------------------------------ bang tong hop
+  // Sheet nay la bao cao, khong phai dau vao — bo nhap khong doc no. Nhung no van la thu
+  // nguoi dung mo ra doi chieu, va no dang la nhung con so tinh tu truoc khi chia lai: mot
+  // bao cao sai con te hon khong co bao cao, vi khong ai nghi la phai nghi ngo no.
+  const summary = book.getWorksheet('Tong_hop_GV');
+  if (summary && apply) {
+    const sumCol = columnsOf(summary, 2);
+
+    // Chao co va sinh hoat cuoi tuan khong phai tiet day: tinh chung vao phan chenh lech
+    // dinh muc la tinh hai lan, vi nhiem vu chu nhiem da duoc bu bang phan giam tru
+    const CEREMONY = ['CHAO_CO', 'SH_CUOI_TUAN'];
+    const load = new Map<string, { hk1: number; hk2: number; rows1: number; rows2: number; ceremony: number }>();
+    const bump = (code: string) => {
+      if (!code) return undefined;
+      if (!load.has(code)) load.set(code, { hk1: 0, hk2: 0, rows1: 0, rows2: 0, ceremony: 0 });
+      return load.get(code)!;
+    };
+
+    for (let r = 3; r <= pc.rowCount; r++) {
+      const row = pc.getRow(r);
+      const subject = String(row.getCell(pcCol['Mã môn']).value ?? '').trim();
+      const isCeremony = CEREMONY.includes(subject);
+
+      const teacher1 = bump(String(row.getCell(pcCol['GV HK1 Mã']).value ?? '').trim());
+      if (teacher1) {
+        const periods = Number(row.getCell(pcCol['Tiết HK1']).value ?? 0);
+        teacher1.hk1 += periods;
+        teacher1.rows1 += 1;
+        if (isCeremony) teacher1.ceremony += periods;
+      }
+
+      const teacher2 = bump(String(row.getCell(pcCol['GV HK2 Mã']).value ?? '').trim());
+      if (teacher2) {
+        teacher2.hk2 += Number(row.getCell(pcCol['Tiết HK2']).value ?? 0);
+        teacher2.rows2 += 1;
+      }
+    }
+
+    // Viet lai tu dong 3 tro di, mot dong moi giao vien, theo dung thu tu sheet giao vien
+    const teacherRows: Array<{ code: string; name: string; team: string; quota: number; reduction: number }> = [];
+    for (let r = 3; r <= gv.rowCount; r++) {
+      const code = String(gv.getRow(r).getCell(gvCol['Mã GV']).value ?? '').trim();
+      if (!code) continue;
+      teacherRows.push({
+        code,
+        name: String(gv.getRow(r).getCell(gvCol['Họ tên']).value ?? '').trim(),
+        team: String(gv.getRow(r).getCell(gvCol['Tổ CM']).value ?? '').trim(),
+        quota: Number(gv.getRow(r).getCell(gvCol['Định mức tuần']).value ?? 17),
+        reduction: Number(gv.getRow(r).getCell(gvCol['Giảm trừ tuần']).value ?? 0),
+      });
+    }
+
+    for (let r = summary.rowCount; r >= 3; r--) summary.spliceRows(r, 1);
+
+    teacherRows.forEach((teacher, index) => {
+      const stats = load.get(teacher.code) ?? { hk1: 0, hk2: 0, rows1: 0, rows2: 0, ceremony: 0 };
+      const effective = teacher.quota - teacher.reduction;
+      const teaching1 = stats.hk1 - stats.ceremony;
+
+      const row = summary.getRow(3 + index);
+      row.getCell(sumCol['Mã GV']).value = teacher.code;
+      row.getCell(sumCol['Họ tên']).value = teacher.name;
+      row.getCell(sumCol['Tổ CM']).value = teacher.team;
+      row.getCell(sumCol['Định mức tuần']).value = teacher.quota;
+      row.getCell(sumCol['Giảm trừ tuần']).value = teacher.reduction;
+      row.getCell(sumCol['Định mức hiệu lực']).value = effective;
+      row.getCell(sumCol['Tổng tiết HK1']).value = stats.hk1;
+      row.getCell(sumCol['Tổng tiết HK2']).value = stats.hk2;
+      row.getCell(sumCol['Chênh HK1']).value = teaching1 - effective;
+      row.getCell(sumCol['Chênh HK2']).value = stats.hk2 - stats.ceremony - effective;
+      row.getCell(sumCol['Tổng tiết năm']).value = stats.hk1 + stats.hk2;
+      row.getCell(sumCol['Số dòng PC HK1']).value = stats.rows1;
+      row.getCell(sumCol['Số dòng PC HK2']).value = stats.rows2;
+      row.getCell(sumCol['Ghi chú']).value = stats.ceremony
+        ? `Cột chênh đã trừ ${stats.ceremony} tiết nghi lễ (chào cờ, sinh hoạt cuối tuần)`
+        : '';
+      row.commit();
+    });
+
+    const over = teacherRows.filter((t) => {
+      const stats = load.get(t.code);
+      return stats && stats.hk1 - stats.ceremony > t.quota - t.reduction;
+    });
+    console.log(`\nDa dung lai bang Tong_hop_GV: ${teacherRows.length} giao vien, ${over.length} nguoi vuot dinh muc.`);
+  }
+
   if (!apply) {
     console.log('\nXem truoc. Them --apply de ghi de len file mau.');
     return;
