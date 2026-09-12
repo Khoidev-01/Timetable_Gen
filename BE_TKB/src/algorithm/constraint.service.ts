@@ -1247,6 +1247,11 @@ export class ConstraintService {
         return used >= capacity;
     }
 
+    /** Có bao nhiêu phòng thuộc loại này. 0 nghĩa là trường không khai phòng loại đó. */
+    public roomCountOfType(type: string): number {
+        return this.roomTypeCapacity.get(type) ?? 0;
+    }
+
     /** The special room a subject needs, or null when it stays in the class's own room. */
     public getRequiredRoomType(subjectId: number): string | null {
         return this.subjectRoomType.get(subjectId) ?? null;

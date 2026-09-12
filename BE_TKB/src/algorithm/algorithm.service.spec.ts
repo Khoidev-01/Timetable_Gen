@@ -43,6 +43,80 @@ describe('AlgorithmService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('vòng tìm kiếm', () => {
+    /**
+     * Luyện kim mô phỏng nhận cả nước đi làm điểm tệ đi, nên lúc vòng lặp dừng, lịch đang
+     * nằm ở đâu là chuyện của may rủi. Bản tốt nhất từng gặp được chụp lại và khôi phục ở
+     * cuối — nếu phần khôi phục lệch khỏi điểm được báo ra thì người dùng nhận một thời
+     * khóa biểu khác với con số họ nhìn thấy, và không có gì báo cho họ biết.
+     */
+    const buildSchedule = (): TimeSlot[] => {
+      const slots: TimeSlot[] = [];
+      for (let i = 0; i < 40; i++) {
+        slots.push(
+          slot({
+            id: `s${i}`,
+            classId: `C${i % 4}`,
+            teacherId: `T${i % 6}`,
+            subjectId: (i % 3) + 1,
+            day: 2 + (i % 6),
+            period: 1 + (i % 5),
+          }),
+        );
+      }
+      return slots;
+    };
+
+    it('chụp lại rồi khôi phục đưa lịch về đúng từng ô như cũ', () => {
+      const slots = buildSchedule();
+      const snapshot = service['snapshotPlacement'](slots);
+      const original = slots.map((s) => `${s.id}@${s.day}-${s.period}`);
+
+      // Xáo tung, giống lúc phép luyện kim nhận một chuỗi nước đi xấu
+      for (const s of slots) {
+        s.day = 2 + ((s.period * 7) % 6);
+        s.period = 1 + ((s.day * 3) % 10);
+      }
+      expect(slots.map((s) => `${s.id}@${s.day}-${s.period}`)).not.toEqual(original);
+
+      service['restorePlacement'](slots, snapshot);
+      expect(slots.map((s) => `${s.id}@${s.day}-${s.period}`)).toEqual(original);
+    });
+
+    it('điểm báo ra khớp với lịch thật khi vòng lặp kết thúc', async () => {
+      const constraints = service['constraintService'];
+      const slots = buildSchedule();
+      const solution: any = { slots };
+
+      await service['phase3_LocalSearch'](solution, {}, () => undefined, 3000);
+
+      expect(solution.fitness_score).toBe(constraints.getFitnessDetails(slots).score);
+    });
+
+    it('không bao giờ trả về lời giải tệ hơn lúc bắt đầu', async () => {
+      const constraints = service['constraintService'];
+      const slots = buildSchedule();
+      const before = constraints.getFitnessDetails(slots);
+
+      const solution: any = { slots };
+      await service['phase3_LocalSearch'](solution, {}, () => undefined, 3000);
+
+      const after = constraints.getFitnessDetails(slots);
+      expect(after.score).toBeGreaterThanOrEqual(before.score);
+      expect(after.hardViolations).toBeLessThanOrEqual(before.hardViolations);
+    });
+
+    it('ngân sách tìm kiếm đi theo số tiết phải xếp', () => {
+      const small = service['searchBudget'](200);
+      const large = service['searchBudget'](960);
+
+      expect(large).toBeGreaterThan(small);
+      // Trường bé không phải chờ như trường lớn, trường lớn không bị cắt ngắn quá tay
+      expect(small).toBeGreaterThanOrEqual(30_000);
+      expect(large).toBeLessThanOrEqual(600_000);
+    });
+  });
+
   describe('gán phòng', () => {
     /**
      * Hai lớp dùng chung một phòng theo buổi: 12A5 học sáng, 11B5 học chiều.

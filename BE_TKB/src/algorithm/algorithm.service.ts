@@ -2,6 +2,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService, TimeSlot } from './constraint.service';
+import { GridIndex } from './grid-index';
 import { IncrementalScorer } from './incremental-scorer';
 import { AlgorithmGateway, SlotTuple } from './algorithm.gateway';
 import { Move, MoveOperations } from './solvers/solver.interface';
@@ -141,8 +142,12 @@ export class AlgorithmService {
             // than a longer search on one starting point.
             // Only some attempts land on a fully valid grid, so keep drawing until one
             // does, then spend the remaining budget improving its soft score.
-            const MAX_ATTEMPTS = 12;
-            const MIN_ATTEMPTS = 5;
+            // Mot lan tim kiem dai thang nhieu lan ngan. Do tren du lieu that: gap doi so
+            // vong lap mua duoc khoang 600 diem, con dung cung ngan sach do de dung lai tu
+            // dau roi lay ban tot nhat thi gan nhu khong mua duoc gi. Nen chi dung lai du
+            // so phuong an can cho nguoi dung chon, va do het thoi gian vao viec tim kiem.
+            const MAX_ATTEMPTS = 6;
+            const MIN_ATTEMPTS = 3;
             const VARIANTS_TO_KEEP = 3;
             const lockedSlots = [...solution.slots];
             const candidates: Array<{ slots: TimeSlot[]; hard: number; score: number }> = [];
@@ -263,14 +268,15 @@ export class AlgorithmService {
         this.emitProgress('Dồn tiết', solution.slots, true);
 
         // A short search first, so a second repair sweep can use any cell it frees up
-        await this.phase3_LocalSearch(solution, data, log, 4000);
+        const budget = this.searchBudget(solution.slots.length);
+        await this.phase3_LocalSearch(solution, data, log, Math.round(budget / 10));
 
         this.repairMissingPeriods(solution, data, log);
         this.compactClassSchedules(solution, data, log);
         this.alignHomeroomToEndOfDay(solution, data, log);
 
         // Then the main search runs last, so nothing undoes what it achieves
-        await this.phase3_LocalSearch(solution, data, log, 12000);
+        await this.phase3_LocalSearch(solution, data, log, budget);
 
         // Rooms are settled once the grid stops moving - threading room bookings through
         // every swap and relocation would double the cost of each move for no benefit
@@ -1109,62 +1115,367 @@ export class AlgorithmService {
      * would break a hard constraint, and keeps a swap when the score does not get worse -
      * accepting equal moves lets it drift across plateaus instead of stalling.
      */
+    /**
+     * Bao nhieu nuoc di cho mot lan tim kiem, theo quy mo bai toan.
+     *
+     * So vong lap la thu quyet dinh chat lượng manh nhat — manh hon moi phep chinh khac da
+     * thu. Truong 30 lop can nhieu hon truong 10 lop dung ty le voi so tiet phai xep, nen
+     * so nay di theo so tiet chu khong phai mot hang so co dinh cho moi truong.
+     */
+    private searchBudget(slotCount: number): number {
+        const fromEnv = Number(process.env.TKB_SEARCH_MAIN ?? 0);
+        if (fromEnv > 0) return fromEnv;
+
+        return Math.min(600_000, Math.max(30_000, slotCount * 650));
+    }
+
+    /**
+     * Cải thiện dần lời giải bằng luyện kim mô phỏng.
+     *
+     * Trước đây đây là leo đồi thuần: nước nào làm điểm tệ đi là bị hoàn tác ngay. Cách đó
+     * đứng lại rất sớm, vì từ một thời khóa biểu tạm ổn, hầu như mọi nước đi đơn lẻ đều làm
+     * điểm tệ đi một chút — muốn ghép hai tiết thành cặp thì phải đẩy một tiết khác ra chỗ
+     * xấu hơn trước đã. Nhận một số nước xấu theo xác suất giảm dần cho phép đi qua thung
+     * lũng đó; bản tốt nhất từng gặp được giữ riêng nên kết quả không bao giờ tệ hơn.
+     */
     private async phase3_LocalSearch(
         solution: any,
         data: any,
         log: (msg: string) => void,
         iterations = 12000,
     ) {
-        const ITERATIONS = iterations;
-        const PLATEAU_LIMIT = Math.max(1000, Math.floor(iterations / 5));
-
         const slots: TimeSlot[] = solution.slots;
 
-        // Rescoring all 217 periods after every candidate move is what made each added
+        // Rescoring all periods after every candidate move is what made each added
         // constraint slow the whole search down. This rechecks only the classes and
         // teachers a move touched; the numbers are identical, see incremental-scoring.spec.
         const scorer = new IncrementalScorer(this.constraintService, slots);
         let score = scorer.fitness();
         const initial = score;
 
+        // Danh sách tiết di chuyển được dựng một lần. Trước đây nó được lọc lại trong mỗi
+        // vòng lặp: gần một nghìn phần tử nhân mười sáu nghìn vòng, mười lăm triệu phép so
+        // sánh chỉ để dựng lại đúng một mảng không hề đổi.
+        const movable = slots.filter(s => !s.isLocked);
+        if (movable.length < 2) {
+            solution.fitness_score = score;
+            return;
+        }
+
+        // Ba cau hoi ve cho trong duoc hoi hang tram nghin lan; tra loi bang cach quet ca
+        // luoi thi so vong lap chay duoc trong mot giay tut xuong, ma chinh con so do quyet
+        // dinh chat luong loi giai
+        const index = new GridIndex(slots, id => this.constraintService.getRequiredRoomType(id));
+
+        // Nhom tiet theo lop, va theo lop+mon. Lop va mon cua mot tiet khong bao gio doi,
+        // chi cho ngoi cua no doi, nen hai nhom nay dung mot lan la du cho ca vong tim kiem.
+        const byClass = new Map<string, TimeSlot[]>();
+        const byClassSubject = new Map<string, TimeSlot[]>();
+        for (const slot of movable) {
+            let own = byClass.get(slot.classId);
+            if (!own) byClass.set(slot.classId, (own = []));
+            own.push(slot);
+
+            const key = `${slot.classId}|${slot.subjectId}`;
+            let group = byClassSubject.get(key);
+            if (!group) byClassSubject.set(key, (group = []));
+            group.push(slot);
+        }
+        const pairable = [...byClassSubject.values()].filter(group => group.length >= 2);
+
+        let hard = scorer.hardViolations();
+        let best = score;
+        let bestHard = hard;
+        let bestPlacement = this.snapshotPlacement(slots);
+
+        // Thang nhiệt độ tính theo đơn vị điểm phạt: một tiết đôi bị xé lẻ đáng 10 điểm,
+        // một buổi đi lại thừa của giáo viên đáng 8. Bắt đầu quanh mức đó để nước đi một
+        // bậc còn qua được, rồi hạ dần về gần không để cuối cùng chỉ còn nhận nước tốt.
+        // Do bang cach quet: 24 va 12 deu qua nong — nhan qua nhieu nuoc xau nen mat thoi
+        // gian di lang thang; 1 thi qua lanh, gan nhu thanh leo doi thuan tro lai. Vung
+        // 1.5 den 3 cho ket qua tot nhat va gan nhu bang nhau, nen lay 2.5.
+        const START_TEMPERATURE = 2.5;
+        const END_TEMPERATURE = 0.15;
+        const cooling = Math.log(END_TEMPERATURE / START_TEMPERATURE);
+
         let improvements = 0;
-        let sinceImprovement = 0;
+        let accepted = 0;
 
-        for (let i = 0; i < ITERATIONS; i++) {
-            const movable = slots.filter(s => !s.isLocked);
-            if (movable.length < 2) break;
+        for (let i = 0; i < iterations; i++) {
+            const temperature = START_TEMPERATURE * Math.exp((cooling * i) / iterations);
 
-            // Three move types. Swaps rearrange a busy grid, relocations open up cells,
-            // and the targeted move goes straight after the largest remaining penalty:
-            // the number of separate sessions a teacher has to come to school for.
-            const roll = Math.random();
-            const undo = roll < 0.35
-                ? this.trySwapMove(slots, movable)
-                : roll < 0.7
-                    ? this.tryRelocateMove(slots, movable)
-                    : this.tryConsolidateTeacherMove(slots, movable);
-
+            const undo = this.randomNeighbourMove(movable, index, pairable, byClass);
             if (!undo) continue;
 
-            const candidate = scorer.fitness();
+            const candidateHard = scorer.hardViolations();
 
-            if (candidate > score) {
-                score = candidate;
-                improvements++;
-                sinceImprovement = 0;
-            } else if (candidate === score) {
-                sinceImprovement++;
-            } else {
+            // Lang thang chỉ được phép trong không gian điểm mềm. Điểm tổng có cộng cả lỗi
+            // cứng vào, nên nếu để nguyên thì phép luyện kim sẵn sàng đổi một lỗi cứng lấy
+            // vài chục điểm mềm — một thời khóa biểu đẹp mà không dùng được.
+            if (candidateHard > hard) {
                 undo();
-                sinceImprovement++;
+                continue;
             }
 
-            if (candidate > score) this.emitProgress('Tối ưu', slots);
-            if (sinceImprovement >= PLATEAU_LIMIT) break;
+            const candidate = scorer.fitness();
+            const delta = candidate - score;
+
+            if (delta >= 0 || Math.random() < Math.exp(delta / temperature)) {
+                score = candidate;
+                hard = candidateHard;
+                accepted++;
+
+                if (hard < bestHard || (hard === bestHard && score > best)) {
+                    best = score;
+                    bestHard = hard;
+                    bestPlacement = this.snapshotPlacement(slots);
+                    improvements++;
+                    this.emitProgress('Tối ưu', slots);
+                }
+            } else {
+                undo();
+            }
+        }
+
+        // Kết thúc ở bản tốt nhất từng gặp, không phải ở chỗ vòng lặp tình cờ dừng lại
+        if (hard > bestHard || score < best) {
+            this.restorePlacement(slots, bestPlacement);
+            score = scorer.fitness();
         }
 
         solution.fitness_score = score;
-        log(`[DEBUG] Local search: ${initial} → ${score} (${improvements} lần cải thiện).`);
+        log(`[DEBUG] Local search: ${initial} → ${score} (${improvements} lần cải thiện, ${accepted} nước được nhận).`);
+    }
+
+    /** Mot nuoc di ngau nhien trong lan can, hoac null khi nuoc boc duoc la khong hop le. */
+    private randomNeighbourMove(
+        movable: TimeSlot[],
+        index: GridIndex,
+        pairable: TimeSlot[][],
+        byClass: Map<string, TimeSlot[]>,
+    ): (() => void) | null {
+        const roll = Math.random();
+        if (roll < 0.25) return this.indexedPairMove(pairable, byClass, index);
+        if (roll < 0.5) return this.indexedSwapMove(movable, index);
+        if (roll < 0.75) return this.indexedRelocateMove(movable, index);
+        return this.indexedConsolidateMove(movable, index);
+    }
+
+    /**
+     * Keo mot tiet le ve ngoi canh tiet cung mon cua chinh lop do.
+     *
+     * Boc ngau nhien hai tiet roi hy vong chung tinh co canh nhau la cach rat ton kem de
+     * ghep tiet doi: trong mot luoi gan mot nghin o, xac suat trung dung mot trong hai o
+     * ben canh tiet anh em la vai phan nghin. Nuoc di nay chon thang o dich nen ghep duoc
+     * trong mot buoc, va vi no di qua phep luyen kim nen mot lan ghep lam diem te di tam
+     * thoi van co co hoi duoc giu lai.
+     */
+    private indexedPairMove(
+        pairable: TimeSlot[][],
+        byClass: Map<string, TimeSlot[]>,
+        index: GridIndex,
+    ): (() => void) | null {
+        if (pairable.length === 0) return null;
+
+        const group = pairable[(Math.random() * pairable.length) | 0];
+        const lone = group[(Math.random() * group.length) | 0];
+
+        // Da co anh em ngay ben canh thi khong con gi de ghep
+        if (group.some(s => s !== lone && s.day === lone.day && Math.abs(s.period - lone.period) === 1)) {
+            return null;
+        }
+
+        const classmates = byClass.get(lone.classId) ?? [];
+
+        for (const anchor of group) {
+            if (anchor === lone) continue;
+            // Ba tiet cung mon trong mot ngay la don cuc, khong phai tiet doi
+            if (group.filter(s => s.day === anchor.day).length >= 2) continue;
+
+            for (const period of [anchor.period - 1, anchor.period + 1]) {
+                if (period < 1 || period > 10) continue;
+                if (!this.sameSession(anchor.period, period)) continue;
+                if (!this.isCellAllowed(anchor.day, period)) continue;
+                if (anchor.day === lone.day && period === lone.period) continue;
+
+                const occupant = classmates.find(
+                    s => s !== lone && s.day === anchor.day && s.period === period,
+                );
+
+                if (!occupant) {
+                    if (!this.canLandAt(lone, anchor.day, period, index)) continue;
+
+                    const oldDay = lone.day;
+                    const oldPeriod = lone.period;
+                    index.move(lone, anchor.day, period);
+                    return () => index.move(lone, oldDay, oldPeriod);
+                }
+
+                if (occupant.isLocked || occupant === anchor) continue;
+                if (!this.sameSession(lone.period, occupant.period)) continue;
+                if (!this.isCellAllowed(lone.day, lone.period)) continue;
+                if (!this.indexedSwapLegal(lone, occupant, index)) continue;
+                if (!this.indexedSwapLegal(occupant, lone, index)) continue;
+
+                index.swap(lone, occupant);
+                return () => index.swap(lone, occupant);
+            }
+        }
+        return null;
+    }
+
+    /** Tiet nay co dat duoc vao o do khong, xet giao vien va phong chuc nang. */
+    private canLandAt(slot: TimeSlot, day: number, period: number, index: GridIndex): boolean {
+        if (this.constraintService.isTeacherBusy(slot.teacherId, day, period)) return false;
+        if (index.teacherBusy(slot.teacherId, day, period, slot)) return false;
+        if (index.classBusy(slot.classId, day, period, slot)) return false;
+
+        const type = this.constraintService.getRequiredRoomType(slot.subjectId);
+        if (type) {
+            const capacity = this.constraintService.roomCountOfType(type);
+            if (capacity > 0 && index.roomTypeUsage(type, day, period, slot) >= capacity) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Ba nuoc di cua vong tim kiem, viet lai de chi hoi chi muc.
+     *
+     * Ban cu van con va van duoc cac bo giai khac dung qua `moveOperations()`; chung quet
+     * thang nen dung nhung cham, va giu lai lam ban doi chieu trong test.
+     */
+    private indexedSwapMove(movable: TimeSlot[], index: GridIndex): (() => void) | null {
+        const a = movable[(Math.random() * movable.length) | 0];
+        const b = movable[(Math.random() * movable.length) | 0];
+
+        if (a === b) return null;
+        if (a.day === b.day && a.period === b.period) return null;
+        if (!this.sameSession(a.period, b.period)) return null;
+        if (!this.isCellAllowed(a.day, a.period) || !this.isCellAllowed(b.day, b.period)) return null;
+
+        if (!this.indexedSwapLegal(a, b, index)) return null;
+        if (!this.indexedSwapLegal(b, a, index)) return null;
+
+        index.swap(a, b);
+        return () => index.swap(a, b);
+    }
+
+    /**
+     * `moving` co vao duoc o cua `target` khong.
+     *
+     * Ca hai tiet deu dang roi cho, nen khong tiet nao duoc tinh la vat can cua tiet kia.
+     */
+    private indexedSwapLegal(moving: TimeSlot, target: TimeSlot, index: GridIndex): boolean {
+        const { day, period } = target;
+
+        if (this.constraintService.isTeacherBusy(moving.teacherId, day, period)) return false;
+
+        const teacherCount = index.teacherBusy(moving.teacherId, day, period, moving)
+            ? (index.teacherBusy(moving.teacherId, day, period, target) ? 2 : 1)
+            : 0;
+        if (teacherCount >= 2 || (teacherCount === 1 && target.teacherId !== moving.teacherId)) return false;
+
+        const classCount = index.classBusy(moving.classId, day, period, moving)
+            ? (index.classBusy(moving.classId, day, period, target) ? 2 : 1)
+            : 0;
+        if (classCount >= 2 || (classCount === 1 && target.classId !== moving.classId)) return false;
+
+        const type = this.constraintService.getRequiredRoomType(moving.subjectId);
+        if (type && this.constraintService.getRequiredRoomType(target.subjectId) !== type) {
+            const capacity = this.constraintService.roomCountOfType(type);
+            if (capacity > 0 && index.roomTypeUsage(type, day, period, moving) >= capacity) return false;
+        }
+
+        return true;
+    }
+
+    private indexedRelocateMove(movable: TimeSlot[], index: GridIndex): (() => void) | null {
+        const slot = movable[(Math.random() * movable.length) | 0];
+        const [minP, maxP] = slot.period <= 5 ? [1, 5] : [6, 10];
+
+        const day = 2 + ((Math.random() * 6) | 0);
+        const period = minP + ((Math.random() * (maxP - minP + 1)) | 0);
+
+        if (day === slot.day && period === slot.period) return null;
+        if (!this.isCellAllowed(day, period)) return null;
+        if (this.constraintService.isTeacherBusy(slot.teacherId, day, period)) return null;
+        if (index.teacherBusy(slot.teacherId, day, period, slot)) return null;
+        if (index.classBusy(slot.classId, day, period, slot)) return null;
+
+        const type = this.constraintService.getRequiredRoomType(slot.subjectId);
+        if (type) {
+            const capacity = this.constraintService.roomCountOfType(type);
+            if (capacity > 0 && index.roomTypeUsage(type, day, period, slot) >= capacity) return null;
+        }
+
+        const oldDay = slot.day;
+        const oldPeriod = slot.period;
+        index.move(slot, day, period);
+        return () => index.move(slot, oldDay, oldPeriod);
+    }
+
+    /**
+     * Don mot tiet le ve buoi giao vien do da phai toi truong.
+     *
+     * Nuoc di nay nham thang vao khoan phat lon nhat: so buoi mot giao vien phai di lai.
+     */
+    private indexedConsolidateMove(movable: TimeSlot[], index: GridIndex): (() => void) | null {
+        const seed = movable[(Math.random() * movable.length) | 0];
+
+        const sessions = new Map<number, TimeSlot[]>();
+        for (const s of movable) {
+            if (s.teacherId !== seed.teacherId) continue;
+            const key = s.day * 2 + (s.period <= 5 ? 0 : 1);
+            let group = sessions.get(key);
+            if (!group) sessions.set(key, (group = []));
+            group.push(s);
+        }
+        if (sessions.size < 2) return null;
+
+        let lightest: TimeSlot[] | undefined;
+        for (const group of sessions.values()) {
+            if (!lightest || group.length < lightest.length) lightest = group;
+        }
+        const victim = lightest![(Math.random() * lightest!.length) | 0];
+
+        for (const group of sessions.values()) {
+            if (group === lightest) continue;
+
+            const host = group[0];
+            if (!this.sameSession(victim.period, host.period)) continue;
+
+            const [minP, maxP] = host.period <= 5 ? [1, 5] : [6, 10];
+            for (let period = minP; period <= maxP; period++) {
+                if (!this.isCellAllowed(host.day, period)) continue;
+                if (index.classBusy(victim.classId, host.day, period, victim)) continue;
+                if (index.teacherBusy(victim.teacherId, host.day, period, victim)) continue;
+                if (this.constraintService.isTeacherBusy(victim.teacherId, host.day, period)) continue;
+
+                const type = this.constraintService.getRequiredRoomType(victim.subjectId);
+                if (type) {
+                    const capacity = this.constraintService.roomCountOfType(type);
+                    if (capacity > 0 && index.roomTypeUsage(type, host.day, period, victim) >= capacity) continue;
+                }
+
+                const oldDay = victim.day;
+                const oldPeriod = victim.period;
+                index.move(victim, host.day, period);
+                return () => index.move(victim, oldDay, oldPeriod);
+            }
+        }
+        return null;
+    }
+
+    /** Vị trí hiện tại của từng tiết, đủ để quay lại đúng trạng thái này. */
+    private snapshotPlacement(slots: TimeSlot[]): Array<{ day: number; period: number }> {
+        return slots.map(s => ({ day: s.day, period: s.period }));
+    }
+
+    private restorePlacement(slots: TimeSlot[], placement: Array<{ day: number; period: number }>) {
+        for (let i = 0; i < slots.length; i++) {
+            slots[i].day = placement[i].day;
+            slots[i].period = placement[i].period;
+        }
     }
 
     /**
