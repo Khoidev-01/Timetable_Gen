@@ -148,11 +148,16 @@ Xếp hạng đo bằng **số điểm phạt còn tránh được trên mỗi t
 Mốc lấy từ `scripts/calibrate-grades.ts`, chạy bốn mức công sức trên cùng bộ dữ liệu 30 lớp:
 
 ```
-Chỉ dựng thô, không tối ưu   9,39 điểm phạt tránh được mỗi tiết
-Tối ưu rất ngắn              7,09
-Tối ưu ngắn                  6,28
-Tối ưu đầy đủ                5,25
+Chỉ dựng thô, không tối ưu   8,73 điểm phạt tránh được mỗi tiết   → Chưa tối ưu
+Tối ưu rất ngắn              6,58                                 → Trung bình
+Tối ưu ngắn                  5,69                                 → Khá
+Tối ưu đầy đủ                4,62                                 → Tốt
 ```
+
+Mốc đã hiệu chỉnh lại một lần, sau khi đưa dữ liệu mẫu về đúng định mức: bộ cũ cho Toán 4
+tiết/tuần thay vì 3 nên mỗi lớp kín lịch hơn, và cả bốn mốc đều cao hơn khoảng 0,6 điểm.
+**Đổi dữ liệu mẫu là phải chạy lại `scripts/calibrate-grades.ts`** — một thang đo neo vào dữ
+liệu không còn tồn tại thì không đo được gì.
 
 Nên **"Tốt" nghĩa là ngang một lần tối ưu đầy đủ**, không phải hoàn hảo. Thang này đo công
 sức tối ưu đã bỏ ra, và nó được hiệu chỉnh trên một bộ dữ liệu nên trường khác có thể lệch.
@@ -170,6 +175,25 @@ nhau và không thể thoả mãn đồng thời.
 - Định mức giáo viên THPT: **17 tiết/tuần** (Thông tư 05/2025/TT-BGDĐT)
 - Tiết chào cờ và sinh hoạt là nhiệm vụ chủ nhiệm, **không tính vào định mức giảng dạy**
 - Khoảng cách giữa hai tiết cùng môn không nên quá **3 ngày**
+
+**Phân bổ tiết theo GDPT 2018 cho cấp THPT** (Thông tư 32/2018, sửa đổi bởi Thông tư
+13/2022). Số tiết/tuần = số tiết/năm chia 35 tuần:
+
+| Môn bắt buộc | Tiết/năm | Tiết/tuần |
+| :--- | ---: | ---: |
+| Ngữ văn · Toán · Ngoại ngữ 1 · Hoạt động trải nghiệm, hướng nghiệp | 105 | 3 |
+| Giáo dục thể chất | 70 | 2 |
+| Giáo dục quốc phòng và an ninh · Nội dung giáo dục của địa phương | 35 | 1 |
+| Lịch sử *(phần bắt buộc theo TT 13/2022)* | 52 | 1,49 |
+
+**Môn lựa chọn:** mỗi lớp chọn 4 môn, mỗi môn 70 tiết/năm = 2 tiết/tuần.
+
+**Chuyên đề học tập:** 3 cụm × 35 tiết = 105 tiết/năm = 3 tiết/tuần, **gộp vào môn gốc** —
+nên ba trong bốn môn lựa chọn đứng ở 3 tiết (2 cơ bản + 1 chuyên đề) và một môn ở 2 tiết.
+
+Cộng chào cờ và sinh hoạt cuối tuần: **30,5 tiết/tuần**. Dữ liệu mẫu ở 31 tiết HK1 và 30 tiết
+HK2 — nửa tiết lệch là do Lịch sử 1,49 không chia được thành số nguyên mỗi tuần, nên chia 2
+tiết ở HK1 và 1 tiết ở HK2 (≈ 53 tiết/năm).
 
 ## 6. KẾT LUẬN
 Hệ thống không chỉ giải quyết bài toán xếp lịch cơ bản mà còn hướng tới trải nghiệm người dùng thông qua việc xử lý tinh tế các Ràng buộc Mềm. Kiến trúc nghiệp vụ tách biệt rõ ràng giữa Input - Logic - Output giúp hệ thống dễ dàng bảo trì và mở rộng thêm các quy tắc mới trong tương lai.

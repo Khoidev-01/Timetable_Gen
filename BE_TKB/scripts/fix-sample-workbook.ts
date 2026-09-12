@@ -195,6 +195,54 @@ function rebalance(
   }
   console.log(`\nThem ${NEW_ROOMS.length} phong: ${NEW_ROOMS.map((r) => `${r.name} (${r.type})`).join(', ')}`);
 
+  // ------------------------------------------------------------ dinh muc tiet
+  // Dua phan bo tiet ve dung dinh muc GDPT 2018 cho cap THPT (Thong tu 32/2018, sua doi boi
+  // Thong tu 13/2022). So tiet/tuan = so tiet/nam chia 35 tuan:
+  //
+  //   Ngu van 105, Toan 105, Ngoai ngu 1 105, Hoat dong trai nghiem 105  -> 3 tiet/tuan
+  //   Giao duc the chat 70                                               -> 2
+  //   GD quoc phong 35, GD dia phuong 35                                 -> 1
+  //   Lich su 52 (phan bat buoc theo TT 13/2022)                         -> 1,49
+  //
+  // File mau lech dung hai cho: Toan 4 tiet va Lich su 2 tiet ca nam. Phan con lai da dung,
+  // ke ca mau mon lua chon — bon mon moi mon 2 tiet, cong 3 tiet chuyen de gop vao ba trong
+  // bon mon do, thanh 3+3+3+2.
+  //
+  // Hai tiet doi ra khong chi la chuyen dung chuan. Lop nao cung dang can 29 tren 29 o buoi
+  // chinh, khong con mot o nao de xoay, va do la ly do kiem tra tien xep lich bao "gan kin
+  // lich" cho hang loat lop. Cat dung so tiet khong duoc day la tra lai cho bo giai cho tho.
+  const CURRICULUM_FIX: Record<string, { hk1: number; hk2: number; why: string }> = {
+    // 105 tiet/nam = 3 tiet/tuan, khong phai 4
+    TOAN: { hk1: 3, hk2: 3, why: 'Toan 105 tiet/nam' },
+    // 52 tiet/nam. Chia 2 tiet/tuan o HK1 (18 tuan) va 1 tiet/tuan o HK2 (17 tuan) = 53,
+    // sat nhat voi 52 ma van la so tiet nguyen trong moi tuan
+    LS: { hk1: 2, hk2: 1, why: 'Lich su 52 tiet/nam' },
+  };
+
+  if (apply) {
+    let adjusted = 0;
+    for (let r = 3; r <= pc.rowCount; r++) {
+      const row = pc.getRow(r);
+      const subject = String(row.getCell(pcCol['Mã môn']).value ?? '').trim();
+      const fix = CURRICULUM_FIX[subject];
+      if (!fix) continue;
+
+      if (Number(row.getCell(pcCol['Tiết HK1']).value ?? 0) !== fix.hk1) {
+        row.getCell(pcCol['Tiết HK1']).value = fix.hk1;
+        adjusted += 1;
+      }
+      if (Number(row.getCell(pcCol['Tiết HK2']).value ?? 0) !== fix.hk2) {
+        row.getCell(pcCol['Tiết HK2']).value = fix.hk2;
+        adjusted += 1;
+      }
+      row.commit();
+    }
+    console.log(`\nDa sua ${adjusted} o so tiet ve dung dinh muc GDPT 2018:`);
+    Object.entries(CURRICULUM_FIX).forEach(([code, fix]) =>
+      console.log(`  ${code}: HK1 ${fix.hk1} tiet, HK2 ${fix.hk2} tiet — ${fix.why}`),
+    );
+  }
+
   // ------------------------------------------------------------ bang tong hop
   // Sheet nay la bao cao, khong phai dau vao — bo nhap khong doc no. Nhung no van la thu
   // nguoi dung mo ra doi chieu, va no dang la nhung con so tinh tu truoc khi chia lai: mot

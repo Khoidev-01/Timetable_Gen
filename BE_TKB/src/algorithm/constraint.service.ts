@@ -1387,10 +1387,20 @@ export class ConstraintService {
      * - Đối chiếu với mức đo được: các mốc dưới đây không phải do nghĩ ra.
      *
      * Mốc lấy từ `scripts/calibrate-grades.ts`, chạy bốn mức công sức trên cùng một bộ dữ
-     * liệu 30 lớp: dựng thô không tối ưu cho 9,39 điểm phạt tránh được mỗi tiết, tối ưu rất
-     * ngắn 7,09, tối ưu ngắn 6,28, tối ưu đầy đủ 5,25. Nói cách khác **"Tốt" nghĩa là ngang
-     * mức một lần tối ưu đầy đủ**, không phải "hoàn hảo" — thang này đo công sức tối ưu đã
-     * bỏ ra, và nó được hiệu chỉnh trên một bộ dữ liệu nên trường khác có thể lệch đôi chút.
+     * liệu 30 lớp đã đưa về đúng định mức GDPT 2018:
+     *
+     *     Chỉ dựng thô, không tối ưu   8,73 điểm phạt tránh được mỗi tiết
+     *     Tối ưu rất ngắn              6,58
+     *     Tối ưu ngắn                  5,69
+     *     Tối ưu đầy đủ                4,62
+     *
+     * Nói cách khác **"Tốt" nghĩa là ngang mức một lần tối ưu đầy đủ**, không phải "hoàn
+     * hảo" — thang này đo công sức tối ưu đã bỏ ra.
+     *
+     * Mốc đã hiệu chỉnh lại một lần, sau khi sửa định mức tiết trong dữ liệu mẫu: bộ cũ cho
+     * Toán 4 tiết/tuần thay vì 3 nên mỗi lớp kín lịch hơn, và cả bốn mốc đều cao hơn khoảng
+     * 0,6 điểm. Một thang đo neo vào dữ liệu không còn tồn tại thì không đo được gì, nên hễ
+     * đổi dữ liệu mẫu là phải chạy lại kịch bản hiệu chỉnh.
      */
     private gradeQuality(
         schedule: TimeSlot[],
@@ -1405,11 +1415,12 @@ export class ConstraintService {
 
         const usable = hardViolations === 0;
 
+        // Mốc đặt ngay trên mức đo được của từng công sức, để nhãn nói đúng cái nó đo
         const BANDS: Array<{ upTo: number; grade: string; label: string }> = [
-            { upTo: 5.5, grade: 'GOOD', label: 'Tốt' },
-            { upTo: 7.0, grade: 'FAIR', label: 'Khá' },
-            { upTo: 9.0, grade: 'AVERAGE', label: 'Trung bình' },
-            { upTo: Infinity, grade: 'UNOPTIMISED', label: 'Chưa tối ưu' },
+            { upTo: 5.0, grade: 'GOOD', label: 'Tốt' },          // ngang tối ưu đầy đủ (4,62)
+            { upTo: 6.2, grade: 'FAIR', label: 'Khá' },          // ngang tối ưu ngắn (5,69)
+            { upTo: 8.0, grade: 'AVERAGE', label: 'Trung bình' }, // ngang tối ưu rất ngắn (6,58)
+            { upTo: Infinity, grade: 'UNOPTIMISED', label: 'Chưa tối ưu' }, // dựng thô (8,73)
         ];
         const band = BANDS.find((b) => perSlot <= b.upTo)!;
 
