@@ -48,3 +48,6 @@ Thumbs.db
 # tasteskill local skill files
 .agents/
 skills-lock.json
+
+# Danh sach mat khau tai khoan giao vien — khong bao gio dua len git
+tai-khoan-giao-vien*.csv
