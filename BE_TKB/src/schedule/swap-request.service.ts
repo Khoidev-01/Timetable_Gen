@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { OverlayType, SwapStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService, TimeSlot } from '../algorithm/constraint.service';
+import { IncrementalScorer } from '../algorithm/incremental-scorer';
 import { SwapGraphService } from '../algorithm/swap-graph.service';
 import { NotificationService } from '../notifications/notification.service';
 
@@ -77,7 +78,14 @@ export class SwapRequestService {
 
     const slots = await this.loadSlots(slot.timetable_id);
     await this.constraints.initialize(timetable.semester_id);
-    const baseline = this.constraints.getFitnessDetails(slots);
+
+    // Cham diem tang dan thay vi cham lai ca thoi khoa bieu cho tung phuong an.
+    //
+    // Ban dau moi ung vien deu sao chep ca gan mot nghin tiet roi cham lai tu dau: mot cau
+    // hoi tra ve sau sau giay, trong khi nguoi dung dang doi truoc man hinh. Bo cham diem
+    // tang dan chi tinh lai nhung lop va giao vien ma phep doi cho dung toi.
+    const scorer = new IncrementalScorer(this.constraints, slots);
+    const baseline = { score: scorer.fitness(), hardViolations: scorer.hardViolations() };
 
     const [teachers, subjects, classes] = await Promise.all([
       this.prisma.teacher.findMany({ select: { id: true, full_name: true } }),
@@ -106,7 +114,7 @@ export class SwapRequestService {
       if (candidate.teacherId === slot.teacher_id) continue;
       if (candidate.day === slot.day && candidate.period === slot.period) continue;
 
-      const after = this.scoreWithSwap(slots, slot.id, candidate.id!);
+      const after = this.scoreWithSwap(scorer, slots, slot.id, candidate.id!);
       if (after.hardViolations > baseline.hardViolations) continue;
 
       suggestions.push({
@@ -289,8 +297,10 @@ export class SwapRequestService {
 
     const slots = await this.loadSlots(mine.timetable_id);
     await this.constraints.initialize(request.semester_id);
-    const before = this.constraints.getFitnessDetails(slots);
-    const after = this.scoreWithSwap(slots, mine.id, theirs.id);
+
+    const scorer = new IncrementalScorer(this.constraints, slots);
+    const before = { score: scorer.fitness(), hardViolations: scorer.hardViolations() };
+    const after = this.scoreWithSwap(scorer, slots, mine.id, theirs.id);
 
     if (after.hardViolations > before.hardViolations) {
       throw new BadRequestException(
@@ -456,19 +466,36 @@ export class SwapRequestService {
   // ---------------------------------------------------------------- nội bộ
 
   /** Score the schedule as it would be if these two periods traded places. */
-  private scoreWithSwap(slots: TimeSlot[], slotA: string, slotB: string) {
+  /**
+   * Cham diem thoi khoa bieu neu hai tiet nay doi cho cho nhau.
+   *
+   * Doi that hai tiet roi doi lai, thay vi sao chep ca mang. Bo cham diem tang dan nhan ra
+   * cai gi vua doi cho bang cach so vi tri, nen no phai nhin thay mang that; ma sao chep
+   * gan mot nghin tiet cho moi phuong an cung chinh la phan ton kem nhat.
+   *
+   * Doi lai o cuoi la bat buoc, ke ca khi cham diem nem loi: mot cau hoi khong duoc phep
+   * lam thay doi thoi khoa bieu.
+   */
+  private scoreWithSwap(scorer: IncrementalScorer, slots: TimeSlot[], slotA: string, slotB: string) {
     const a = slots.find((s) => s.id === slotA)!;
     const b = slots.find((s) => s.id === slotB)!;
 
-    // On a copy: a question must never change the timetable
-    const swapped = slots.map((s) =>
-      s.id === a.id
-        ? { ...s, day: b.day, period: b.period }
-        : s.id === b.id
-          ? { ...s, day: a.day, period: a.period }
-          : s,
-    );
-    return this.constraints.getFitnessDetails(swapped);
+    const before = { aDay: a.day, aPeriod: a.period, bDay: b.day, bPeriod: b.period };
+    a.day = before.bDay;
+    a.period = before.bPeriod;
+    b.day = before.aDay;
+    b.period = before.aPeriod;
+
+    try {
+      return { score: scorer.fitness(), hardViolations: scorer.hardViolations() };
+    } finally {
+      a.day = before.aDay;
+      a.period = before.aPeriod;
+      b.day = before.bDay;
+      b.period = before.bPeriod;
+      // Cham lai mot lan de bo nho trong cua bo cham diem tro ve dung trang thai goc
+      scorer.fitness();
+    }
   }
 
   private async loadSlots(timetableId: string): Promise<TimeSlot[]> {

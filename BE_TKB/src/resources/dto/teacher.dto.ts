@@ -1,5 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 
 export class CreateTeacherDto {
     @IsString()
@@ -21,6 +21,14 @@ export class CreateTeacherDto {
     @IsOptional() @IsString() department?: string;
     @IsOptional() @IsString() status?: string;
     @IsOptional() @IsInt() @Min(0) workload_reduction?: number;
+    /**
+     * Leo cầu thang nặng đến đâu với riêng giáo viên này, tính theo phần mười. 10 là bình
+     * thường; nâng lên cho giáo viên lớn tuổi hoặc có khó khăn đi lại.
+     *
+     * Chặn trên ở 100 là có chủ ý: đây là hệ số của một khoản phạt mềm, đặt nó lên hàng
+     * nghìn thì một người sẽ nuốt hết ngân sách tối ưu và cả trường nhận lịch xấu đi.
+     */
+    @IsOptional() @IsInt() @Min(1) @Max(100) mobility_weight?: number;
     @IsOptional() @IsString() notes?: string;
 }
 

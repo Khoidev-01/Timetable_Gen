@@ -118,17 +118,30 @@ describe('SwapRequestService', () => {
       $transaction: async (fn: any) => fn(prisma),
     };
 
+    // Tiet s1 roi khoi cho cu la dau hieu "da doi cho", va khi do so loi cung la con so
+    // tung bai kiem dat ra. Bo cham diem tang dan cong bon nguon loi cung lai voi nhau, nen
+    // tin hieu cua bai kiem duoc dat o dung mot nguon; ba nguon kia bang khong.
+    const hasMoved = (given: any[]) =>
+      given.some((s) => s.id === 's1' && (s.day !== 2 || s.period !== 1));
+
     const constraints = {
       initialize: async () => undefined,
-      // Baseline is always clean; the swapped schedule reports whatever the test sets
-      getFitnessDetails: (given: any[]) => {
-        const moved = given.some(
-          (s) => s.id === 's1' && (s.day !== 2 || s.period !== 1),
-        );
-        return moved
+      weights: { hardViolation: 100, fairness: 0 },
+
+      invariantHardViolations: () => 0,
+      classHardViolations: () => 0,
+      teacherHardViolations: () => 0,
+      crossEntityHardViolations: (given: any[]) => (hasMoved(given) ? hardViolationsAfterSwap : 0),
+
+      classPenalty: () => 0,
+      teacherPenalty: () => 0,
+      fairnessPenalty: () => 0,
+
+      // Van giu lai cho nhung duong con cham diem mot lan
+      getFitnessDetails: (given: any[]) =>
+        hasMoved(given)
           ? { hardViolations: hardViolationsAfterSwap, score: 100 - hardViolationsAfterSwap * 100 }
-          : { hardViolations: 0, score: 100 };
-      },
+          : { hardViolations: 0, score: 100 },
     };
 
     const module: TestingModule = await Test.createTestingModule({

@@ -5,6 +5,35 @@
 
 ---
 
+---
+
+## Những ô kiểm này được kiểm bằng gì
+
+Lộ trình từng có **100 ô chưa tick nằm trong các mục đã đánh dấu xong**. Phần lớn là sổ sách
+chưa cập nhật, nhưng "phần lớn" không phải bằng chứng, và một lộ trình nói đã xong trong khi
+chưa ai chạy thử thì tệ hơn một lộ trình nói thẳng là chưa kiểm.
+
+`BE_TKB/scripts/verify-roadmap-claims.ts` chạy thật **35 ô** — gọi HTTP thật, đọc file thật,
+hỏi cơ sở dữ liệu thật, dựng tài liệu Swagger y như `main.ts`. Chạy lại được bất cứ lúc nào:
+
+```
+npx ts-node -T scripts/verify-roadmap-claims.ts
+```
+
+**Bốn lỗi tìm ra nhờ chạy nó**, chứ không phải nhờ đọc code:
+
+| | |
+| :--- | :--- |
+| Không có file `.env.example` | Hai ô của `0.4` và `0.7` trỏ tới một file không tồn tại |
+| `mobility_weight` không sửa được | Trường có trong schema nhưng không có trong DTO lẫn giao diện |
+| Gợi ý đổi tiết mất **5,99s** | Tiêu chí là dưới 2 giây. Đã dùng bộ chấm điểm tăng dần → **1,22s** |
+| `isTeacherBusy` thiếu nhánh "cả ngày" | Đăng ký bận cả ngày ghi `session = 2`, không test nào chạm tới |
+
+**Những ô còn chưa tick là những ô phải nhìn bằng mắt** — lưới lấp đầy dần khi xếp lịch, ô
+hợp lệ sáng xanh khi nhấc tiết lên, sơ đồ chu trình đổi tiết, tooltip giải thích. Máy không
+kiểm được chúng, nên chúng để trống thay vì tick theo phỏng đoán.
+
+
 ## Cách dùng tài liệu
 
 Mỗi phase là một mốc bàn giao có thể demo được. Trong phase, làm **tuần tự từng feature một** — thứ tự đã được sắp theo phụ thuộc kỹ thuật, đảo thứ tự sẽ phải làm lại.
@@ -63,9 +92,9 @@ Cài `JwtStrategy` (passport-jwt đã có trong package.json nhưng chưa có fi
 - Tất cả controller — gắn `@Roles`
 
 **Hoàn thành khi:**
-- [ ] `curl` không kèm token vào `/users` → trả 401
-- [ ] Token role TEACHER gọi `DELETE /resources/teachers/:id` → trả 403
-- [ ] `/auth/login`, `/auth/captcha` vẫn gọi được không cần token
+- [x] `curl` không kèm token vào `/users` → trả 401
+- [x] Token role TEACHER gọi `DELETE /resources/teachers/:id` → trả 403
+- [x] `/auth/login`, `/auth/captcha` vẫn gọi được không cần token
 - [ ] Toàn bộ luồng FE hiện tại vẫn chạy (FE đã gửi Bearer sẵn)
 
 ---
@@ -78,8 +107,8 @@ Cài `JwtStrategy` (passport-jwt đã có trong package.json nhưng chưa có fi
 **Chạm vào:** `BE_TKB/src/users/users.service.ts` — thêm `select` tường minh cho `findAll`, `findOne`, `create`, `update`
 
 **Hoàn thành khi:**
-- [ ] Không endpoint nào trả về trường `password_hash`
-- [ ] Grep `password_hash` trong response DTO → 0 kết quả
+- [x] Không endpoint nào trả về trường `password_hash`
+- [x] Grep `password_hash` trong response DTO → 0 kết quả
 
 ---
 
@@ -91,9 +120,9 @@ Khi `bcrypt.compare` thất bại, code đang so sánh chuỗi thô — nghĩa l
 **Chạm vào:** `BE_TKB/src/auth/auth.service.ts:55` và `:108`
 
 **Hoàn thành khi:**
-- [ ] Xóa cả 2 nhánh fallback
+- [x] Xóa cả 2 nhánh fallback
 - [ ] Viết script migration băm lại các hash cũ chưa đúng định dạng bcrypt (nếu có)
-- [ ] Đăng nhập bằng tài khoản seed vẫn hoạt động
+- [x] Đăng nhập bằng tài khoản seed vẫn hoạt động
 
 ---
 
@@ -105,9 +134,9 @@ Secret đang hardcode `superscretkeytkb2024` trong compose và `MY_CAPTCHA_SECRE
 **Chạm vào:** `BE_TKB/src/auth/auth.service.ts:11`, `auth.module.ts`, `docker-compose.yml:45`, `DB_TKB/docker-compose.yml`
 
 **Hoàn thành khi:**
-- [ ] Thiếu `JWT_SECRET` → app throw khi khởi động, không chạy tiếp
-- [ ] Không còn giá trị mặc định nào trong mã nguồn lẫn compose
-- [ ] `.env.example` ghi rõ yêu cầu tối thiểu 32 ký tự
+- [x] Thiếu `JWT_SECRET` → app throw khi khởi động, không chạy tiếp
+- [x] Không còn giá trị mặc định nào trong mã nguồn lẫn compose
+- [x] `.env.example` ghi rõ yêu cầu tối thiểu 32 ký tự
 
 ---
 
@@ -119,9 +148,9 @@ Hiện `sessionId = HMAC(mã captcha)` gửi thẳng cho client → dùng lại 
 **Chạm vào:** `BE_TKB/src/auth/auth.service.ts:18-42` — lưu vào Redis (đã có sẵn cho BullMQ)
 
 **Hoàn thành khi:**
-- [ ] Captcha lưu Redis với TTL 5 phút
-- [ ] Verify xong là xóa key, dùng lại lần 2 → thất bại
-- [ ] Gửi lại `sessionId` cũ sau 5 phút → thất bại
+- [x] Captcha lưu Redis với TTL 5 phút
+- [x] Verify xong là xóa key, dùng lại lần 2 → thất bại
+- [x] Gửi lại `sessionId` cũ sau 5 phút → thất bại
 
 ---
 
@@ -131,7 +160,7 @@ Hiện `sessionId = HMAC(mã captcha)` gửi thẳng cho client → dùng lại 
 **Chạm vào:** `@nestjs/throttler`, `BE_TKB/src/auth/auth.controller.ts`
 
 **Hoàn thành khi:**
-- [ ] Quá 5 lần sai trong 1 phút từ cùng IP → 429
+- [x] Quá 5 lần sai trong 1 phút từ cùng IP → 429
 - [ ] Đăng nhập đúng reset bộ đếm
 
 ---
@@ -143,7 +172,7 @@ Hiện `sessionId = HMAC(mã captcha)` gửi thẳng cho client → dùng lại 
 
 **Hoàn thành khi:**
 - [ ] Chỉ domain trong `CORS_ORIGIN` gọi được
-- [ ] Biến đã thêm vào `.env.example` và cả 2 file compose
+- [x] Biến đã thêm vào `.env.example` và cả 2 file compose
 
 ---
 
@@ -163,9 +192,9 @@ Làm sớm để các phase sau không phải đọc nhầm.
 > ⚠️ `greedy.solver.ts` import `interfaces/constraint.interface.ts` — xóa solver trước, rồi mới xóa interface.
 
 **Hoàn thành khi:**
-- [ ] `npm run build` cả BE và FE đều pass
+- [x] `npm run build` cả BE và FE đều pass
 - [ ] Toàn bộ trang trong `/admin` và `/teacher` vẫn chạy
-- [ ] `package.json` FE đã gỡ 2 package Redux
+- [x] `package.json` FE đã gỡ 2 package Redux
 
 ---
 
@@ -185,8 +214,8 @@ Làm sớm để các phase sau không phải đọc nhầm.
 `fe-live.log` và `BE_TKB/server.log` đang bị track dù `.gitignore` đã có `*.log`.
 
 **Hoàn thành khi:**
-- [ ] `git rm --cached` cả 2 file
-- [ ] `git ls-files | grep '\.log'` → rỗng
+- [x] `git rm --cached` cả 2 file
+- [x] `git ls-files | grep '\.log'` → rỗng
 
 ---
 ---
@@ -227,8 +256,8 @@ Phase 1 của thuật toán parse regex trên **tên lớp** (`[12,10].includes(
 **Chạm vào:** `algorithm.service.ts:134-138` — dùng `cls.grade_level` và `cls.main_session` sẵn có trong schema
 
 **Hoàn thành khi:**
-- [ ] Không còn `cls.name.match(/\d+/)` trong toàn bộ thuật toán
-- [ ] Test: lớp khối 11 có `main_session = 0` → tiết cố định xếp buổi sáng
+- [x] Không còn `cls.name.match(/\d+/)` trong toàn bộ thuật toán
+- [x] Test: lớp khối 11 có `main_session = 0` → tiết cố định xếp buổi sáng
 
 ---
 
@@ -240,9 +269,9 @@ Hiện chỉ tìm slot đích theo `class_id`. Kéo-thả gây trùng giáo viê
 **Chạm vào:** `algorithm.service.ts:514-558`
 
 **Hoàn thành khi:**
-- [ ] Kiểm tra đủ 3 chiều (lớp / GV / phòng) trước khi update
+- [x] Kiểm tra đủ 3 chiều (lớp / GV / phòng) trước khi update
 - [ ] Vi phạm → trả `400` kèm thông điệp tiếng Việt rõ ràng
-- [ ] Vị trí tạm khi swap dùng giá trị âm thay vì `(0,0)`
+- [x] Vị trí tạm khi swap dùng giá trị âm thay vì `(0,0)`
 
 ---
 
@@ -330,8 +359,8 @@ Gọi ngay trong vòng lặp đặt tiết của `phase2_Heuristic`, không ch�
 - [ ] Đo số buổi GV đến trường trung bình trước/sau — *chỉ số đã tính, chờ báo cáo ở* `D5`
 
 **Cần seed thêm để kích hoạt đủ:**
-- [ ] Thêm phòng loại `YARD` vào `ROOM_SEED` — chưa có sân nào nên ràng buộc sức chứa sân Thể dục đang bị bỏ qua
-- [ ] Đặt cờ `is_practice` cho các môn Tin / Lý / Hóa / Sinh — hiện chưa môn nào được đánh dấu nên phòng Lab chưa bị giới hạn
+- [x] Thêm phòng loại `YARD` — **4 sân** trong cơ sở dữ liệu, ràng buộc sức chứa sân đã có tác dụng
+- [x] Môn thực hành Tin / Lý / Hóa / Sinh bị giới hạn phòng — **232 phân công** yêu cầu phòng chức năng
 
 > 📌 Phải xong **trước** `A1` — mọi số liệu benchmark đều phụ thuộc vào bộ ràng buộc này. Benchmark trên bộ ràng buộc thiếu là số liệu vô nghĩa.
 
@@ -414,9 +443,9 @@ Thay cơ chế poll 3 giây bằng WebSocket. Đây là khoảnh khắc đẹp n
 **Chạm vào:** `@nestjs/swagger`, `BE_TKB/src/main.ts`, thêm `@ApiTags` cho từng controller
 
 **Hoàn thành khi:**
-- [ ] `/api/docs` liệt kê đủ mọi endpoint
-- [ ] Có nút Authorize để thử với JWT
-- [ ] Endpoint nào cần quyền ADMIN được đánh dấu rõ
+- [x] `/api/docs` liệt kê đủ mọi endpoint
+- [x] Có nút Authorize để thử với JWT
+- [x] Endpoint nào cần quyền ADMIN được đánh dấu rõ
 
 ---
 ---
@@ -439,8 +468,8 @@ Làm **trước** A1, vì benchmark dựa trên `ConstraintService` — phải t
 **Hoàn thành khi:**
 - [ ] Mỗi hàm ràng buộc cứng có ít nhất 1 ca đúng + 1 ca vi phạm
 - [ ] `checkHardConstraints` test trên lịch mẫu có số lỗi biết trước
-- [ ] `isTeacherBusy` test đủ 3 nhánh session (sáng / chiều / cả ngày)
-- [ ] `npm test` pass, coverage `constraint.service.ts` ≥ 80%
+- [x] `isTeacherBusy` test đủ 3 nhánh session (sáng / chiều / cả ngày)
+- [x] `npm test` pass, coverage `constraint.service.ts` — đo được **91,9% dòng**
 
 ---
 
@@ -491,9 +520,9 @@ Chia làm 3 bước nhỏ, làm tuần tự:
 
 **Hoàn thành khi:**
 - [ ] Phạt = Σ |floor(tiết n) − floor(tiết n+1)| × hệ số GV, chỉ tính trong cùng buổi
-- [ ] `getFitnessDetails` hiển thị mục "Chi phí di chuyển"
+- [x] `getFitnessDetails` hiển thị mục "Chi phí di chuyển"
 - [ ] Báo cáo top 5 GV leo nhiều bậc nhất, so sánh trước/sau tối ưu
-- [ ] Sửa được `mobility_weight` trong màn hình quản lý giáo viên
+- [x] Sửa được `mobility_weight` trong màn hình quản lý giáo viên
 
 ---
 
@@ -503,9 +532,9 @@ Chia làm 3 bước nhỏ, làm tuần tự:
 **Chạm vào:** `algorithm.service.ts`, `FE_TKB/app/admin/timetable/page.tsx`
 
 **Hoàn thành khi:**
-- [ ] Một lần chạy sinh 3–5 `GeneratedTimetable` khác nhau
+- [x] Một lần chạy sinh 3–5 `GeneratedTimetable` khác nhau
 - [ ] Bảng so sánh: điểm tổng, tiết trống GV, độ đều môn, vi phạm nguyện vọng, chi phí di chuyển
-- [ ] Chọn 1 phương án đặt `is_official = true`, các bản còn lại giữ để đối chiếu
+- [x] Chọn 1 phương án đặt `is_official = true`, các bản còn lại giữ để đối chiếu
 
 ---
 ---
@@ -529,7 +558,7 @@ Làm **trước** A4 và A7 — cả hai đều cần dữ liệu này.
 - `FE_TKB/app/admin/timetable/` — panel lịch sử + nút hoàn tác
 
 **Hoàn thành khi:**
-- [ ] Mọi thao tác thủ công đều được ghi kèm người thực hiện
+- [x] Mọi thao tác thủ công đều được ghi kèm người thực hiện
 - [ ] Xem diff giữa 2 thời điểm, ô thay đổi tô vàng
 - [ ] Hoàn tác 1 thao tác hoặc rollback về mốc thời gian
 - [ ] Rollback cũng được ghi vào nhật ký
@@ -554,7 +583,7 @@ Khi đổi trực tiếp A↔B bất khả thi, tìm chu trình đổi 3–4 bê
 
 **Hoàn thành khi:**
 - [ ] Tìm được chu trình 3 bên trên dữ liệu mà đổi trực tiếp bất khả thi
-- [ ] Thời gian tìm < 2 giây với ~700 tiết
+- [x] Thời gian tìm < 2 giây — đo được **1,22s** trên 961 tiết
 - [ ] Sơ đồ chu trình hiển thị trực quan cho GV
 - [ ] Một người từ chối → toàn bộ chu trình bị hủy, không có thay đổi nào áp dụng nửa vời
 - [ ] Chu trình được duyệt xong ghi vào `TimetableChangeLog`
@@ -627,9 +656,9 @@ model ScheduleOverlay {
 
 **Hoàn thành khi:**
 - [ ] Overlay ưu tiên cao đè lên thấp đúng thứ tự
-- [ ] TKB gốc không bao giờ bị sửa
+- [x] TKB gốc không bao giờ bị sửa
 - [ ] Overlay hết hạn → TKB tự trở về gốc, không cần thao tác gì
-- [ ] Truy vấn lịch hiệu lực của 1 GV trong 1 ngày < 100ms
+- [x] Truy vấn lịch hiệu lực của 1 GV trong 1 ngày — đo được **7ms**
 - [ ] Test: chồng 3 overlay khác loại lên cùng 1 ngày, kết quả đúng dự kiến
 
 ---
@@ -684,7 +713,7 @@ cái chuông im lặng trông y hệt một cái chuông không có gì mới.
 **Chạm vào:** `BE_TKB/src/schedule/substitute.service.ts` *(mới)*
 
 **Hoàn thành khi:**
-- [ ] Tìm GV cùng môn rảnh đúng tiết đó
+- [x] Tìm GV cùng môn rảnh đúng tiết đó
 - [ ] Xếp hạng: cùng tổ bộ môn > đã từng dạy lớp đó > tải nhẹ nhất
 - [ ] Không có ai rảnh → đề xuất phương án đổi tiết (dùng A4) hoặc ghép lớp
 - [ ] Áp dụng → sinh overlay loại `ABSENCE`

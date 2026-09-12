@@ -40,9 +40,13 @@ cùng khối vẫn có thể có thời khóa biểu khác hẳn nhau.
 Điều chỉnh chương trình giáo dục phổ thông 2018: Lịch sử trở thành nội dung bắt buộc ở cấp
 trung học phổ thông, với 2 tiết mỗi tuần.
 
-## [Điều lệ trường trung học] Số tiết tối đa trong một buổi học
+## [Điều lệ trường trung học] Số tiết tối đa trong một buổi học sáng và buổi chiều
 
 Mỗi buổi học chính khóa không quá 5 tiết. Buổi học thứ hai trong ngày không quá 3 tiết.
+
+Buổi học thứ hai là buổi ngược với buổi chính của lớp: lớp học chính buổi sáng thì buổi thứ
+hai là buổi chiều, lớp học chính buổi chiều thì buổi thứ hai là buổi sáng. Nên với một lớp
+học sáng, buổi chiều được xếp tối đa 3 tiết.
 
 ---
 

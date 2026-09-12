@@ -15,7 +15,8 @@ export default function TeacherModal({ isOpen, onClose, onSave, initialData }: T
         full_name: '',
         email: '',
         phone: '',
-        max_periods_per_week: 20
+        max_periods_per_week: 20,
+        mobility_weight: 10,
     });
     const [isLoading, setIsLoading] = useState(false);
 
@@ -26,7 +27,8 @@ export default function TeacherModal({ isOpen, onClose, onSave, initialData }: T
                 full_name: initialData.full_name || '',
                 email: initialData.email || '',
                 phone: initialData.phone || '',
-                max_periods_per_week: initialData.max_periods_per_week || 20
+                max_periods_per_week: initialData.max_periods_per_week || 20,
+                mobility_weight: initialData.mobility_weight || 10,
             });
         } else {
             setFormData({
@@ -34,7 +36,8 @@ export default function TeacherModal({ isOpen, onClose, onSave, initialData }: T
                 full_name: '',
                 email: '',
                 phone: '',
-                max_periods_per_week: 20
+                max_periods_per_week: 20,
+                mobility_weight: 10,
             });
         }
     }, [initialData, isOpen]);
@@ -47,7 +50,8 @@ export default function TeacherModal({ isOpen, onClose, onSave, initialData }: T
         try {
             await onSave({
                 ...formData,
-                max_periods_per_week: Number(formData.max_periods_per_week)
+                max_periods_per_week: Number(formData.max_periods_per_week),
+                mobility_weight: Number(formData.mobility_weight),
             });
             onClose();
         } catch (error) {
@@ -104,12 +108,29 @@ export default function TeacherModal({ isOpen, onClose, onSave, initialData }: T
                         </div>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Số tiết tối đa / tuần</label>
                         <input type="number" className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
                             value={formData.max_periods_per_week}
                             onChange={e => setFormData({ ...formData, max_periods_per_week: Number(e.target.value) })}
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
+                            Hệ số đi lại
+                        </label>
+                        <input type="number" min={1} max={100}
+                            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
+                            value={formData.mobility_weight}
+                            onChange={e => setFormData({ ...formData, mobility_weight: Number(e.target.value) })}
+                        />
+                        <p className="mt-1 text-xs text-[var(--text-muted)]">
+                            Leo cầu thang nặng đến đâu với riêng người này. 10 là bình thường;
+                            nâng lên cho giáo viên lớn tuổi hoặc đi lại khó khăn.
+                        </p>
+                    </div>
                     </div>
 
                     <div className="pt-4 flex justify-end gap-3 border-t border-[var(--border-default)] mt-4">

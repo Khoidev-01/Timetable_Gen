@@ -4,6 +4,8 @@ import { AppModule } from '../src/app.module';
 import { KnowledgeService } from '../src/ai/knowledge/knowledge.service';
 
 const QUERIES = [
+  'Buổi chiều được xếp mấy tiết?',
+  'một buổi học tối đa mấy tiết',
   'định mức tiết dạy',
   'dinh muc tiet day',            // khong dau
   'giáo viên chủ nhiệm được giảm mấy tiết',

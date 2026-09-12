@@ -27,6 +27,14 @@ const TEACHERS = [
         mobility_weight: 10,
         constraints: [{ day_of_week: 3, period: 2, session: 0, type: 'BUSY' }],
     },
+    {
+        id: 'T3',
+        code: 'GV003',
+        max_periods_per_week: 17,
+        mobility_weight: 10,
+        // session 2 nghĩa là cả ngày: một tiết bận ở cả buổi sáng lẫn buổi chiều
+        constraints: [{ day_of_week: 4, period: 3, session: 2, type: 'BUSY' }],
+    },
 ];
 
 const ASSIGNMENTS = [{ class_id: 'C1', subject_id: 1, total_periods: 3 }];
@@ -256,6 +264,24 @@ describe('ConstraintService', () => {
         it('detects a teacher registered as busy, converting absolute to relative period', () => {
             expect(service.isTeacherBusy('T2', 3, 2)).toBe(true);
             expect(service.isTeacherBusy('T2', 3, 4)).toBe(false);
+        });
+
+        /**
+         * Đăng ký bận "cả buổi chiều" chỉ ghi một dòng với session = 1; "cả ngày" ghi
+         * session = 2 và phải chặn ĐÚNG MỘT tiết ở cả hai buổi. Nhánh này không có test nào
+         * chạm tới, nên nếu ai đó đổi phép quy đổi tiết tương đối sang tuyệt đối thì giáo
+         * viên bị xếp vào đúng giờ họ đã báo bận, mà không có gì báo ra.
+         */
+        it('bận cả ngày thì chặn tiết đó ở cả buổi sáng lẫn buổi chiều', () => {
+            // session 2, tiết 3 -> tiết 3 buổi sáng và tiết 8 (3 + 5) buổi chiều
+            expect(service.isTeacherBusy('T3', 4, 3)).toBe(true);
+            expect(service.isTeacherBusy('T3', 4, 8)).toBe(true);
+
+            // Các tiết khác trong ngày vẫn dạy được
+            expect(service.isTeacherBusy('T3', 4, 2)).toBe(false);
+            expect(service.isTeacherBusy('T3', 4, 9)).toBe(false);
+            // Ngày khác không bị ảnh hưởng
+            expect(service.isTeacherBusy('T3', 5, 3)).toBe(false);
         });
 
         it('blocks a teacher who already reached the weekly quota', () => {

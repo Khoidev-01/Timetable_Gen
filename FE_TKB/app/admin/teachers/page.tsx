@@ -15,6 +15,8 @@ interface Teacher {
   email?: string;
   phone?: string;
   max_periods_per_week: number;
+  /** Leo cầu thang nặng đến đâu với riêng người này, tính theo phần mười */
+  mobility_weight?: number;
   homeroom_classes?: { id: string; name: string }[];
 }
 
