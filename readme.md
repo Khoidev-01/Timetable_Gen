@@ -148,14 +148,17 @@ Xếp hạng đo bằng **số điểm phạt còn tránh được trên mỗi t
 Mốc lấy từ `scripts/calibrate-grades.ts`, chạy bốn mức công sức trên cùng bộ dữ liệu 30 lớp:
 
 ```
-Chỉ dựng thô, không tối ưu   8,73 điểm phạt tránh được mỗi tiết   → Chưa tối ưu
-Tối ưu rất ngắn              6,58                                 → Trung bình
-Tối ưu ngắn                  5,69                                 → Khá
-Tối ưu đầy đủ                4,62                                 → Tốt
+Chỉ dựng thô, không tối ưu   7,73 điểm phạt tránh được mỗi tiết   → Chưa tối ưu
+Tối ưu rất ngắn              6,01                                 → Trung bình
+Tối ưu ngắn                  4,93                                 → Khá
+Tối ưu đầy đủ                3,93                                 → Tốt
 ```
 
-Mốc đã hiệu chỉnh lại một lần, sau khi đưa dữ liệu mẫu về đúng định mức: bộ cũ cho Toán 4
-tiết/tuần thay vì 3 nên mỗi lớp kín lịch hơn, và cả bốn mốc đều cao hơn khoảng 0,6 điểm.
+Mốc đã hiệu chỉnh lại **hai lần**, mỗi lần sau một thay đổi dữ liệu mẫu: lần một khi đưa số
+tiết về đúng định mức (Toán 4 xuống 3), lần hai khi phân công lại để mỗi giáo viên chỉ phục
+vụ lớp của một ca. Cả hai lần đều kéo cả bốn mốc xuống — dữ liệu dễ xếp hơn thì mọi mức công
+sức đều cho kết quả tốt hơn.
+
 **Đổi dữ liệu mẫu là phải chạy lại `scripts/calibrate-grades.ts`** — một thang đo neo vào dữ
 liệu không còn tồn tại thì không đo được gì.
 
