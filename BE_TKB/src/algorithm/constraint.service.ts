@@ -4,6 +4,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintSettingsService } from '../constraints/constraint-settings.service';
 import { isBlock, isOutdoor, isSessionExempt } from './subject-rules';
 
+/** Môn cần đầu óc tỉnh táo, nên tránh xếp vào cuối buổi. */
+const PRIORITY_SUBJECTS = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
+
+/** Tiết thứ mấy TRONG buổi: tiết 1-5 là buổi sáng, tiết 6-10 là buổi chiều. */
+function positionInSession(period: number): number {
+    return period <= 5 ? period : period - 5;
+}
+
 export interface TimeSlot {
     id?: string;
     day: number;   // 2-7 (Mon-Sat)
@@ -418,6 +426,16 @@ export class ConstraintService {
         return this.fixedRules.filter(rule =>
             (rule.grade_level === null || rule.grade_level === gradeLevel) &&
             (rule.main_session === null || rule.main_session === mainSession));
+    }
+
+    /**
+     * Mã môn của những tiết do quy tắc cố định sinh ra — chào cờ, sinh hoạt cuối tuần.
+     *
+     * Phase 1 dựng lại những tiết này từ quy tắc ở MỖI lần xếp, nên không được kế thừa
+     * thêm một bản nữa từ lần xếp trước.
+     */
+    public fixedRuleSubjectCodes(): Set<string> {
+        return new Set(this.fixedRules.map(rule => rule.subject_code));
     }
 
     public hasFixedRules(): boolean {
@@ -1021,18 +1039,24 @@ export class ConstraintService {
     }
 
     // SC03: Morning Priority
+    /**
+     * Môn cần đầu óc tỉnh táo thì đừng xếp vào cuối buổi.
+     *
+     * Phép kiểm này từng viết `s.period > 3 && s.period <= 5`, tức là chỉ nhìn buổi sáng.
+     * Trường có 9 trên 30 lớp học chính buổi chiều, và với những lớp ấy tiêu chí này chưa
+     * bao giờ chạy: đo trên thời khóa biểu thật, 33 tiết Toán/Văn/Anh nằm ở tiết 9-10 mà
+     * không tính một điểm phạt nào, trong khi 49 tiết ở tiết 4-5 bị phạt đủ 735 điểm.
+     *
+     * Cuối buổi là cuối buổi, sáng hay chiều cũng vậy — nên đếm theo vị trí TRONG buổi.
+     */
     private checkMorningPriority(classSchedule: Map<string, TimeSlot[]>): number {
         let penalty = 0;
-        const priority = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
 
         for (const [_, slots] of classSchedule) {
             for (const s of slots) {
                 const subjCode = this.getSubjectCode(s.subjectId);
-                if (priority.some(p => subjCode.includes(p))) {
-                    if (s.period > 3 && s.period <= 5) {
-                        penalty++;
-                    }
-                }
+                if (!PRIORITY_SUBJECTS.some(p => subjCode.includes(p))) continue;
+                if (positionInSession(s.period) > 3) penalty++;
             }
         }
         return penalty;
@@ -1395,11 +1419,21 @@ export class ConstraintService {
         const usable = hardViolations === 0;
 
         // Mốc đặt ngay trên mức đo được của từng công sức, để nhãn nói đúng cái nó đo
+        //
+        // Mỗi mốc đặt ngay trên mức đo được của một công sức tìm kiếm cụ thể, 3 lần mỗi mức
+        // trên dữ liệu thật (`scripts/calibrate-grades.ts`) — nên nhãn nói đúng cái nó đo:
+        // "Tốt" nghĩa là ngang một lần tối ưu đầy đủ, không phải một cảm tính.
+        //
+        //   tối ưu đầy đủ (600k nước đi)  5,46   — ba lần: 5,44 · 5,46 · 5,63
+        //   tối ưu ngắn   (100k)          6,54
+        //   tối ưu rất ngắn (20k)         7,41
+        //   chỉ dựng thô                  còn lỗi cứng, không phải thời khóa biểu dùng được
+        //
         const BANDS: Array<{ upTo: number; grade: string; label: string }> = [
-            { upTo: 5.8, grade: 'GOOD', label: 'Tốt' },          // ngang tối ưu đầy đủ (5,35)
-            { upTo: 6.7, grade: 'FAIR', label: 'Khá' },          // ngang tối ưu ngắn (6,40)
-            { upTo: 8.0, grade: 'AVERAGE', label: 'Trung bình' }, // ngang tối ưu rất ngắn (6,91)
-            { upTo: Infinity, grade: 'UNOPTIMISED', label: 'Chưa tối ưu' }, // dựng thô (9,29)
+            { upTo: 5.8, grade: 'GOOD', label: 'Tốt' },           // trên cả lần tối ưu đầy đủ tệ nhất (5,63)
+            { upTo: 6.8, grade: 'FAIR', label: 'Khá' },           // ngang tối ưu ngắn (6,54)
+            { upTo: 7.8, grade: 'AVERAGE', label: 'Trung bình' }, // ngang tối ưu rất ngắn (7,41)
+            { upTo: Infinity, grade: 'UNOPTIMISED', label: 'Chưa tối ưu' },
         ];
         const band = BANDS.find((b) => perSlot <= b.upTo)!;
 
@@ -1595,6 +1629,109 @@ export class ConstraintService {
      * Without that the user has to hunt for them by eye, so the explanation stops being
      * useful exactly when it matters.
      */
+    /**
+     * Nhung tiet dang GAY ra khoan phat mềm lớn nhất — để vòng tìm kiếm bốc vào đúng chỗ
+     * đang lỗi thay vì bốc đều khắp lưới.
+     *
+     * Vòng tìm kiếm bốc ngẫu nhiên một trong gần một nghìn tiết rồi thử đổi chỗ nó. Phần
+     * lớn những lần bốc ấy rơi vào tiết vốn đã ổn, và một nước đi từ chỗ đang ổn sang chỗ
+     * khác gần như chắc chắn làm điểm tệ đi — tức là công suất đo đếm không không.
+     *
+     * Bốn tiêu chí dưới đây chiếm 76% khoản phạt, nên chỉ cần định vị đúng chúng. Mỗi tiêu
+     * chí dùng LẠI đúng định nghĩa của hàm chấm điểm tương ứng: một danh sách nghi phạm
+     * lệch với thước đo thì còn tệ hơn là không có.
+     *
+     * Một tiết dính nhiều lỗi sẽ xuất hiện nhiều lần trong danh sách, và đó là chủ ý — nó
+     * đáng được thử nhiều hơn.
+     */
+    public locateSoftHotspots(schedule: TimeSlot[]): TimeSlot[] {
+        const hot: TimeSlot[] = [];
+
+        const byClass = new Map<string, TimeSlot[]>();
+        const byTeacher = new Map<string, TimeSlot[]>();
+        for (const slot of schedule) {
+            if (slot.isLocked) continue;
+            let own = byClass.get(slot.classId);
+            if (!own) byClass.set(slot.classId, (own = []));
+            own.push(slot);
+
+            let mine = byTeacher.get(slot.teacherId);
+            if (!mine) byTeacher.set(slot.teacherId, (mine = []));
+            mine.push(slot);
+        }
+
+        // "Môn 2 tiết bị xé lẻ" và "Môn ưu tiên ở tiết cuối" — cùng duyệt theo lớp
+        const PAIRED = ['TOAN', 'VAN', 'NGU_VAN', 'TIN', 'LY', 'HOA', 'SINH'];
+
+        for (const [, own] of byClass) {
+            const bySubject = new Map<number, TimeSlot[]>();
+            for (const slot of own) {
+                const code = this.getSubjectCode(slot.subjectId);
+                if (PRIORITY_SUBJECTS.some(p => code.includes(p)) && positionInSession(slot.period) > 3) {
+                    hot.push(slot);
+                }
+
+                if (!PAIRED.some(b => code.includes(b))) continue;
+                let group = bySubject.get(slot.subjectId);
+                if (!group) bySubject.set(slot.subjectId, (group = []));
+                group.push(slot);
+            }
+
+            for (const [, group] of bySubject) {
+                if (group.length < 2) continue;
+                group.sort((a, b) => (a.day === b.day ? a.period - b.period : a.day - b.day));
+                for (let i = 0; i < group.length; i++) {
+                    const curr = group[i];
+                    const prev = group[i - 1];
+                    const next = group[i + 1];
+                    const nearPrev = prev && prev.day === curr.day && Math.abs(prev.period - curr.period) === 1;
+                    const nearNext = next && next.day === curr.day && Math.abs(next.period - curr.period) === 1;
+                    if (!nearPrev && !nearNext) hot.push(curr);
+                }
+            }
+        }
+
+        for (const [, own] of byTeacher) {
+            const byDay = new Map<number, TimeSlot[]>();
+            const bySession = new Map<string, TimeSlot[]>();
+            for (const slot of own) {
+                let day = byDay.get(slot.day);
+                if (!day) byDay.set(slot.day, (day = []));
+                day.push(slot);
+
+                const key = `${slot.day}-${slot.period <= 5 ? 0 : 1}`;
+                let session = bySession.get(key);
+                if (!session) bySession.set(key, (session = []));
+                session.push(slot);
+            }
+
+            // "Tiết trống giáo viên": hai tiết cùng buổi cách nhau một quãng. Đánh dấu cả
+            // hai đầu, vì dịch đầu nào lại cũng lấp được quãng ấy.
+            for (const [, day] of byDay) {
+                if (day.length < 2) continue;
+                day.sort((a, b) => a.period - b.period);
+                for (let i = 0; i < day.length - 1; i++) {
+                    const curr = day[i];
+                    const next = day[i + 1];
+                    if ((curr.period <= 5 ? 0 : 1) !== (next.period <= 5 ? 0 : 1)) continue;
+                    if (next.period - curr.period > 1) hot.push(curr, next);
+                }
+            }
+
+            // "Giáo viên phải đến trường thêm buổi": dọn sạch được một buổi thì bớt được
+            // một lần đến trường, nên buổi ÍT tiết nhất là buổi đáng dọn nhất.
+            if (bySession.size > Math.ceil(own.length / 5)) {
+                let lightest: TimeSlot[] | null = null;
+                for (const [, session] of bySession) {
+                    if (!lightest || session.length < lightest.length) lightest = session;
+                }
+                if (lightest) hot.push(...lightest);
+            }
+        }
+
+        return hot;
+    }
+
     public locateHardViolations(schedule: TimeSlot[]): Array<{ label: string; slotIds: string[] }> {
         const findOverlaps = (key: 'teacherId' | 'classId' | 'roomId', label: string) => {
             const cells = new Map<string, TimeSlot[]>();

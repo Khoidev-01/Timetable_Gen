@@ -475,6 +475,76 @@ describe('ConstraintService', () => {
         });
     });
 
+    describe('môn ưu tiên ở cuối buổi', () => {
+        const priorityAt = (period: number) =>
+            service.getFitnessDetails([slot({ subjectId: 1, day: 2, period })])
+                .breakdown.soft.find((item: any) => item.label === 'Môn ưu tiên ở tiết cuối')?.count ?? 0;
+
+        it('tiết 4 buổi sáng bị phạt, tiết 3 thì không', () => {
+            expect(priorityAt(3)).toBe(0);
+            expect(priorityAt(4)).toBe(1);
+        });
+
+        /**
+         * Trường có 9 trên 30 lớp học chính buổi chiều. Phép kiểm cũ viết `period <= 5` nên
+         * với những lớp ấy tiêu chí này chưa bao giờ chạy — 33 tiết Toán/Văn/Anh nằm ở tiết
+         * 9-10 mà không tính một điểm phạt nào.
+         */
+        it('tiết 9 buổi chiều cũng là cuối buổi, và cũng bị phạt', () => {
+            expect(priorityAt(8)).toBe(0);
+            expect(priorityAt(9)).toBe(1);
+            expect(priorityAt(10)).toBe(1);
+        });
+    });
+
+    describe('locateSoftHotspots', () => {
+        /**
+         * Danh sách nghi phạm chỉ đáng tin khi nó dùng LẠI đúng định nghĩa của hàm chấm
+         * điểm. Lệch một chút thôi là vòng tìm kiếm được dẫn tới những tiết không hề có
+         * lỗi, và lúc ấy nó còn tệ hơn bốc đều.
+         */
+        it('chỉ tiết lẻ loi bị nêu tên, hai tiết ghép được thì không', () => {
+            const schedule = [
+                slot({ id: 'cap-1', subjectId: 1, day: 2, period: 1 }),
+                slot({ id: 'cap-2', subjectId: 1, day: 2, period: 2 }),
+                slot({ id: 'le-loi', subjectId: 1, day: 4, period: 1 }),
+            ];
+
+            const named = new Set(service.locateSoftHotspots(schedule).map((s) => s.id));
+
+            expect(named).toEqual(new Set(['le-loi']));
+        });
+
+        it('ba tiết liền nhau thì không ai bị nêu tên', () => {
+            const schedule = [1, 2, 3].map((period) =>
+                slot({ id: `t${period}`, subjectId: 1, day: 2, period }),
+            );
+
+            expect(service.locateSoftHotspots(schedule)).toHaveLength(0);
+        });
+
+        it('tiết trống giữa buổi thì nêu tên cả hai đầu — dịch đầu nào cũng lấp được', () => {
+            const schedule = [
+                slot({ id: 'truoc', subjectId: 3, day: 2, period: 1 }),
+                slot({ id: 'sau', subjectId: 3, day: 2, period: 4 }),
+            ];
+
+            const named = new Set(service.locateSoftHotspots(schedule).map((s) => s.id));
+
+            expect(named).toEqual(new Set(['truoc', 'sau']));
+        });
+
+        it('tiết bị khoá không bao giờ bị nêu tên — có nêu cũng không dịch được', () => {
+            const schedule = [
+                slot({ id: 'cap-1', subjectId: 1, day: 2, period: 1 }),
+                slot({ id: 'cap-2', subjectId: 1, day: 2, period: 2 }),
+                slot({ id: 'le-loi', subjectId: 1, day: 4, period: 1, isLocked: true }),
+            ];
+
+            expect(service.locateSoftHotspots(schedule)).toHaveLength(0);
+        });
+    });
+
     describe('locateHardViolations', () => {
         it('names the two periods that clash on a teacher', () => {
             const schedule = [

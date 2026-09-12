@@ -178,8 +178,8 @@ export default function QualityBreakdown({
           </table>
 
           <p className="mt-3 text-xs text-[var(--text-muted)]">
-            &ldquo;Đã tối đa&rdquo; nghĩa là không xếp lại kiểu nào tốt hơn được: môn có số tiết lẻ thì
-            luôn còn một tiết không có tiết cùng môn bên cạnh.
+            &ldquo;Đã tối đa&rdquo; nghĩa là không xếp lại kiểu nào tốt hơn được: một giáo viên dạy cả
+            lớp học sáng lẫn lớp học chiều thì buộc phải tới trường hai buổi.
             {score !== null && (
               <>
                 {' '}

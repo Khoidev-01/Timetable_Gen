@@ -10,6 +10,16 @@
  * cham diem mot bo giai bang thu no khong the sua duoc la cham sai cho.
  */
 import '../src/load-env';
+import { writeSync } from 'fs';
+
+/** Ghi thang xuong mo ta tep: mot phep do chay hang phut thi phai nhin duoc no da toi dau. */
+const say = (line = '') => writeSync(1, `${line}
+`);
+
+/** So lan dung o moi muc. Mot lan chay lech toi vai tram diem, ma moc xep hang dat tren no. */
+const RUNS = Number(process.argv[2] ?? 3);
+
+const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -39,30 +49,46 @@ async function main() {
   const data = await (algorithm as any).loadData(semester!.id);
   await constraints.initialize(semester!.id);
 
-  console.log('Muc cong suc                 | phat/tiet | tranh duoc/tiet | loi cung');
-  console.log('-----------------------------|-----------|-----------------|---------');
+  say(`${RUNS} lan moi muc, lay so giua
+`);
+  say('Muc cong suc                 | phat/tiet | tranh duoc/tiet | loi cung | tung lan');
+  say('-----------------------------|-----------|-----------------|----------|---------');
 
   for (const level of LEVELS) {
     process.env.TKB_SEARCH_MAIN = String(Math.max(1, level.search));
 
-    const solution: any = { slots: [] };
-    if (level.search === 0) {
-      solution.slots = await (algorithm as any).buildConstruction(data);
-      (algorithm as any).assignRooms(solution, data, () => undefined);
-    } else {
-      await (algorithm as any).buildOneSolution(solution, data, () => undefined);
+    const penalties: number[] = [];
+    const avoidables: number[] = [];
+    const hardEachRun: number[] = [];
+
+    for (let run = 0; run < RUNS; run++) {
+      const solution: any = { slots: [] };
+      if (level.search === 0) {
+        solution.slots = await (algorithm as any).buildConstruction(data);
+        (algorithm as any).assignRooms(solution, data, () => undefined);
+      } else {
+        await (algorithm as any).buildOneSolution(solution, data, () => undefined);
+      }
+
+      const detail = constraints.getFitnessDetails(solution.slots);
+      // Ban dung tho gan nhu luc nao cung con loi cung — no la diem XUAT PHAT, khong phai
+      // mot thoi khoa bieu dung duoc. Van bao con so cua no, nhung bao kem so loi cung de
+      // khong ai doc no nhu mot muc chat luong.
+      hardEachRun.push(detail.hardViolations);
+
+      const floor = (detail.breakdown?.soft ?? []).reduce(
+        (sum: number, item: any) => sum + (item.floor ?? 0) * item.weight,
+        0,
+      );
+      penalties.push(detail.penaltyPerSlot);
+      avoidables.push((detail.softPenalty - floor) / solution.slots.length);
     }
 
-    const detail = constraints.getFitnessDetails(solution.slots);
-    const floor = (detail.breakdown?.soft ?? []).reduce(
-      (sum: number, item: any) => sum + (item.floor ?? 0) * item.weight,
-      0,
-    );
-    const avoidable = detail.softPenalty - floor;
-
-    console.log(
-      `${level.name.padEnd(28)} | ${String(detail.penaltyPerSlot).padStart(9)} | ` +
-        `${(avoidable / solution.slots.length).toFixed(2).padStart(15)} | ${String(detail.hardViolations).padStart(8)}`,
+    say(
+      `${level.name.padEnd(28)} | ${median(penalties).toFixed(2).padStart(9)} | ` +
+        `${median(avoidables).toFixed(2).padStart(15)} | ` +
+        `${String(median(hardEachRun)).padStart(8)} | ` +
+        avoidables.map((a) => a.toFixed(2)).sort().join('  '),
     );
   }
 

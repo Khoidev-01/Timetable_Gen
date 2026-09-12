@@ -141,23 +141,28 @@ Xếp hạng đo bằng **số điểm phạt còn tránh được trên mỗi t
 
 | Chuẩn hoá | Vì sao |
 | :--- | :--- |
-| Trừ phần bất khả kháng | Môn có số tiết lẻ thì luôn còn một tiết không có tiết cùng môn bên cạnh. Chấm bộ giải bằng thứ nó không thể sửa là chấm sai chỗ. |
+| Trừ phần bất khả kháng | Một giáo viên dạy cả lớp học sáng lẫn lớp học chiều thì buộc phải tới trường hai buổi. Chấm bộ giải bằng thứ nó không thể sửa là chấm sai chỗ. |
 | Chia cho số tiết | Điểm thô là tổng tuyệt đối nên nó lớn lên theo quy mô trường. |
 | Đối chiếu mốc đo thật | Các mốc dưới đây không phải do nghĩ ra. |
 
 Mốc lấy từ `scripts/calibrate-grades.ts`, chạy bốn mức công sức trên cùng bộ dữ liệu 30 lớp:
 
 ```
-Chỉ dựng thô, không tối ưu   9,29 điểm phạt tránh được mỗi tiết   → Chưa tối ưu
-Tối ưu rất ngắn              6,91                                 → Trung bình
-Tối ưu ngắn                  6,40                                 → Khá
-Tối ưu đầy đủ                5,35                                 → Tốt
+Tối ưu rất ngắn (20.000 nước đi)    7,41 điểm phạt tránh được mỗi tiết   → Trung bình
+Tối ưu ngắn     (100.000)           6,54                                 → Khá
+Tối ưu đầy đủ   (600.000)           5,46                                 → Tốt
+Chỉ dựng thô                        còn lỗi cứng — không phải thời khoá biểu dùng được
 ```
 
-Mốc đã hiệu chỉnh lại **ba lần**. Hai lần đầu sau khi sửa dữ liệu mẫu: đưa số tiết về đúng
-định mức (Toán 4 xuống 3), rồi phân công lại để mỗi giáo viên chỉ phục vụ một ca.
+Mỗi mức chạy **ba lần** và lấy số giữa: một lần chạy lệch tới vài trăm điểm, mà mốc xếp
+hạng thì đặt trên nó. Mức "tối ưu đầy đủ" ba lần ra 5,44 · 5,46 · 5,63, nên mốc "Tốt" đặt
+ở 5,8 — trên cả lần tệ nhất.
 
-Lần thứ ba vì một lý do khác hẳn — xem mục ngay dưới.
+Mốc đã hiệu chỉnh lại **bốn lần**. Hai lần đầu sau khi sửa dữ liệu mẫu: đưa số tiết về đúng
+định mức (Toán 4 xuống 3), rồi phân công lại để mỗi giáo viên chỉ phục vụ một ca. Lần thứ
+ba vì một mức sàn sai — xem mục ngay dưới. Lần thứ tư vì công thức bắt đầu đo được thứ nó
+từng mù: "môn ưu tiên ở tiết cuối" chỉ nhìn buổi sáng, nên 9 trên 30 lớp học chính buổi
+chiều chưa bao giờ được tiêu chí ấy bảo vệ.
 
 **Đổi dữ liệu mẫu là phải chạy lại `scripts/calibrate-grades.ts`** — một thang đo neo vào dữ
 liệu không còn tồn tại thì không đo được gì.
@@ -208,10 +213,64 @@ thành từng cặp. Ba tiết liên nhau trong một ngày thì cả ba đều 
 không. Con số sai ấy đã hiện trên màn hình dưới dạng *"104 không thể tránh — còn 0 chỗ sửa
 được"*, tức là bảo người dùng đừng đi tìm thứ vẫn còn tìm được. Đã gỡ, và hiệu chỉnh lại mốc.
 
+**Một mảng mù của công thức, cũng tìm ra nhờ đọc lại chính nó.** Tiêu chí *"môn ưu tiên ở
+tiết cuối"* viết `s.period > 3 && s.period <= 5` — nó chỉ nhìn buổi sáng. Trường có **9 trên
+30 lớp học chính buổi chiều**, và với 9 lớp ấy tiêu chí này chưa bao giờ chạy: 33 tiết
+Toán/Văn/Anh nằm ở tiết 9-10 không tính một điểm phạt nào, trong khi 49 tiết ở tiết 4-5 bị
+phạt đủ. Cuối buổi là cuối buổi, sáng hay chiều cũng vậy — nay đếm theo vị trí **trong**
+buổi. Sửa xong thì điểm **tệ đi 495 điểm**, vì công thức bắt đầu nhìn thấy thứ nó từng bỏ
+qua; đổi lại bộ giải mới có lý do để dọn, và số tiết loại này giảm từ 82 xuống **39**.
+
+**Hai tiêu chí đang triệt tiêu nhau đúng bằng 0.** Dạy 5 tiết liền để bớt một buổi đến
+trường: được 8 điểm ở *"đến trường thêm buổi"*, mất đúng 8 điểm ở *"dạy quá 4 tiết liên
+tiếp"*. `scripts/probe-attendance-tension.ts` tách 178 lỗi đến trường thành ba phần: 10 do
+lớp sáng lẫn lớp chiều, **45 là cái giá của việc không dạy 5 tiết liền**, và 123 là phần bộ
+giải thật sự gỡ được. Không đặt 45 ấy thành mức sàn — một mức sàn phải chứng minh được, còn
+đây chỉ là chỗ bộ giải không có động cơ để đi.
+
 **Kết luận: điểm thấp vì 15 tiêu chí tranh nhau, không vì công thức sai.** Dồn tiết của một
 giáo viên vào ít buổi thì chính những tiết ấy dồn cục với lớp; xếp môn tư duy vào tiết đầu
 cho lớp này thì lớp khác phải nhận tiết cuối. Không có lời giải nào thoả mãn đồng thời, và
 con số tổng là cái giá của việc phải chọn.
+
+### Hai thứ thật sự làm điểm tốt lên
+
+Hạ trọng số xuống thì điểm lên, nhưng thời khoá biểu **không đổi một ô nào** — đó là đổi đơn
+vị đo, không phải cải tiến. Hai thứ dưới đây đổi thời khoá biểu thật.
+
+**Một — bốc nước đi vào đúng chỗ đang lỗi.** Vòng tìm kiếm cũ bốc đều trong 930 tiết rồi thử
+đổi chỗ. Khoản phạt thì không rải đều: `scripts/probe-penalty-concentration.ts` đo được 30%
+lớp nặng nhất giữ 43% khoản phạt, 30% giáo viên nặng nhất giữ 49%. Nay `locateSoftHotspots`
+định vị những tiết đang gây ra bốn tiêu chí lớn nhất — 388 trong 956 tiết — và 3/4 lượt bốc
+lấy từ đó. Quét bằng `scripts/probe-guided-moves.ts`, 5 lần mỗi mức, cùng ngân sách 300.000
+nước đi:
+
+```
+bốc đều      -4744
+0,5          -4553   thắng 95% cặp đối đầu với bốc đều
+0,75         -4416   thắng 100%
+0,9          -4543   thắng 95%
+```
+
+Hai đầu đều kém, vì hai lý do khác nhau: thấp quá thì phần lớn lượt bốc vẫn rơi vào chỗ vốn
+đã ổn, cao quá thì những tiết đang ổn không bao giờ nhường chỗ — mà nhiều khi phải dọn một
+chỗ đang ổn thì chỗ đang lỗi mới có nơi để đi. Chạy lại ở 600.000 nước đi và **đảo thứ tự
+hai bên** để loại khả năng "thắng vì chạy sau": −4024 so với −4184.
+
+**Hai — mỗi lần xếp lại đang bị lần trước kéo xuống.** Khi xếp lại, hệ thống giữ những tiết
+đã khoá của lần trước — tính năng để quản trị viên ghim tiết. Nhưng tiết chào cờ và sinh
+hoạt **cũng** mang cờ đã-khoá, mà phase 1 lại dựng lại chúng từ quy tắc ở mỗi lần xếp. Kế
+thừa thêm một bản nữa là thêm hẳn một tiết lễ, và bản mới lại lưu nó với cờ đã-khoá nên lần
+sau kế thừa tiếp.
+
+Hậu quả trên bản đang công bố lúc phát hiện: **11 lớp có tiết lễ lặp**, lớp 11B2 có **ba**
+tiết sinh hoạt cuối tuần trong một tuần, 39 tiết chào cờ cho 30 lớp. 26 ô bị ghim chết,
+kéo giáo viên tới trường thêm buổi, và `scripts/probe-production-gap.ts` đo được nó làm điểm
+tệ đi **409 điểm mỗi lần xếp** — không hiện ở đâu cả. Nay chỉ kế thừa tiết quản trị viên
+thật sự ghim; tiết lễ để phase 1 dựng lại.
+
+Cộng cả hai, trên cùng bộ dữ liệu: **−4982 → −3882**, 930 tiết thay vì 956, xếp hạng từ
+*Khá* về lại *Tốt*.
 
 ### 5.3. Định mức và quy định tham chiếu
 

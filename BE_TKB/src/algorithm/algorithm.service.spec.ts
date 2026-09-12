@@ -201,6 +201,54 @@ describe('AlgorithmService', () => {
     });
   });
 
+  describe('tiết khoá kế thừa từ lần xếp trước', () => {
+    const SUBJECTS = [
+      { id: 1, code: 'TOAN' },
+      { id: 9, code: 'CHAO_CO' },
+      { id: 10, code: 'SH_CUOI_TUAN' },
+    ];
+
+    /** Chỉ cần một thứ từ ConstraintService, nên dựng đúng thứ ấy. */
+    function withRuleSubjects(service: AlgorithmService, codes: string[]) {
+      (service as any).constraintService.fixedRuleSubjectCodes = () => new Set(codes);
+    }
+
+    /**
+     * Phase 1 dựng lại chào cờ và sinh hoạt từ quy tắc cố định ở MỖI lần xếp. Kế thừa thêm
+     * một bản nữa từ lần trước là thêm hẳn một tiết lễ cho lớp đó — và vì bản mới cũng lưu
+     * nó với cờ "đã khoá" nên lần sau lại kế thừa tiếp.
+     *
+     * Đã xảy ra thật trên dữ liệu mẫu: 11 lớp có tiết lễ lặp, lớp 11B2 có ba tiết sinh hoạt
+     * cuối tuần trong một tuần, và 26 tiết thừa ấy làm điểm tệ đi 409 điểm mỗi lần xếp.
+     */
+    it('bỏ tiết lễ, vì phase 1 dựng lại chúng từ quy tắc', () => {
+      withRuleSubjects(service, ['CHAO_CO', 'SH_CUOI_TUAN']);
+
+      const kept = service.carriedOverPins(
+        [{ subject_id: 9 }, { subject_id: 10 }, { subject_id: 1 }],
+        SUBJECTS,
+      );
+
+      expect(kept).toEqual([{ subject_id: 1 }]);
+    });
+
+    it('giữ tiết quản trị viên đã ghim — đó mới là việc của cơ chế này', () => {
+      withRuleSubjects(service, ['CHAO_CO', 'SH_CUOI_TUAN']);
+
+      const pinned = [{ subject_id: 1 }, { subject_id: 1 }];
+
+      expect(service.carriedOverPins(pinned, SUBJECTS)).toEqual(pinned);
+    });
+
+    it('trường không dùng quy tắc cố định nào thì giữ nguyên tất cả', () => {
+      withRuleSubjects(service, []);
+
+      const locked = [{ subject_id: 9 }, { subject_id: 1 }];
+
+      expect(service.carriedOverPins(locked, SUBJECTS)).toEqual(locked);
+    });
+  });
+
   describe('partitionSlots', () => {
     const partition = (slots: TimeSlot[]) => service['partitionSlots'](slots);
 

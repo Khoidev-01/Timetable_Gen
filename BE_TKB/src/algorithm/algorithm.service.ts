@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService, TimeSlot } from './constraint.service';
 import { GridIndex } from './grid-index';
+import { HotspotSampler } from './hotspot-sampler';
 import { IncrementalScorer } from './incremental-scorer';
 import { AlgorithmGateway, SlotTuple } from './algorithm.gateway';
 import { Move, MoveOperations } from './solvers/solver.interface';
@@ -113,8 +114,25 @@ export class AlgorithmService {
             });
 
             if (prevTimetable && prevTimetable.slots.length > 0) {
-                log(`[INFO] Found ${prevTimetable.slots.length} locked slots from previous run. Preserving...`);
-                prevTimetable.slots.forEach(s => {
+                /**
+                 * Giữ lại những tiết quản trị viên đã ghim — NHƯNG không giữ tiết chào cờ
+                 * và sinh hoạt.
+                 *
+                 * Phase 1 dựng lại tiết lễ từ quy tắc cố định ở mỗi lần xếp. Kế thừa thêm
+                 * một bản nữa từ lần trước là thêm hẳn một tiết lễ, và vì bản mới cũng lưu
+                 * nó với cờ "đã khoá" nên lần sau lại kế thừa tiếp — mỗi lần xếp lại chồng
+                 * thêm một lớp.
+                 *
+                 * Đo trên dữ liệu thật lúc phát hiện: 11 lớp đang có tiết lễ lặp, lớp 11B2
+                 * có BA tiết sinh hoạt cuối tuần trong một tuần. 26 tiết thừa ấy ghim chết
+                 * 26 ô, kéo giáo viên tới trường thêm buổi, và làm điểm tệ đi 409 điểm ở
+                 * mỗi lần xếp — không hiện ở đâu cả.
+                 */
+                const pinned = this.carriedOverPins(prevTimetable.slots, data.subjects);
+                const rebuilt = prevTimetable.slots.length - pinned.length;
+
+                log(`[INFO] Lần xếp trước để lại ${prevTimetable.slots.length} tiết khoá: giữ ${pinned.length} tiết đã ghim, ${rebuilt} tiết lễ để phase 1 dựng lại từ quy tắc.`);
+                pinned.forEach(s => {
                     solution.slots.push({
                         id: s.id,
                         day: s.day,
@@ -125,15 +143,8 @@ export class AlgorithmService {
                         roomId: s.room_id || undefined,
                         isLocked: true
                     });
-                    // Mark resources as busy?
-                    // solution.teacherBusy.add(...) -> Algorithm logic uses this Set? 
-                    // initializeSolution sets are empty. Phase 2 checks isSlotOccupied (which iterates slots).
-                    // Phase 3 Genetic uses slots.
-                    // So just pushing to slots is sufficient for conflict checks if checkTeacherConflict checks `solution.slots`.
-                    // But wait, checkFixedSlot? 
-                    // Phase 1 might try to add fixed slots. It checks `isSlotOccupied`?
-                    // Phase 1 usually iterates classes and adds slots.
-                    // I need to update Phase 1 to check `if (this.isSlotOccupied(solution.slots, cls.id, d, p)) continue;`.
+                    // Đẩy vào `slots` là đủ để mọi phép kiểm trùng giờ thấy ô này đã có
+                    // người: cả phase 2 lẫn vòng tìm kiếm đều hỏi qua chính mảng ấy.
                 });
             }
 
@@ -238,6 +249,23 @@ export class AlgorithmService {
         this.alignHomeroomToEndOfDay(solution, data, quiet);
 
         return solution.slots;
+    }
+
+    /**
+     * Trong số những tiết khoá lần xếp trước để lại, tiết nào còn phải giữ?
+     *
+     * Chỉ giữ tiết quản trị viên đã ghim. Tiết do quy tắc cố định sinh ra — chào cờ, sinh
+     * hoạt cuối tuần — thì bỏ, vì phase 1 dựng lại chúng từ quy tắc ở mỗi lần xếp; giữ
+     * thêm một bản nữa là thêm hẳn một tiết lễ cho lớp đó.
+     */
+    public carriedOverPins<T extends { subject_id: number }>(
+        locked: T[],
+        subjects: Array<{ id: number; code: string }>,
+    ): T[] {
+        const ruleSubjects = this.constraintService.fixedRuleSubjectCodes();
+        const codeOf = new Map(subjects.map(subject => [subject.id, subject.code]));
+
+        return locked.filter(slot => !ruleSubjects.has(codeOf.get(slot.subject_id) ?? ''));
     }
 
     /** Load everything a benchmark run needs, warming the constraint cache too. */
@@ -1125,6 +1153,24 @@ export class AlgorithmService {
      * thu. Truong 30 lop can nhieu hon truong 10 lop dung ty le voi so tiet phai xep, nen
      * so nay di theo so tiet chu khong phai mot hang so co dinh cho moi truong.
      */
+    /**
+     * Bao nhiêu phần lượt bốc tiết lấy từ chỗ đang lỗi thay vì bốc đều khắp lưới.
+     *
+     * Đo bằng cách quét, 5 lần mỗi mức, cùng ngân sách 300.000 nước đi (điểm giữa):
+     *
+     *   bốc đều      -4744
+     *   0,5          -4553   thắng 95% cặp đối đầu với bốc đều
+     *   0,75         -4416   thắng 100%
+     *   0,9          -4543   thắng 95%
+     *
+     * Hai đầu đều kém hơn, và kém vì hai lý do khác nhau: thấp quá thì phần lớn lượt bốc
+     * vẫn rơi vào chỗ vốn đã ổn, cao quá thì những tiết đang ổn không bao giờ nhường chỗ —
+     * mà nhiều khi phải dọn một chỗ đang ổn thì chỗ đang lỗi mới có nơi để đi.
+     *
+     * Đặt 0 là hành vi cũ, dùng để so hai bên trong `scripts/probe-guided-moves.ts`.
+     */
+    private hotspotShare = 0.75;
+
     private searchBudget(slotCount: number): number {
         const fromEnv = Number(process.env.TKB_SEARCH_MAIN ?? 0);
         if (fromEnv > 0) return fromEnv;
@@ -1173,11 +1219,16 @@ export class AlgorithmService {
         // Nhom tiet theo lop, va theo lop+mon. Lop va mon cua mot tiet khong bao gio doi,
         // chi cho ngoi cua no doi, nen hai nhom nay dung mot lan la du cho ca vong tim kiem.
         const byClass = new Map<string, TimeSlot[]>();
+        const byTeacher = new Map<string, TimeSlot[]>();
         const byClassSubject = new Map<string, TimeSlot[]>();
         for (const slot of movable) {
             let own = byClass.get(slot.classId);
             if (!own) byClass.set(slot.classId, (own = []));
             own.push(slot);
+
+            let mine = byTeacher.get(slot.teacherId);
+            if (!mine) byTeacher.set(slot.teacherId, (mine = []));
+            mine.push(slot);
 
             const key = `${slot.classId}|${slot.subjectId}`;
             let group = byClassSubject.get(key);
@@ -1185,6 +1236,7 @@ export class AlgorithmService {
             group.push(slot);
         }
         const pairable = [...byClassSubject.values()].filter(group => group.length >= 2);
+        const sampler = new HotspotSampler(this.constraintService, slots, movable, this.hotspotShare);
 
         let hard = scorer.hardViolations();
         let best = score;
@@ -1207,7 +1259,7 @@ export class AlgorithmService {
         for (let i = 0; i < iterations; i++) {
             const temperature = START_TEMPERATURE * Math.exp((cooling * i) / iterations);
 
-            const undo = this.randomNeighbourMove(movable, index, pairable, byClass);
+            const undo = this.randomNeighbourMove(movable, index, pairable, byClass, byTeacher, sampler);
             if (!undo) continue;
 
             const candidateHard = scorer.hardViolations();
@@ -1256,12 +1308,14 @@ export class AlgorithmService {
         index: GridIndex,
         pairable: TimeSlot[][],
         byClass: Map<string, TimeSlot[]>,
+        byTeacher: Map<string, TimeSlot[]>,
+        sampler: HotspotSampler,
     ): (() => void) | null {
         const roll = Math.random();
         if (roll < 0.25) return this.indexedPairMove(pairable, byClass, index);
-        if (roll < 0.5) return this.indexedSwapMove(movable, index);
-        if (roll < 0.75) return this.indexedRelocateMove(movable, index);
-        return this.indexedConsolidateMove(movable, index);
+        if (roll < 0.5) return this.indexedSwapMove(movable, index, sampler);
+        if (roll < 0.75) return this.indexedRelocateMove(movable, index, sampler);
+        return this.indexedConsolidateMove(byTeacher, index, sampler);
     }
 
     /**
@@ -1347,8 +1401,10 @@ export class AlgorithmService {
      * Ban cu van con va van duoc cac bo giai khac dung qua `moveOperations()`; chung quet
      * thang nen dung nhung cham, va giu lai lam ban doi chieu trong test.
      */
-    private indexedSwapMove(movable: TimeSlot[], index: GridIndex): (() => void) | null {
-        const a = movable[(Math.random() * movable.length) | 0];
+    private indexedSwapMove(movable: TimeSlot[], index: GridIndex, sampler: HotspotSampler): (() => void) | null {
+        // Một đầu lấy từ chỗ đang lỗi, đầu kia bốc đều: đổi chỗ chỉ đáng thử khi ít nhất
+        // một trong hai đầu đang có vấn đề.
+        const a = sampler.pick();
         const b = movable[(Math.random() * movable.length) | 0];
 
         if (a === b) return null;
@@ -1392,8 +1448,8 @@ export class AlgorithmService {
         return true;
     }
 
-    private indexedRelocateMove(movable: TimeSlot[], index: GridIndex): (() => void) | null {
-        const slot = movable[(Math.random() * movable.length) | 0];
+    private indexedRelocateMove(movable: TimeSlot[], index: GridIndex, sampler: HotspotSampler): (() => void) | null {
+        const slot = sampler.pick();
         const [minP, maxP] = slot.period <= 5 ? [1, 5] : [6, 10];
 
         const day = 2 + ((Math.random() * 6) | 0);
@@ -1422,12 +1478,22 @@ export class AlgorithmService {
      *
      * Nuoc di nay nham thang vao khoan phat lon nhat: so buoi mot giao vien phai di lai.
      */
-    private indexedConsolidateMove(movable: TimeSlot[], index: GridIndex): (() => void) | null {
-        const seed = movable[(Math.random() * movable.length) | 0];
+    private indexedConsolidateMove(
+        byTeacher: Map<string, TimeSlot[]>,
+        index: GridIndex,
+        sampler: HotspotSampler,
+    ): (() => void) | null {
+        // Giáo viên được chọn qua một tiết đang lỗi, nên phần lớn lượt rơi vào người thật
+        // sự đang đến trường nhiều buổi hơn mức cần — người đã gọn rồi thì dọn gì nữa.
+        const seed = sampler.pick();
+
+        // Lịch của giáo viên được nhóm sẵn một lần. Trước đây nước đi này quét cả gần một
+        // nghìn tiết ở MỖI lần gọi, mà nó được gọi một phần tư trong sáu trăm nghìn vòng.
+        const own = byTeacher.get(seed.teacherId);
+        if (!own || own.length < 2) return null;
 
         const sessions = new Map<number, TimeSlot[]>();
-        for (const s of movable) {
-            if (s.teacherId !== seed.teacherId) continue;
+        for (const s of own) {
             const key = s.day * 2 + (s.period <= 5 ? 0 : 1);
             let group = sessions.get(key);
             if (!group) sessions.set(key, (group = []));
@@ -1500,6 +1566,8 @@ export class AlgorithmService {
             movable: TimeSlot[];
             pairable: TimeSlot[][];
             byClass: Map<string, TimeSlot[]>;
+            byTeacher: Map<string, TimeSlot[]>;
+            sampler: HotspotSampler;
         }>();
 
         const contextFor = (slots: TimeSlot[]) => {
@@ -1510,11 +1578,16 @@ export class AlgorithmService {
             if (movable.length < 2) return null;
 
             const byClass = new Map<string, TimeSlot[]>();
+            const byTeacher = new Map<string, TimeSlot[]>();
             const byClassSubject = new Map<string, TimeSlot[]>();
             for (const slot of movable) {
                 let own = byClass.get(slot.classId);
                 if (!own) byClass.set(slot.classId, (own = []));
                 own.push(slot);
+
+                let mine = byTeacher.get(slot.teacherId);
+                if (!mine) byTeacher.set(slot.teacherId, (mine = []));
+                mine.push(slot);
 
                 const key = `${slot.classId}|${slot.subjectId}`;
                 let group = byClassSubject.get(key);
@@ -1527,6 +1600,8 @@ export class AlgorithmService {
                 movable,
                 pairable: [...byClassSubject.values()].filter(group => group.length >= 2),
                 byClass,
+                byTeacher,
+                sampler: new HotspotSampler(this.constraintService, slots, movable, this.hotspotShare),
             };
             contexts.set(slots, context);
             return context;
@@ -1551,7 +1626,7 @@ export class AlgorithmService {
                 const context = contextFor(slots);
                 if (!context) return null;
 
-                const undo = this.randomNeighbourMove(context.movable, context.index, context.pairable, context.byClass);
+                const undo = this.randomNeighbourMove(context.movable, context.index, context.pairable, context.byClass, context.byTeacher, context.sampler);
                 if (!undo) return null;
 
                 return { key: `move:${(Math.random() * 1e9) | 0}`, undo };
