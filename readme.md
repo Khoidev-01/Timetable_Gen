@@ -148,16 +148,16 @@ Xếp hạng đo bằng **số điểm phạt còn tránh được trên mỗi t
 Mốc lấy từ `scripts/calibrate-grades.ts`, chạy bốn mức công sức trên cùng bộ dữ liệu 30 lớp:
 
 ```
-Chỉ dựng thô, không tối ưu   7,73 điểm phạt tránh được mỗi tiết   → Chưa tối ưu
-Tối ưu rất ngắn              6,01                                 → Trung bình
-Tối ưu ngắn                  4,93                                 → Khá
-Tối ưu đầy đủ                3,93                                 → Tốt
+Chỉ dựng thô, không tối ưu   9,29 điểm phạt tránh được mỗi tiết   → Chưa tối ưu
+Tối ưu rất ngắn              6,91                                 → Trung bình
+Tối ưu ngắn                  6,40                                 → Khá
+Tối ưu đầy đủ                5,35                                 → Tốt
 ```
 
-Mốc đã hiệu chỉnh lại **hai lần**, mỗi lần sau một thay đổi dữ liệu mẫu: lần một khi đưa số
-tiết về đúng định mức (Toán 4 xuống 3), lần hai khi phân công lại để mỗi giáo viên chỉ phục
-vụ lớp của một ca. Cả hai lần đều kéo cả bốn mốc xuống — dữ liệu dễ xếp hơn thì mọi mức công
-sức đều cho kết quả tốt hơn.
+Mốc đã hiệu chỉnh lại **ba lần**. Hai lần đầu sau khi sửa dữ liệu mẫu: đưa số tiết về đúng
+định mức (Toán 4 xuống 3), rồi phân công lại để mỗi giáo viên chỉ phục vụ một ca.
+
+Lần thứ ba vì một lý do khác hẳn — xem mục ngay dưới.
 
 **Đổi dữ liệu mẫu là phải chạy lại `scripts/calibrate-grades.ts`** — một thang đo neo vào dữ
 liệu không còn tồn tại thì không đo được gì.
@@ -196,6 +196,17 @@ lần.
 **Ba — đổi trọng số không mua được gì.** Nâng trọng số "buổi đi lại" từ 8 lên 16 thắng rõ ở
 một lần chạy (−4009 so với −4170), nhưng đo lại ba lần mỗi bên thì hoà: −4046 so với −4036.
 Nâng trọng số "tiết trống" cũng vậy. Đã gỡ cả hai.
+
+**Một mức sàn sai, tìm ra nhờ chính phép đo trên.** Bảng điểm từng khai hơn một nghìn điểm
+là *bất khả kháng* ở tiêu chí tiết đôi, với lập luận: môn 3 tiết thì hai tiết ghép cặp và
+tiết thứ ba bắt buộc lẻ loi. Phép đo bắt được mâu thuẫn — tối ưu riêng tiêu chí đó xuống
+**89**, thấp hơn con số **134** được gọi là sàn. Một mức sàn mà thực tế đi dưới được thì
+không phải sàn.
+
+Chỗ sai: phép kiểm chỉ đòi mỗi tiết có **ít nhất một** tiết cùng môn bên cạnh, không đòi chia
+thành từng cặp. Ba tiết liên nhau trong một ngày thì cả ba đều có hàng xóm, khoản phạt bằng
+không. Con số sai ấy đã hiện trên màn hình dưới dạng *"104 không thể tránh — còn 0 chỗ sửa
+được"*, tức là bảo người dùng đừng đi tìm thứ vẫn còn tìm được. Đã gỡ, và hiệu chỉnh lại mốc.
 
 **Kết luận: điểm thấp vì 15 tiêu chí tranh nhau, không vì công thức sai.** Dồn tiết của một
 giáo viên vào ít buổi thì chính những tiết ấy dồn cục với lớp; xếp môn tư duy vào tiết đầu

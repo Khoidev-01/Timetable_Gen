@@ -1320,33 +1320,6 @@ export class ConstraintService {
     }
 
     /**
-     * Bao nhiêu tiết lẻ loi là KHÔNG THỂ tránh, dù xếp giỏi đến đâu.
-     *
-     * Một môn có số tiết lẻ thì hai tiết ghép thành một cặp và tiết còn lại không bao giờ có
-     * ai bên cạnh — đó là số học, không phải chất lượng xếp lịch. Trên dữ liệu 30 lớp, 104
-     * trong 146 cặp (lớp, môn) có đúng 3 tiết mỗi tuần, nên 104 trong tổng số lỗi báo ra là
-     * bất khả kháng. Báo "109 lỗi" mà không nói điều đó là để người đọc đi tìm 109 chỗ sửa,
-     * trong khi chỉ có 5 chỗ sửa được.
-     */
-    private blockSplitFloor(classSchedule: Map<string, TimeSlot[]>): number {
-        const blocks = ['TOAN', 'VAN', 'NGU_VAN', 'TIN', 'LY', 'HOA', 'SINH'];
-        let floor = 0;
-
-        for (const [, slots] of classSchedule) {
-            const perSubject = new Map<number, number>();
-            for (const slot of slots) {
-                const code = this.getSubjectCode(slot.subjectId);
-                if (!blocks.some((b) => code.includes(b))) continue;
-                perSubject.set(slot.subjectId, (perSubject.get(slot.subjectId) ?? 0) + 1);
-            }
-            for (const count of perSubject.values()) {
-                if (count > 1 && count % 2 === 1) floor += 1;
-            }
-        }
-        return floor;
-    }
-
-    /**
      * Số buổi thừa mà công thức đếm nhưng dữ liệu không cho phép bỏ.
      *
      * `checkTeacherAttendance` lấy sàn là `ceil(số tiết / 5)`, tức coi như mọi tiết của giáo
@@ -1389,18 +1362,21 @@ export class ConstraintService {
      * Mốc lấy từ `scripts/calibrate-grades.ts`, chạy bốn mức công sức trên cùng một bộ dữ
      * liệu 30 lớp đã đưa về đúng định mức GDPT 2018:
      *
-     *     Chỉ dựng thô, không tối ưu   7,73 điểm phạt tránh được mỗi tiết
-     *     Tối ưu rất ngắn              6,01
-     *     Tối ưu ngắn                  4,93
-     *     Tối ưu đầy đủ                3,93
+     *     Chỉ dựng thô, không tối ưu   9,29 điểm phạt tránh được mỗi tiết
+     *     Tối ưu rất ngắn              6,91
+     *     Tối ưu ngắn                  6,40
+     *     Tối ưu đầy đủ                5,35
      *
      * Nói cách khác **"Tốt" nghĩa là ngang mức một lần tối ưu đầy đủ**, không phải "hoàn
      * hảo" — thang này đo công sức tối ưu đã bỏ ra.
      *
-     * Mốc đã hiệu chỉnh lại hai lần, mỗi lần sau một thay đổi dữ liệu mẫu: lần một khi đưa
-     * số tiết về đúng định mức GDPT 2018 (Toán 4 xuống 3), lần hai khi phân công lại để mỗi
-     * giáo viên chỉ phục vụ lớp của một ca. Cả hai lần đều kéo cả bốn mốc xuống — dữ liệu dễ
-     * xếp hơn thì mọi mức công sức đều cho kết quả tốt hơn.
+     * Mốc đã hiệu chỉnh lại ba lần. Hai lần đầu sau khi sửa dữ liệu mẫu: đưa số tiết về đúng
+     * định mức (Toán 4 xuống 3), rồi phân công lại để mỗi giáo viên chỉ phục vụ một ca.
+     *
+     * Lần thứ ba vì một lý do khác hẳn: mức sàn của tiêu chí tiết đôi hoá ra SAI — nó kê khai
+     * hơn một nghìn điểm là "bất khả kháng" trong khi thật ra tránh được hết. Gỡ nó ra thì
+     * phần "tránh được" tăng vọt, và bộ mốc cũ lập tức gán nhầm hạng. Một thang đo neo vào
+     * một con số sai thì mọi nhãn nó dán đều sai theo.
      *
      * Một thang đo neo vào dữ liệu không còn tồn tại thì không đo được gì, nên hễ đổi dữ liệu
      * mẫu là phải chạy lại `scripts/calibrate-grades.ts`.
@@ -1420,10 +1396,10 @@ export class ConstraintService {
 
         // Mốc đặt ngay trên mức đo được của từng công sức, để nhãn nói đúng cái nó đo
         const BANDS: Array<{ upTo: number; grade: string; label: string }> = [
-            { upTo: 4.4, grade: 'GOOD', label: 'Tốt' },          // ngang tối ưu đầy đủ (3,93)
-            { upTo: 5.5, grade: 'FAIR', label: 'Khá' },          // ngang tối ưu ngắn (4,93)
-            { upTo: 7.0, grade: 'AVERAGE', label: 'Trung bình' }, // ngang tối ưu rất ngắn (6,01)
-            { upTo: Infinity, grade: 'UNOPTIMISED', label: 'Chưa tối ưu' }, // dựng thô (7,73)
+            { upTo: 5.8, grade: 'GOOD', label: 'Tốt' },          // ngang tối ưu đầy đủ (5,35)
+            { upTo: 6.7, grade: 'FAIR', label: 'Khá' },          // ngang tối ưu ngắn (6,40)
+            { upTo: 8.0, grade: 'AVERAGE', label: 'Trung bình' }, // ngang tối ưu rất ngắn (6,91)
+            { upTo: Infinity, grade: 'UNOPTIMISED', label: 'Chưa tối ưu' }, // dựng thô (9,29)
         ];
         const band = BANDS.find((b) => perSlot <= b.upTo)!;
 
@@ -1546,8 +1522,19 @@ export class ConstraintService {
         // Hai khoản dưới đây có một phần KHÔNG THỂ xóa, do chính dữ liệu quy định. Báo con
         // số tổng mà không nói phần nào sửa được là để người đọc đi tìm những chỗ không tồn
         // tại — và khi họ tìm không ra, con số trở thành thứ họ ngừng tin.
+        //
+        // "Môn 2 tiết bị xé lẻ" TỪNG có một mức sàn ở đây, tính theo số tiết lẻ: môn 3 tiết
+        // thì hai tiết ghép cặp và tiết thứ ba bắt buộc lẻ loi. Lập luận đó SAI, và phép đo
+        // cận dưới bắt được: tối ưu riêng tiêu chí đó xuống 89, thấp hơn con số 134 tôi gọi
+        // là sàn — một mức sàn mà thực tế đi dưới được thì không phải sàn.
+        //
+        // Chỗ sai: phép kiểm chỉ đòi mỗi tiết có ÍT NHẤT MỘT tiết cùng môn bên cạnh, không
+        // đòi chia thành từng cặp. Ba tiết liên nhau trong một ngày thì cả ba đều có hàng
+        // xóm, và khoản phạt bằng không. Nên môn có số tiết lẻ KHÔNG bắt buộc lỗi gì cả.
+        //
+        // Con số sai đó đã hiện trên giao diện dưới dạng "104 không thể tránh — còn 0 chỗ
+        // sửa được", tức là bảo người dùng đừng đi tìm thứ vẫn còn tìm được.
         const floors: Record<string, number> = {
-            'Môn 2 tiết bị xé lẻ': this.blockSplitFloor(classSchedule),
             'Giáo viên phải đến trường thêm buổi': this.attendanceFloor(teacherSchedule),
         };
 

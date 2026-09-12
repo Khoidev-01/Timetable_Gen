@@ -38,7 +38,9 @@ export interface BenchmarkReport {
 }
 
 const MAX_RUNS = 30;
-const MAX_ITERATIONS = 40_000;
+// Ban chinh chay 600.000 nuoc di. Chan phong thi o 40.000 thi no khong bao gio so duoc voi
+// cai dang chay that — va ket qua no dua ra se bi doc nham thanh "kha nang cua thuat toan".
+const MAX_ITERATIONS = 1_000_000;
 
 /**
  * Runs several improvement strategies over the same problem so their quality can be

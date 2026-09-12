@@ -287,42 +287,55 @@ describe('ConstraintService', () => {
         });
 
         it('xếp hạng đo bằng phần TRÁNH ĐƯỢC, không tính phần bất khả kháng', () => {
-            // Môn 3 tiết: một tiết lẻ loi là bất khả kháng, nên nó không được kéo hạng xuống
-            const threePeriods = [
-                slot({ day: 2, period: 1 }),
-                slot({ day: 2, period: 2 }),
-                slot({ day: 4, period: 1 }),
+            // Giáo viên dạy cả buổi sáng lẫn buổi chiều thì buộc phải tới trường hai buổi,
+            // dù công thức lấy sàn là "gộp hết vào ít buổi nhất có thể". Đó là khoản bất khả
+            // kháng còn lại sau khi gỡ mức sàn sai của tiêu chí tiết đôi.
+            const bothSessions = [
+                ...Array.from({ length: 6 }, (_, i) => slot({ day: 2 + i, period: 1 })),
+                ...Array.from({ length: 6 }, (_, i) => slot({ day: 2 + i, period: 7 })),
             ];
-            const graded = service.getFitnessDetails(threePeriods).quality;
+            const detail = service.getFitnessDetails(bothSessions);
+            const graded = detail.quality;
 
             expect(graded.forcedPenalty).toBeGreaterThan(0);
-            // Khoản phạt tránh được phải nhỏ hơn tổng, đúng bằng phần bất khả kháng
-            const detail = service.getFitnessDetails(threePeriods);
             expect(graded.avoidablePenalty).toBe(detail.softPenalty - graded.forcedPenalty);
         });
     });
 
     describe('phần khoản phạt không thể tránh', () => {
         /**
-         * Một môn có số tiết lẻ thì hai tiết ghép thành một cặp và tiết còn lại không bao
-         * giờ có ai bên cạnh. Đó là số học, không phải chất lượng xếp lịch.
+         * Tôi từng khẳng định môn có số tiết lẻ thì bắt buộc lỗi một tiết, và đưa con số đó
+         * lên giao diện dưới dạng "104 không thể tránh — còn 0 chỗ sửa được".
          *
-         * Bảng điểm từng báo "109 lỗi tiết đôi bị xé lẻ" trong khi 104 trong số đó bất khả
-         * kháng — người đọc đi tìm 109 chỗ sửa và tìm ra 5, rồi ngừng tin con số.
+         * Sai. Phép kiểm chỉ đòi mỗi tiết có ÍT NHẤT MỘT tiết cùng môn bên cạnh, không đòi
+         * chia thành từng cặp — ba tiết liên nhau trong một ngày thì cả ba đều có hàng xóm.
+         * Phép đo cận dưới bắt được mâu thuẫn: tối ưu riêng tiêu chí đó xuống 89, thấp hơn
+         * con số tôi gọi là sàn.
          */
-        it('môn 3 tiết luôn còn đúng một tiết lẻ loi, dù xếp thế nào', () => {
-            const threePeriods = [
+        it('môn 3 tiết xếp liền nhau thì không tiết nào lẻ loi', () => {
+            const inARow = [1, 2, 3].map((period) =>
+                slot({ classId: 'C1', subjectId: 1, day: 2, period }),
+            );
+
+            const result = service.getFitnessDetails(inARow);
+            const split = result.breakdown.soft.find((item: any) => item.label === 'Môn 2 tiết bị xé lẻ');
+
+            expect(split).toBeUndefined();
+        });
+
+        it('môn 3 tiết xếp tách ra thì lỗi, và lỗi đó SỬA ĐƯỢC — không có sàn', () => {
+            const split3 = [
                 slot({ classId: 'C1', subjectId: 1, day: 2, period: 1 }),
                 slot({ classId: 'C1', subjectId: 1, day: 2, period: 2 }),
                 slot({ classId: 'C1', subjectId: 1, day: 4, period: 1 }),
             ];
 
-            const result = service.getFitnessDetails(threePeriods);
+            const result = service.getFitnessDetails(split3);
             const split = result.breakdown.soft.find((item: any) => item.label === 'Môn 2 tiết bị xé lẻ');
 
             expect(split.count).toBe(1);
-            expect(split.floor).toBe(1);
-            expect(split.avoidable).toBe(0);
+            expect(split.floor ?? 0).toBe(0);
+            expect(split.avoidable).toBe(1);
         });
 
         it('môn 4 tiết thì không có gì bất khả kháng — xé lẻ là do xếp', () => {
@@ -335,7 +348,7 @@ describe('ConstraintService', () => {
             const split = result.breakdown.soft.find((item: any) => item.label === 'Môn 2 tiết bị xé lẻ');
 
             expect(split.count).toBe(4);
-            expect(split.floor).toBe(0);
+            expect(split.floor ?? 0).toBe(0);
             expect(split.avoidable).toBe(4);
         });
 

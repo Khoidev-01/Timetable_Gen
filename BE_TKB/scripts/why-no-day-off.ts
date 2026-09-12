@@ -13,6 +13,7 @@ const prisma = new PrismaClient();
   const tt = await prisma.generatedTimetable.findFirst({
     where: { is_official: true }, orderBy: { created_at: 'desc' }, include: { slots: true },
   });
+  if (!tt) { console.log('Chua cong bo thoi khoa bieu nao.'); process.exit(1); }
   const semester = tt!.semester_id;
   const classes = new Map(
     (await prisma.class.findMany({ select: { id: true, name: true, main_session: true } }))

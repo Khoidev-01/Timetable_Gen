@@ -1487,6 +1487,51 @@ export class AlgorithmService {
      * swapping the solver, not rewriting the neighbourhood.
      */
     public moveOperations(): MoveOperations {
+        /**
+         * Chi muc va nhom anh em, dung mot lan cho moi lich.
+         *
+         * Phong thi truoc day cho cac bo giai mot bo nuoc di KHAC voi ban chinh: khong co
+         * nuoc ghep tiet doi, khong co chi muc tra cuu. Nghia la no do bo nuoc di cu chu
+         * khong do chien luoc tim kiem — ma do chien luoc tim kiem moi la viec no sinh ra de
+         * lam. Mot bo giai thua o day co the chi thua vi bi phat mot bo nuoc di kem hon.
+         */
+        const contexts = new WeakMap<TimeSlot[], {
+            index: GridIndex;
+            movable: TimeSlot[];
+            pairable: TimeSlot[][];
+            byClass: Map<string, TimeSlot[]>;
+        }>();
+
+        const contextFor = (slots: TimeSlot[]) => {
+            let context = contexts.get(slots);
+            if (context) return context;
+
+            const movable = slots.filter(s => !s.isLocked);
+            if (movable.length < 2) return null;
+
+            const byClass = new Map<string, TimeSlot[]>();
+            const byClassSubject = new Map<string, TimeSlot[]>();
+            for (const slot of movable) {
+                let own = byClass.get(slot.classId);
+                if (!own) byClass.set(slot.classId, (own = []));
+                own.push(slot);
+
+                const key = `${slot.classId}|${slot.subjectId}`;
+                let group = byClassSubject.get(key);
+                if (!group) byClassSubject.set(key, (group = []));
+                group.push(slot);
+            }
+
+            context = {
+                index: new GridIndex(slots, id => this.constraintService.getRequiredRoomType(id)),
+                movable,
+                pairable: [...byClassSubject.values()].filter(group => group.length >= 2),
+                byClass,
+            };
+            contexts.set(slots, context);
+            return context;
+        };
+
         // One scorer per schedule: a solver evaluates the same array over and over, so the
         // caches stay warm across the whole run.
         const scorers = new WeakMap<TimeSlot[], IncrementalScorer>();
@@ -1503,13 +1548,13 @@ export class AlgorithmService {
             fitness: (slots: TimeSlot[]) => scorerFor(slots).fitness(),
             hardViolations: (slots: TimeSlot[]) => scorerFor(slots).hardViolations(),
             randomMove: (slots: TimeSlot[]) => {
-                const movable = slots.filter(s => !s.isLocked);
-                if (movable.length < 2) return null;
+                const context = contextFor(slots);
+                if (!context) return null;
 
-                const roll = Math.random();
-                if (roll < 0.35) return this.swapMove(slots, movable);
-                if (roll < 0.7) return this.relocateMove(slots, movable);
-                return this.consolidateTeacherMove(slots, movable);
+                const undo = this.randomNeighbourMove(context.movable, context.index, context.pairable, context.byClass);
+                if (!undo) return null;
+
+                return { key: `move:${(Math.random() * 1e9) | 0}`, undo };
             },
         };
     }
