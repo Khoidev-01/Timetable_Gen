@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { API_URL } from '@/lib/api';
+import Select from '@/app/components/ui/Select';
 
 interface Period {
   period: number;
@@ -105,18 +106,16 @@ export default function PublicSchedulePage() {
           ))}
         </div>
 
-        <select
+        <Select
           value={who}
-          onChange={(e) => setWho(e.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-800"
-        >
-          <option value="">— Xem tất cả —</option>
-          {options.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+          onChange={setWho}
+          aria-label={mode === 'class' ? 'Chọn lớp' : 'Chọn giáo viên'}
+          searchPlaceholder={mode === 'class' ? 'Tìm lớp...' : 'Tìm giáo viên...'}
+          options={[
+            { value: '', label: 'Xem tất cả' },
+            ...options.map((name: string) => ({ value: name, label: name })),
+          ]}
+        />
       </div>
 
       {error && <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</p>}

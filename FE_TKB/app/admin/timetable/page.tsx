@@ -9,6 +9,7 @@ import VariantComparison from '../../components/admin/VariantComparison';
 import CascadeSwapDialog from '../../components/admin/CascadeSwapDialog';
 import ChangeHistory from '../../components/admin/ChangeHistory';
 import { API_URL } from '@/lib/api';
+import Select from '@/app/components/ui/Select';
 
 interface Semester {
   id: string;
@@ -20,6 +21,8 @@ interface SchoolYear {
   name: string;
   semesters: Semester[];
 }
+
+const PREFLIGHT_PAGE_SIZE = 10;
 
 function getFileNameFromDisposition(disposition: string | null, fallback: string) {
   if (!disposition) return fallback;
@@ -39,18 +42,18 @@ export default function TimetablePage() {
   const [selectedSemesterId, setSelectedSemesterId] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [preflight, setPreflight] = useState<any>(null);
+  const [preflightPage, setPreflightPage] = useState(1);
   const [isChecking, setIsChecking] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [logs, setLogs] = useState<string[]>([]);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
   const [viewMode, setViewMode] = useState<'CLASS' | 'TEACHER'>('CLASS');
   const [selectedEntityId, setSelectedEntityId] = useState('');
   const [classes, setClasses] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
-  const [isYearModalOpen, setIsYearModalOpen] = useState(false);
-  const [newYearName, setNewYearName] = useState('');
-  const [newYearStart, setNewYearStart] = useState('');
-  const [newYearEnd, setNewYearEnd] = useState('');
   const [isMoving, setIsMoving] = useState(false);
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
   const [progress, setProgress] = useState<SolveProgress | null>(null);
@@ -97,7 +100,7 @@ export default function TimetablePage() {
       }
 
       if (payload?.isValid === false) {
-        showToast('Thời khóa biểu còn lỗi cứng — chưa dùng được. Xem nhật ký bên dưới.', 'error');
+        showToast('Thời khóa biểu còn lỗi cứng - chưa dùng được. Xem nhật ký bên dưới.', 'error');
       } else if (payload?.success) {
         showToast('Đã tạo thời khóa biểu thành công.', 'success');
       }
@@ -168,42 +171,6 @@ export default function TimetablePage() {
     }
   };
 
-  const handleCreateYear = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/system/years`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: newYearName,
-          start_date: new Date(newYearStart),
-          end_date: new Date(newYearEnd),
-          status: 'ACTIVE',
-        }),
-      });
-
-      if (!response.ok) {
-        showToast('Không thể tạo năm học.', 'error');
-        return;
-      }
-
-      setIsYearModalOpen(false);
-      setNewYearName('');
-      setNewYearStart('');
-      setNewYearEnd('');
-      fetchYears();
-      showToast('Đã thêm năm học mới.', 'success');
-    } catch (error) {
-      console.error(error);
-      showToast('Lỗi kết nối khi tạo năm học.', 'error');
-    }
-  };
-
   const checkExistingResult = async (semesterId: string) => {
     try {
       const token = localStorage.getItem('token');
@@ -255,6 +222,7 @@ export default function TimetablePage() {
       if (!response.ok) return null;
       const report = await response.json();
       setPreflight(report);
+      setPreflightPage(1);
       return report;
     } catch (error) {
       console.error(error);
@@ -407,6 +375,15 @@ export default function TimetablePage() {
 
   const selectedYear = years.find((item) => item.id === selectedYearId);
 
+  const preflightIssueCount = preflight?.issues?.length ?? 0;
+  const preflightTotalPages = Math.max(1, Math.ceil(preflightIssueCount / PREFLIGHT_PAGE_SIZE));
+  const currentPreflightPage = Math.min(preflightPage, preflightTotalPages);
+  const preflightPageStart = (currentPreflightPage - 1) * PREFLIGHT_PAGE_SIZE;
+  const visiblePreflightIssues = preflight?.issues?.slice(
+    preflightPageStart,
+    preflightPageStart + PREFLIGHT_PAGE_SIZE,
+  ) ?? [];
+
   return (
     <div className="relative space-y-6 pb-20">
       <CascadeSwapDialog
@@ -418,9 +395,7 @@ export default function TimetablePage() {
       {toast && (
         <div
           className={`fixed right-6 top-20 z-50 rounded-lg border-l-4 bg-white px-6 py-4 shadow-lg ${
-            toast.type === 'success'
-              ? 'border-green-500 text-green-700'
-              : 'border-red-500 text-red-700'
+            toast.type === 'success' ? 'border-green-500 text-green-700' : 'border-red-500 text-red-700'
           }`}
         >
           <span className="font-semibold">{toast.message}</span>
@@ -432,45 +407,28 @@ export default function TimetablePage() {
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
           <div>
-            <div className="mb-2 flex items-center justify-between">
-              <label className="block text-sm font-bold text-gray-800">Năm học</label>
-              <button
-                onClick={() => setIsYearModalOpen(true)}
-                className="rounded bg-blue-100 px-2 py-1 text-xs font-bold text-blue-600 hover:bg-blue-200"
-              >
-                + Thêm
-              </button>
-            </div>
-            <select
-              className="w-full rounded-lg border border-gray-300 bg-white p-2 font-medium text-black"
+            <label className="mb-2 block text-sm font-bold text-gray-800">Năm học</label>
+            <Select
               value={selectedYearId}
-              onChange={(event) => {
-                const year = years.find((item) => item.id === event.target.value);
-                setSelectedYearId(event.target.value);
+              onChange={(value) => {
+                const year = years.find((item) => item.id === value);
+                setSelectedYearId(value);
                 setSelectedSemesterId(year?.semesters?.[0]?.id ?? '');
               }}
-            >
-              {years.map((year) => (
-                <option key={year.id} value={year.id}>
-                  {year.name}
-                </option>
-              ))}
-            </select>
+              placeholder="Chọn năm học"
+              options={years.map((year) => ({ value: String(year.id), label: year.name }))}
+            />
           </div>
 
           <div>
             <label className="mb-2 block text-sm font-bold text-gray-800">Học kỳ</label>
-            <select
-              className="w-full rounded-lg border border-gray-300 bg-white p-2 font-medium text-black"
+            <Select
               value={selectedSemesterId}
-              onChange={(event) => setSelectedSemesterId(event.target.value)}
-            >
-              {selectedYear?.semesters?.map((semester) => (
-                <option key={semester.id} value={semester.id}>
-                  {semester.name}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedSemesterId}
+              placeholder="Chọn học kỳ"
+              disabled={!selectedYear}
+              options={(selectedYear?.semesters ?? []).map((semester) => ({ value: String(semester.id), label: semester.name }))}
+            />
           </div>
 
           <div className="flex items-end gap-2">
@@ -526,14 +484,12 @@ export default function TimetablePage() {
               )}
             </div>
 
-            {preflight.issues.length === 0 && (
-              <p className="text-sm text-gray-500">Không phát hiện vấn đề nào.</p>
-            )}
+            {preflight.issues.length === 0 && <p className="text-sm text-gray-500">Không phát hiện vấn đề nào.</p>}
 
             <ul className="space-y-2">
-              {preflight.issues.map((issue: any, index: number) => (
+              {visiblePreflightIssues.map((issue: any, index: number) => (
                 <li
-                  key={`${issue.code}-${index}`}
+                  key={`${issue.code}-${preflightPageStart + index}`}
                   className={`rounded-lg border-l-4 bg-gray-50 p-3 ${
                     issue.level === 'BLOCK'
                       ? 'border-red-500'
@@ -556,31 +512,121 @@ export default function TimetablePage() {
                     </span>
                     <span className="font-semibold text-gray-800">{issue.title}</span>
                     {issue.link && (
-                      <a
-                        href={issue.link.href}
-                        className="ml-auto text-sm font-medium text-blue-600 hover:underline"
-                      >
+                      <a href={issue.link.href} className="ml-auto text-sm font-medium text-blue-600 hover:underline">
                         {issue.link.label} →
                       </a>
                     )}
                   </div>
                   <p className="mt-1 text-sm text-gray-700">{issue.detail}</p>
-                  {issue.suggestion && (
-                    <p className="mt-1 text-sm italic text-gray-500">→ {issue.suggestion}</p>
-                  )}
+                  {issue.suggestion && <p className="mt-1 text-sm italic text-gray-500">→ {issue.suggestion}</p>}
                 </li>
               ))}
             </ul>
+
+            {preflightTotalPages > 1 && (
+              <nav className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-3" aria-label="Phân trang cảnh báo dữ liệu đầu vào">
+                <p className="text-sm text-gray-500">
+                  Hiển thị {preflightPageStart + 1}-{Math.min(preflightPageStart + PREFLIGHT_PAGE_SIZE, preflightIssueCount)} trong {preflightIssueCount} cảnh báo
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreflightPage((page) => Math.max(1, page - 1))}
+                    disabled={currentPreflightPage === 1}
+                    className="min-h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-[transform,background-color,border-color] hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+                  >
+                    Trước
+                  </button>
+                  <span className="min-w-20 text-center text-sm font-semibold text-gray-700">
+                    Trang {currentPreflightPage}/{preflightTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPreflightPage((page) => Math.min(preflightTotalPages, page + 1))}
+                    disabled={currentPreflightPage === preflightTotalPages}
+                    className="min-h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-[transform,background-color,border-color] hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </nav>
+            )}
           </div>
         )}
 
-        <SolverMonitor
-          progress={progress}
-          history={scoreHistory}
-          classes={classes}
-          isRunning={isGenerating}
-        />
+        <SolverMonitor progress={progress} history={scoreHistory} classes={classes} isRunning={isGenerating} />
 
+      </div>
+
+      {result?.bestSchedule && (
+        <>
+          <section className="space-y-3" aria-labelledby="quality-report-heading">
+            <h2 id="quality-report-heading" className="text-lg font-semibold text-[var(--text-primary)]">
+              Báo cáo lỗi và chất lượng
+            </h2>
+            <QualityBreakdown
+              quality={result.quality}
+              score={result.fitness_score ?? null}
+              slotCount={result.bestSchedule?.length ?? 0}
+              hardViolations={result.hardViolations}
+              items={result.softBreakdown ?? []}
+            />
+          </section>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+              <h2 className="text-xl font-bold text-gray-800">Thời khóa biểu hoàn chỉnh</h2>
+
+              <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+                  <button
+                    className={`px-4 py-2 text-sm font-medium ${
+                      viewMode === 'CLASS' ? 'bg-blue-600 text-white' : 'text-gray-600'
+                    }`}
+                    onClick={() => setViewMode('CLASS')}
+                  >
+                    Xem theo lớp
+                  </button>
+                  <button
+                    className={`px-4 py-2 text-sm font-medium ${
+                      viewMode === 'TEACHER' ? 'bg-blue-600 text-white' : 'text-gray-600'
+                    }`}
+                    onClick={() => setViewMode('TEACHER')}
+                  >
+                    Xem theo giáo viên
+                  </button>
+                </div>
+
+                <Select
+                  className="w-full sm:w-64"
+                  value={selectedEntityId}
+                  onChange={setSelectedEntityId}
+                  aria-label={viewMode === 'CLASS' ? 'Chọn lớp' : 'Chọn giáo viên'}
+                  placeholder={viewMode === 'CLASS' ? 'Chọn lớp' : 'Chọn giáo viên'}
+                  searchPlaceholder={viewMode === 'CLASS' ? 'Tìm lớp...' : 'Tìm giáo viên...'}
+                  options={
+                    viewMode === 'CLASS'
+                      ? classes.map((item) => ({ value: String(item.id), label: item.name }))
+                      : teachers.map((item) => ({ value: String(item.id), label: item.full_name }))
+                  }
+                />
+              </div>
+            </div>
+
+            <TimetableGrid
+              schedule={result.bestSchedule}
+              viewMode={viewMode}
+              selectedEntityId={selectedEntityId}
+              onSlotMove={handleSlotMove}
+              onToggleLock={handleToggleLock}
+              onRequestSwap={setSwapSlotId}
+              offenderIds={new Set<string>((result?.offenders ?? []).flatMap((group: any) => group.slotIds))}
+            />
+          </div>
+        </>
+      )}
+
+      <section className="space-y-4" aria-label="Nhật ký và phương án thời khóa biểu">
         <ChangeHistory
           timetableId={result?.timetableId ?? null}
           onReverted={() => checkExistingResult(selectedSemesterId)}
@@ -594,154 +640,25 @@ export default function TimetablePage() {
           />
         )}
 
-        <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 p-4 font-mono text-xs text-green-400 shadow-inner">
-          <div className="mb-2 border-b border-gray-700 pb-1 font-bold text-gray-400">
+        <div className="max-h-48 overflow-y-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-[var(--text-primary)] shadow-sm">
+          <div className="mb-2 border-b border-[var(--border-default)] pb-2 font-semibold text-[var(--text-secondary)]">
             Nhật ký hệ thống
           </div>
           {logs.length > 0 ? (
             logs.map((log, index) => (
-              <div key={index} className="mb-1 rounded p-0.5 hover:bg-gray-800">
-                {log}
+              <div
+                key={index}
+                className="flex items-start gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--bg-surface-hover)]"
+              >
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
+                <span>{log}</span>
               </div>
             ))
           ) : (
-            <span className="opacity-50">Sẵn sàng chờ lệnh...</span>
+            <span className="text-[var(--text-muted)]">Sẵn sàng chờ lệnh...</span>
           )}
         </div>
-      </div>
-
-      {result?.bestSchedule && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">Thời khóa biểu hoàn chỉnh</h2>
-              <div className="mt-2 max-w-xl">
-                <QualityBreakdown
-                  quality={result.quality}
-                  score={result.fitness_score ?? null}
-                  slotCount={result.bestSchedule?.length ?? 0}
-                  hardViolations={result.hardViolations}
-                  items={result.softBreakdown ?? []}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 p-2">
-              <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
-                <button
-                  className={`px-4 py-2 text-sm font-medium ${
-                    viewMode === 'CLASS' ? 'bg-blue-600 text-white' : 'text-gray-600'
-                  }`}
-                  onClick={() => setViewMode('CLASS')}
-                >
-                  Xem theo lớp
-                </button>
-                <button
-                  className={`px-4 py-2 text-sm font-medium ${
-                    viewMode === 'TEACHER' ? 'bg-blue-600 text-white' : 'text-gray-600'
-                  }`}
-                  onClick={() => setViewMode('TEACHER')}
-                >
-                  Xem theo giáo viên
-                </button>
-              </div>
-
-              <select
-                className="min-w-[220px] rounded-md border border-gray-400 bg-white p-2 text-base font-semibold text-black"
-                value={selectedEntityId}
-                onChange={(event) => setSelectedEntityId(event.target.value)}
-              >
-                {viewMode === 'CLASS'
-                  ? classes.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))
-                  : teachers.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.full_name}
-                      </option>
-                    ))}
-              </select>
-            </div>
-          </div>
-
-          <TimetableGrid
-            schedule={result.bestSchedule}
-            viewMode={viewMode}
-            selectedEntityId={selectedEntityId}
-            onSlotMove={handleSlotMove}
-            onToggleLock={handleToggleLock}
-            onRequestSwap={setSwapSlotId}
-            offenderIds={new Set<string>((result?.offenders ?? []).flatMap((group: any) => group.slotIds))}
-          />
-        </div>
-      )}
-
-      {isYearModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-6 py-4">
-              <h3 className="text-lg font-bold text-gray-800">Thêm năm học mới</h3>
-              <button onClick={() => setIsYearModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleCreateYear} className="space-y-4 p-6">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Tên năm học (ví dụ: 2026-2027)
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="w-full rounded-lg border border-gray-300 p-2"
-                  value={newYearName}
-                  onChange={(event) => setNewYearName(event.target.value)}
-                  placeholder="2026-2027"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Ngày bắt đầu</label>
-                  <input
-                    type="date"
-                    required
-                    className="w-full rounded-lg border border-gray-300 p-2"
-                    value={newYearStart}
-                    onChange={(event) => setNewYearStart(event.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Ngày kết thúc</label>
-                  <input
-                    type="date"
-                    required
-                    className="w-full rounded-lg border border-gray-300 p-2"
-                    value={newYearEnd}
-                    onChange={(event) => setNewYearEnd(event.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsYearModalOpen(false)}
-                  className="rounded-lg bg-gray-100 px-4 py-2 font-medium text-gray-600 hover:bg-gray-200"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700"
-                >
-                  Tạo mới
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      </section>
     </div>
   );
 }

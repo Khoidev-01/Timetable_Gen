@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { API_URL } from '@/lib/api';
+import Select from '@/app/components/ui/Select';
 
 const DAY_LABELS: Record<number, string> = { 2: 'T2', 3: 'T3', 4: 'T4', 5: 'T5', 6: 'T6', 7: 'T7' };
 const DAYS = [2, 3, 4, 5, 6, 7];
@@ -145,15 +146,14 @@ export default function TeacherFeedbackPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-[var(--text-primary)]">Đăng ký lịch bận</h1>
-        <select
-          className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-sm font-medium text-[var(--text-primary)]"
+        <Select
+          className="w-full sm:w-64"
           value={selectedSemesterId}
-          onChange={e => setSelectedSemesterId(e.target.value)}
-        >
-          {years.map(y => y.semesters.map(s => (
-            <option key={s.id} value={s.id}>{y.name} · {s.name}</option>
-          )))}
-        </select>
+          onChange={setSelectedSemesterId}
+          placeholder="Chọn học kỳ"
+          aria-label="Học kỳ"
+          options={years.flatMap(y => y.semesters.map(s => ({ value: String(s.id), label: `${y.name} · ${s.name}` })))}
+        />
       </div>
 
       {/* Week Picker */}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Send } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import Select from '@/app/components/ui/Select';
 import PendingLeaveRequests from '../../components/admin/PendingLeaveRequests';
 
 type CoverageMode = 'SUBSTITUTE' | 'MERGED' | 'SELF_STUDY' | 'CANCELLED';
@@ -178,7 +179,7 @@ export default function AbsencePage() {
         </div>
         <p className="text-sm text-[var(--text-muted)]">
           Chọn giáo viên và ngày vắng, hệ thống tìm người dạy thay cho từng tiết. Thời khóa biểu gốc
-          không bị sửa — chỉ ngày đó thay đổi, hôm sau tự trở lại bình thường.
+          không bị sửa - chỉ ngày đó thay đổi, hôm sau tự trở lại bình thường.
         </p>
       </div>
 
@@ -199,26 +200,25 @@ export default function AbsencePage() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <label className="space-y-1 text-sm">
             <span className="text-[var(--text-muted)]">Học kỳ</span>
-            <select className={inputClass} value={semesterId} onChange={(e) => setSemesterId(e.target.value)}>
-              {years.flatMap((year) =>
-                (year.semesters ?? []).map((semester: any) => (
-                  <option key={semester.id} value={semester.id}>
-                    {year.name} — {semester.name}
-                  </option>
-                )),
+            <Select
+              value={semesterId}
+              onChange={setSemesterId}
+              placeholder="Chọn học kỳ"
+              options={years.flatMap((year) =>
+                (year.semesters ?? []).map((semester: any) => ({ value: String(semester.id), label: `${year.name} - ${semester.name}` })),
               )}
-            </select>
+            />
           </label>
 
           <label className="space-y-1 text-sm">
             <span className="text-[var(--text-muted)]">Giáo viên vắng</span>
-            <select className={inputClass} value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.code} — {teacher.full_name}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={teacherId}
+              onChange={setTeacherId}
+              placeholder="Chọn giáo viên"
+              searchPlaceholder="Tìm mã hoặc tên giáo viên..."
+              options={teachers.map((teacher) => ({ value: String(teacher.id), label: `${teacher.code} - ${teacher.full_name}` }))}
+            />
           </label>
 
           <label className="space-y-1 text-sm">
@@ -260,7 +260,7 @@ export default function AbsencePage() {
         <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6">
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <span className="font-bold text-[var(--text-primary)]">
-              {teacherName} — {periods.length} tiết cần phủ ngày {date}
+              {teacherName} - {periods.length} tiết cần phủ ngày {date}
             </span>
             <span className="flex items-center gap-1 text-sm text-emerald-600">
               <CheckCircle2 size={14} /> {covered}/{periods.length} có người dạy thay

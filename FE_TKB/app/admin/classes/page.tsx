@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { toast } from '@/lib/toast';
 import ClassModal from '../../components/admin/ClassModal';
 import { API_URL } from '@/lib/api';
+import Select from '@/app/components/ui/Select';
 import { TableSkeleton, EmptyState } from '../../components/ui/States';
 import { School, DoorOpen } from 'lucide-react';
 
@@ -49,12 +50,16 @@ function RoomFormDialog({ room, onClose, onSave }: {
           </div>
           <div>
             <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Loại phòng</label>
-            <select className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
-              value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as any }))}>
-              <option value="CLASSROOM">Phòng thường</option>
-              <option value="LAB">Phòng thí nghiệm</option>
-              <option value="SPECIALIZED">Phòng chuyên</option>
-            </select>
+            <Select
+              size="sm"
+              value={form.type}
+              onChange={value => setForm(f => ({ ...f, type: value as any }))}
+              options={[
+                { value: 'CLASSROOM', label: 'Phòng thường' },
+                { value: 'LAB', label: 'Phòng thí nghiệm' },
+                { value: 'SPECIALIZED', label: 'Phòng chuyên' },
+              ]}
+            />
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
@@ -108,7 +113,7 @@ export default function ClassesPage() {
 
   const handleDeleteAllClasses = async () => {
     if (!confirm(`Xóa TOÀN BỘ ${classes.length} lớp học cùng phân công và TKB liên quan?`)) return;
-    if (!confirm('Xác nhận lần cuối — không thể hoàn tác!')) return;
+    if (!confirm('Xác nhận lần cuối - không thể hoàn tác!')) return;
     const res = await fetch(`${API_URL}/organization/classes/all`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
     if (res.ok) fetchClasses(); else toast('Lỗi khi xóa', "error");
   };
@@ -150,7 +155,7 @@ export default function ClassesPage() {
 
   const handleDeleteAllRooms = async () => {
     if (!confirm(`Xóa TOÀN BỘ ${rooms.length} phòng học?`)) return;
-    if (!confirm('Xác nhận lần cuối — không thể hoàn tác!')) return;
+    if (!confirm('Xác nhận lần cuối - không thể hoàn tác!')) return;
     const res = await fetch(`${API_URL}/resources/rooms/all`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
     if (res.ok) fetchRooms(); else toast('Lỗi khi xóa', "error");
   };

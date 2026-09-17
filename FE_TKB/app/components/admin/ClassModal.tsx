@@ -2,6 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { API_URL } from '@/lib/api';
+import Select from '@/app/components/ui/Select';
 
 interface ClassModalProps {
     isOpen: boolean;
@@ -110,53 +111,53 @@ export default function ClassModal({ isOpen, onClose, onSave, initialData }: Cla
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Khối</label>
-                            <select className={inputCls}
-                                value={formData.grade_level}
-                                onChange={e => setFormData({ ...formData, grade_level: Number(e.target.value) })}
-                            >
-                                <option value={10}>Khối 10</option>
-                                <option value={11}>Khối 11</option>
-                                <option value={12}>Khối 12</option>
-                            </select>
+                            <Select
+                                size="sm"
+                                value={String(formData.grade_level)}
+                                onChange={value => setFormData({ ...formData, grade_level: Number(value) })}
+                                options={[10, 11, 12].map(grade => ({ value: String(grade), label: `Khối ${grade}` }))}
+                            />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Buổi học chính</label>
-                            <select className={inputCls}
-                                value={formData.main_session}
-                                onChange={e => setFormData({ ...formData, main_session: Number(e.target.value) })}
-                            >
-                                <option value={0}>Sáng</option>
-                                <option value={1}>Chiều</option>
-                            </select>
+                            <Select
+                                size="sm"
+                                value={String(formData.main_session)}
+                                onChange={value => setFormData({ ...formData, main_session: Number(value) })}
+                                options={[{ value: '0', label: 'Sáng' }, { value: '1', label: 'Chiều' }]}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Phòng cố định</label>
-                            <select className={inputCls}
-                                value={formData.fixed_room_id}
-                                onChange={e => setFormData({ ...formData, fixed_room_id: e.target.value })}
-                            >
-                                <option value="">Không có phòng cố định</option>
-                                {rooms.map(r => (
-                                    <option key={r.id} value={r.id}>{r.name}</option>
-                                ))}
-                            </select>
+                            <Select
+                                size="sm"
+                                value={formData.fixed_room_id ?? ''}
+                                onChange={fixed_room_id => setFormData({ ...formData, fixed_room_id })}
+                                searchPlaceholder="Tìm phòng..."
+                                options={[
+                                    { value: '', label: 'Không có phòng cố định' },
+                                    ...rooms.map(r => ({ value: String(r.id), label: r.name })),
+                                ]}
+                            />
                         </div>
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Giáo viên chủ nhiệm</label>
-                        <select className={inputCls}
-                            value={formData.homeroom_teacher_id}
-                            onChange={e => setFormData({ ...formData, homeroom_teacher_id: e.target.value })}
-                        >
-                            <option value="">Chọn giáo viên</option>
-                            {teachers.map(t => (
-                                <option key={t.id} value={t.id}>{t.full_name} ({t.code})</option>
-                            ))}
-                        </select>
+                        <Select
+                            size="sm"
+                            value={formData.homeroom_teacher_id ?? ''}
+                            onChange={homeroom_teacher_id => setFormData({ ...formData, homeroom_teacher_id })}
+                            placeholder="Chọn giáo viên"
+                            searchPlaceholder="Tìm tên hoặc mã giáo viên..."
+                            options={[
+                                { value: '', label: 'Chưa có GVCN' },
+                                ...teachers.map(t => ({ value: String(t.id), label: `${t.full_name} (${t.code})` })),
+                            ]}
+                        />
                     </div>
 
                     <div className="pt-4 flex justify-end gap-3 border-t border-[var(--border-default)] mt-4">
