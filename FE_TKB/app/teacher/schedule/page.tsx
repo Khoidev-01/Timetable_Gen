@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import TimetableGrid from '@/app/components/admin/TimetableGrid';
 import { API_URL } from '@/lib/api';
+import Select from '@/app/components/ui/Select';
 import { EmptyState } from '@/app/components/ui/States';
 import { CalendarDays } from 'lucide-react';
 
@@ -79,13 +80,14 @@ export default function TeacherSchedulePage() {
       <div className="flex flex-wrap items-center gap-3 bg-[var(--bg-surface)] p-4 rounded-[var(--radius-md)] border border-[var(--border-default)]">
         <h1 className="text-xl font-bold text-[var(--text-primary)] mr-2">Thời khóa biểu của tôi</h1>
 
-        <select
-          className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-sm text-[var(--text-primary)]"
+        <Select
+          className="w-full sm:w-60"
           value={selectedSemesterId}
-          onChange={e => setSelectedSemesterId(e.target.value)}
-        >
-          {semesters.map(s => <option key={s.id} value={s.id}>{s.yearName} · {s.name}</option>)}
-        </select>
+          onChange={setSelectedSemesterId}
+          placeholder="Chọn học kỳ"
+          aria-label="Học kỳ"
+          options={semesters.map(s => ({ value: String(s.id), label: `${s.yearName} · ${s.name}` }))}
+        />
 
         {/* Week Picker */}
         <div className="flex items-center gap-2 border-l border-[var(--border-default)] pl-3 ml-1">

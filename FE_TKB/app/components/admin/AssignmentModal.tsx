@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { API_URL } from '@/lib/api';
+import Select from '@/app/components/ui/Select';
 
 interface AssignmentModalProps {
   isOpen: boolean;
@@ -106,54 +107,42 @@ export default function AssignmentModal({
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <div>
             <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Giáo viên</label>
-            <select
-              className="w-full rounded-lg border px-3 py-2"
+            <Select
+              size="sm"
               required
               value={formData.teacher_id}
-              onChange={(event) => setFormData({ ...formData, teacher_id: event.target.value })}
-            >
-              <option value="">-- Chọn giáo viên --</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.full_name} ({teacher.code})
-                </option>
-              ))}
-            </select>
+              onChange={(teacher_id) => setFormData({ ...formData, teacher_id })}
+              placeholder="Chọn giáo viên"
+              searchPlaceholder="Tìm tên hoặc mã giáo viên..."
+              options={teachers.map((teacher) => ({ value: String(teacher.id), label: `${teacher.full_name} (${teacher.code})` }))}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Lớp</label>
-              <select
-                className="w-full rounded-lg border px-3 py-2"
+              <Select
+                size="sm"
                 required
                 value={formData.class_id}
-                onChange={(event) => setFormData({ ...formData, class_id: event.target.value })}
-              >
-                <option value="">-- Chọn lớp --</option>
-                {classes.map((currentClass) => (
-                  <option key={currentClass.id} value={currentClass.id}>
-                    {currentClass.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(class_id) => setFormData({ ...formData, class_id })}
+                placeholder="Chọn lớp"
+                searchPlaceholder="Tìm lớp..."
+                options={classes.map((currentClass) => ({ value: String(currentClass.id), label: currentClass.name }))}
+              />
             </div>
 
             <div>
               <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Môn học</label>
-              <select
-                className="w-full rounded-lg border px-3 py-2"
+              <Select
+                size="sm"
                 required
                 value={formData.subject_id}
-                onChange={(event) => setFormData({ ...formData, subject_id: event.target.value })}
-              >
-                <option value="">-- Chọn môn --</option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name} ({subject.code})
-                  </option>
-                ))}
-              </select>
+                onChange={(subject_id) => setFormData({ ...formData, subject_id })}
+                placeholder="Chọn môn"
+                searchPlaceholder="Tìm tên hoặc mã môn..."
+                options={subjects.map((subject) => ({ value: String(subject.id), label: `${subject.name} (${subject.code})` }))}
+              />
             </div>
           </div>
 

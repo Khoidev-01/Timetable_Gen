@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeftRight } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import Select from '@/app/components/ui/Select';
 import SwapRequestPanel from '../../components/SwapRequestPanel';
 
 interface SemesterOption {
@@ -54,17 +55,14 @@ export default function AdminSwapsPage() {
         </div>
 
         {semesters.length > 0 && (
-          <select
+          <Select
+            className="w-full sm:w-64"
             value={semesterId}
-            onChange={(e) => setSemesterId(e.target.value)}
-            className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
-          >
-            {semesters.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.yearName} — {option.name}
-              </option>
-            ))}
-          </select>
+            onChange={setSemesterId}
+            placeholder="Chọn học kỳ"
+            aria-label="Học kỳ"
+            options={semesters.map((option) => ({ value: String(option.id), label: `${option.yearName} - ${option.name}` }))}
+          />
         )}
       </div>
 

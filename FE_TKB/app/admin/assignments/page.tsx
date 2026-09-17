@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '@/lib/toast';
 import AssignmentModal from '../../components/admin/AssignmentModal';
 import { API_URL } from '@/lib/api';
 import { TableSkeleton, EmptyState } from '../../components/ui/States';
 import { ClipboardList } from 'lucide-react';
+import Select, { type SelectOption } from '@/app/components/ui/Select';
 
 interface Semester {
   id: string;
@@ -47,6 +48,29 @@ interface ImportResult {
   isError: boolean;
 }
 
+type Grade = '10' | '11' | '12';
+
+const GRADES: Grade[] = ['10', '11', '12'];
+
+function getAssignmentGrade(assignment: Assignment): Grade | null {
+  const match = assignment.class?.name?.trim().match(/^(10|11|12)/);
+  return match?.[1] as Grade | null;
+}
+
+function LabeledSelect({ label, value, options, onChange }: {
+  label: string;
+  value: string;
+  options: SelectOption[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="whitespace-nowrap text-sm font-medium text-[var(--text-secondary)]">{label}:</span>
+      <Select className="w-40" value={value} options={options} onChange={onChange} aria-label={label} placeholder="Chọn" />
+    </div>
+  );
+}
+
 function getFileNameFromDisposition(disposition: string | null, fallback: string) {
   if (!disposition) return fallback;
 
@@ -76,6 +100,8 @@ export default function AssignmentsPage() {
   const [newYearStart, setNewYearStart] = useState('');
   const [newYearEnd, setNewYearEnd] = useState('');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [selectedGrade, setSelectedGrade] = useState<Grade>('10');
+  const [selectedClass, setSelectedClass] = useState('ALL');
 
   // Auto-assign state
   const [isAutoAssignOpen, setIsAutoAssignOpen] = useState(false);
@@ -397,7 +423,7 @@ export default function AssignmentsPage() {
     if (!selectedSemesterId) return;
     if (isDirty) { toast('Vui lòng lưu hoặc hủy thay đổi trước khi xóa toàn bộ.', "error"); return; }
     if (!confirm(`Xóa TOÀN BỘ ${assignments.length} phân công của học kỳ này? Hành động này không thể hoàn tác.`)) return;
-    if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
+    if (!confirm('Xác nhận lần cuối - bạn chắc chắn muốn xóa hết?')) return;
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/assignments/all?semester_id=${encodeURIComponent(selectedSemesterId)}`, {
@@ -479,6 +505,35 @@ export default function AssignmentsPage() {
   const activeYear = years.find((item) => item.id === selectedYearId);
   const semesterOptions = activeYear?.semesters || [];
   const currentSemester = semesterOptions.find((item) => item.id === selectedSemesterId);
+  const assignmentCountsByGrade = useMemo(() => {
+    const counts: Record<Grade, number> = { '10': 0, '11': 0, '12': 0 };
+    assignments.forEach((assignment) => {
+      const grade = getAssignmentGrade(assignment);
+      if (grade) counts[grade] += 1;
+    });
+    return counts;
+  }, [assignments]);
+  const gradeAssignments = useMemo(
+    () => assignments.filter((assignment) => getAssignmentGrade(assignment) === selectedGrade),
+    [assignments, selectedGrade],
+  );
+  const classOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    gradeAssignments.forEach((assignment) => {
+      const className = assignment.class?.name?.trim();
+      if (className) counts.set(className, (counts.get(className) ?? 0) + 1);
+    });
+    return [...counts.entries()].sort(([first], [second]) => first.localeCompare(second, 'vi', { numeric: true }));
+  }, [gradeAssignments]);
+  const effectiveSelectedClass = selectedClass === 'ALL' || classOptions.some(([className]) => className === selectedClass)
+    ? selectedClass
+    : 'ALL';
+  const visibleAssignments = useMemo(
+    () => effectiveSelectedClass === 'ALL'
+      ? gradeAssignments
+      : gradeAssignments.filter((assignment) => assignment.class?.name?.trim() === effectiveSelectedClass),
+    [effectiveSelectedClass, gradeAssignments],
+  );
 
   return (
     <div className="space-y-6 pb-20">
@@ -493,38 +548,22 @@ export default function AssignmentsPage() {
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <h1 className="text-2xl font-bold text-[var(--text-primary)]">Phân công chuyên môn</h1>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <label className="text-sm font-medium text-[var(--text-secondary)]">Năm học:</label>
-            <select
-              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent)]"
-              value={selectedYearId}
-              onChange={(event) => {
-                const nextYear = years.find((item) => item.id === event.target.value);
-                setSelectedYearId(event.target.value);
-                setSelectedSemesterId(nextYear?.semesters[0]?.id ?? '');
-              }}
-            >
-              {years.map((year) => (
-                <option key={year.id} value={year.id}>
-                  {year.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <label className="text-sm font-medium text-[var(--text-secondary)]">Học kỳ:</label>
-            <select
-              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 font-medium text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent)]"
-              value={selectedSemesterId}
-              onChange={(event) => setSelectedSemesterId(event.target.value)}
-            >
-              {semesterOptions.map((semester) => (
-                <option key={semester.id} value={semester.id}>
-                  {semester.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <LabeledSelect
+            label="Năm học"
+            value={selectedYearId}
+            options={years.map((year) => ({ value: year.id, label: year.name }))}
+            onChange={(yearId) => {
+              const nextYear = years.find((item) => item.id === yearId);
+              setSelectedYearId(yearId);
+              setSelectedSemesterId(nextYear?.semesters[0]?.id ?? '');
+            }}
+          />
+          <LabeledSelect
+            label="Học kỳ"
+            value={selectedSemesterId}
+            options={semesterOptions.map((semester) => ({ value: semester.id, label: semester.name }))}
+            onChange={setSelectedSemesterId}
+          />
           <button
             onClick={() => setIsYearModalOpen(true)}
             className="flex items-center gap-1 rounded-lg bg-[var(--accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors"
@@ -536,14 +575,16 @@ export default function AssignmentsPage() {
       </div>
 
       <div className="flex flex-col gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="text-sm text-[var(--text-secondary)]">
-          Đang xem:
-          <span className="ml-2 font-semibold text-[var(--text-primary)]">
-            {activeYear?.name} {currentSemester ? `- ${currentSemester.name}` : ''}
-          </span>
-          {isDirty && (
-            <span className="ml-3 font-semibold text-amber-600">(Có thay đổi chưa lưu)</span>
-          )}
+        <div className="flex flex-col gap-1 text-sm">
+          <span className="text-[var(--text-muted)]">Đang xem</span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <strong className="font-semibold text-[var(--text-primary)]">
+              {activeYear?.name} {currentSemester ? `- ${currentSemester.name}` : ''}
+            </strong>
+            {isDirty && (
+              <span className="font-semibold text-amber-600">(Có thay đổi chưa lưu)</span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -592,6 +633,65 @@ export default function AssignmentsPage() {
       </div>
 
       <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-sm">
+        <div className="space-y-3 border-b border-[var(--border-default)] px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex rounded-lg bg-[var(--bg-surface-hover)] p-1" role="tablist" aria-label="Lọc phân công theo khối">
+              {GRADES.map((grade) => {
+                const isSelected = selectedGrade === grade;
+                return (
+                  <button
+                    key={grade}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      setSelectedGrade(grade);
+                      setSelectedClass('ALL');
+                    }}
+                    className={`min-h-11 rounded-md px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${isSelected ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]'}`}
+                  >
+                    Khối {grade}
+                    <span className={`ml-2 rounded-full px-2 py-0.5 text-xs tabular-nums ${isSelected ? 'bg-white/20 text-white' : 'bg-[var(--bg-surface)] text-[var(--text-muted)]'}`}>
+                      {assignmentCountsByGrade[grade]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-sm text-[var(--text-muted)]">
+              {visibleAssignments.length} phân công {effectiveSelectedClass === 'ALL' ? `thuộc khối ${selectedGrade}` : `của lớp ${effectiveSelectedClass}`}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 border-t border-[var(--border-light)] pt-3">
+            <span className="shrink-0 text-sm font-semibold text-[var(--text-primary)]">Lớp</span>
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label={`Lọc lớp thuộc khối ${selectedGrade}`}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={effectiveSelectedClass === 'ALL'}
+                onClick={() => setSelectedClass('ALL')}
+                className={`min-h-9 rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${effectiveSelectedClass === 'ALL' ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)]'}`}
+              >
+                Tất cả lớp
+              </button>
+              {classOptions.map(([className, count]) => {
+                const isSelected = effectiveSelectedClass === className;
+                return (
+                  <button
+                    key={className}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    onClick={() => setSelectedClass(className)}
+                    className={`min-h-9 rounded-md border px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${isSelected ? 'border-[var(--accent)] bg-[var(--accent)] text-white' : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)]'}`}
+                  >
+                    {className}<span className="ml-1.5 text-xs opacity-75">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
         <table className="w-full border-collapse text-left">
           <thead className="border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] font-semibold text-[var(--text-primary)]">
             <tr>
@@ -611,8 +711,14 @@ export default function AssignmentsPage() {
                   <EmptyState icon={<ClipboardList size={22} strokeWidth={1.8} />} title="Chưa có phân công nào" hint="Nhập phân công thủ công hoặc tải file Excel tổng năm học lên." />
                 </td>
               </tr>
+            ) : visibleAssignments.length === 0 ? (
+              <tr>
+                <td colSpan={5}>
+                  <EmptyState icon={<ClipboardList size={22} strokeWidth={1.8} />} title={`Khối ${selectedGrade} chưa có phân công`} hint="Chọn khối khác hoặc thêm phân công mới cho khối này." />
+                </td>
+              </tr>
             ) : (
-              assignments.map((assignment) => (
+              visibleAssignments.map((assignment) => (
                 <tr
                   key={assignment.id}
                   className={

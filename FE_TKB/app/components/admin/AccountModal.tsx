@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from '@/lib/toast';
 import { API_URL } from '@/lib/api';
+import Select from '@/app/components/ui/Select';
 
 interface AccountModalProps {
     isOpen: boolean;
@@ -91,14 +92,15 @@ export default function AccountModal({ isOpen, onClose, onSave, initialData }: A
 
                     <div>
                         <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Vai trò</label>
-                        <select
-                            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
+                        <Select
+                            size="sm"
                             value={formData.role}
-                            onChange={e => setFormData({ ...formData, role: e.target.value })}
-                        >
-                            <option value="TEACHER">Giáo viên</option>
-                            <option value="ADMIN">Quản trị viên (Admin)</option>
-                        </select>
+                            onChange={role => setFormData({ ...formData, role })}
+                            options={[
+                                { value: 'TEACHER', label: 'Giáo viên' },
+                                { value: 'ADMIN', label: 'Quản trị viên (Admin)' },
+                            ]}
+                        />
                     </div>
 
                     {formData.role === 'TEACHER' && (
@@ -162,17 +164,16 @@ function TeacherSelect({ value, onChange }: { value: string, onChange: (val: str
     if (loading) return <div className="text-sm text-[var(--text-muted)]">Đang tải danh sách giáo viên...</div>;
 
     return (
-        <select
-            className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 outline-none transition-all"
+        <Select
+            size="sm"
             value={value}
-            onChange={e => onChange(e.target.value)}
-        >
-            <option value="">-- Chọn giáo viên --</option>
-            {teachers.map(t => (
-                <option key={t.id} value={t.id}>
-                    {t.full_name} ({t.code})
-                </option>
-            ))}
-        </select>
+            onChange={onChange}
+            placeholder="Chọn giáo viên"
+            searchPlaceholder="Tìm tên hoặc mã giáo viên..."
+            options={[
+                { value: '', label: 'Chưa liên kết giáo viên' },
+                ...teachers.map(t => ({ value: String(t.id), label: `${t.full_name} (${t.code})` })),
+            ]}
+        />
     );
 }
