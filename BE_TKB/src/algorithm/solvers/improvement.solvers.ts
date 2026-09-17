@@ -6,7 +6,6 @@ import {
   SolverBudget,
   SolverOutcome,
   makeTracer,
-  restorePlacement,
   snapshotPlacement,
 } from './solver.interface';
 
@@ -113,9 +112,15 @@ export class SimulatedAnnealingSolver implements ImprovementSolver {
   readonly description =
     'Chấp nhận nước đi xấu theo xác suất giảm dần theo nhiệt độ, nhờ đó thoát khỏi cực trị địa phương.';
 
+  /**
+   * Nhiệt độ tính theo đơn vị điểm phạt. Bản cũ để 120 xuống 0,5 — trong khi một lỗi mềm
+   * đắt nhất chỉ 20 điểm, nên gần như suốt cả lần chạy nó nhận MỌI nước đi xấu và chỉ
+   * thật sự tìm kiếm ở vài phần trăm cuối. Dùng lại khoảng đã đo cho bản chính: quét 24,
+   * 12, 2,5 và 1 thì vùng 1,5–3 tốt nhất.
+   */
   constructor(
-    private readonly startTemperature = 120,
-    private readonly endTemperature = 0.5,
+    private readonly startTemperature = 2.5,
+    private readonly endTemperature = 0.15,
   ) {}
 
   improve(slots: TimeSlot[], ops: MoveOperations, budget: SolverBudget): SolverOutcome {
@@ -158,7 +163,7 @@ export class SimulatedAnnealingSolver implements ImprovementSolver {
     }
 
     // Hand back the best schedule seen, not wherever the cooling walk finished
-    restorePlacement(slots, bestPlacement);
+    ops.restore(slots, bestPlacement);
 
     tracer.record(iteration, best, true);
     return { score: best, iterations: iteration, improvements, trace: tracer.trace };
@@ -233,7 +238,7 @@ export class TabuSearchSolver implements ImprovementSolver {
 
       // Commit the winner even when it scores lower than where we started - that
       // downhill step is the escape, and the tabu memory stops us walking straight back
-      restorePlacement(slots, chosenPlacement);
+      ops.restore(slots, chosenPlacement);
       tabu.set(chosenKey, iteration + this.tenure);
 
       if (chosenScore > best) {
@@ -246,8 +251,62 @@ export class TabuSearchSolver implements ImprovementSolver {
     }
 
     // The walk deliberately goes downhill, so the schedule it ends on is not the answer
-    restorePlacement(slots, bestPlacement);
+    ops.restore(slots, bestPlacement);
 
+    tracer.record(iteration, best, true);
+    return { score: best, iterations: iteration, improvements, trace: tracer.trace };
+  }
+}
+
+/**
+ * Late Acceptance Hill Climbing (Burke & Bykov): nhận một nước đi nếu nó không tệ hơn điểm
+ * đang có, HOẶC không tệ hơn điểm của đúng L bước trước.
+ *
+ * Không có thang nhiệt độ nào để chỉnh — chỉ một độ dài bộ nhớ — và được báo cáo là mạnh
+ * hơn luyện kim trên các bài toán xếp lịch lớn.
+ */
+export class LateAcceptanceSolver implements ImprovementSolver {
+  readonly key = 'LATE_ACCEPTANCE';
+  readonly label = 'Late Acceptance';
+  readonly description =
+    'Nhận nước đi nếu không tệ hơn điểm của L bước trước. Không cần chỉnh nhiệt độ như luyện kim.';
+
+  constructor(private readonly length = 2000) {}
+
+  improve(slots: TimeSlot[], ops: MoveOperations, budget: SolverBudget): SolverOutcome {
+    let current = ops.fitness(slots);
+    let best = current;
+    let bestPlacement: Placement = snapshotPlacement(slots);
+    let improvements = 0;
+    let iteration = 0;
+
+    const memory = new Array<number>(this.length).fill(current);
+    const tracer = makeTracer(budget);
+    tracer.record(0, best, true);
+
+    for (; iteration < budget.iterations; iteration++) {
+      const move = ops.randomMove(slots);
+      if (move) {
+        const candidate = ops.fitness(slots);
+        const slot = iteration % this.length;
+
+        if (candidate >= current || candidate >= memory[slot]) {
+          current = candidate;
+          if (current > best) {
+            best = current;
+            bestPlacement = snapshotPlacement(slots);
+            improvements++;
+          }
+        } else {
+          move.undo();
+        }
+      }
+
+      memory[iteration % this.length] = current;
+      tracer.record(iteration, best);
+    }
+
+    ops.restore(slots, bestPlacement);
     tracer.record(iteration, best, true);
     return { score: best, iterations: iteration, improvements, trace: tracer.trace };
   }
@@ -259,6 +318,7 @@ export const IMPROVEMENT_SOLVERS: ImprovementSolver[] = [
   new LocalSearchSolver(),
   new SimulatedAnnealingSolver(),
   new TabuSearchSolver(),
+  new LateAcceptanceSolver(),
 ];
 
 export function solverByKey(key: string): ImprovementSolver | undefined {

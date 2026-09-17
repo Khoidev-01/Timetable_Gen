@@ -5,6 +5,8 @@ import { AlgorithmGateway } from './algorithm.gateway';
 import { ChangeLogService } from './change-log.service';
 import { ConstraintService, TimeSlot } from './constraint.service';
 import { ConstraintSettingsService } from '../constraints/constraint-settings.service';
+import { GridIndex } from './grid-index';
+import { HotspotSampler } from './hotspot-sampler';
 
 function slot(partial: Partial<TimeSlot>): TimeSlot {
   return {
@@ -113,7 +115,152 @@ describe('AlgorithmService', () => {
       expect(large).toBeGreaterThan(small);
       // Trường bé không phải chờ như trường lớn, trường lớn không bị cắt ngắn quá tay
       expect(small).toBeGreaterThanOrEqual(30_000);
-      expect(large).toBeLessThanOrEqual(1_200_000);
+      expect(large).toBeLessThanOrEqual(700_000);
+    });
+  });
+
+  describe('nước đi chuỗi Kempe', () => {
+    /**
+     * Một lịch không trùng giờ nào: 6 lớp, 8 giáo viên, mỗi lớp 20 tiết rải trên buổi sáng.
+     * Dựng bằng cách thử ngẫu nhiên từng ô và bỏ ô đã có lớp hoặc giáo viên.
+     */
+    function clashFreeSchedule(seed: number): TimeSlot[] {
+      let state = seed;
+      const random = () => {
+        state = (state * 1103515245 + 12345) % 2147483648;
+        return state / 2147483648;
+      };
+
+      const slots: TimeSlot[] = [];
+      const taken = new Set<string>();
+      for (let c = 0; c < 6; c++) {
+        let placed = 0;
+        while (placed < 20) {
+          const teacherId = `T${(random() * 8) | 0}`;
+          const day = 2 + ((random() * 6) | 0);
+          const period = 1 + ((random() * 5) | 0);
+          if (day === 2 && period === 1) continue;
+          const classKey = `C${c}|${day}|${period}`;
+          const teacherKey = `${teacherId}|${day}|${period}`;
+          if (taken.has(classKey) || taken.has(teacherKey)) continue;
+          taken.add(classKey);
+          taken.add(teacherKey);
+          slots.push(slot({ classId: `C${c}`, teacherId, subjectId: 1, day, period }));
+          placed++;
+        }
+      }
+      return slots;
+    }
+
+    function clashes(slots: TimeSlot[]): number {
+      const seen = new Set<string>();
+      let count = 0;
+      for (const s of slots) {
+        for (const key of [`c${s.classId}|${s.day}|${s.period}`, `t${s.teacherId}|${s.day}|${s.period}`]) {
+          if (seen.has(key)) count++;
+          seen.add(key);
+        }
+      }
+      return count;
+    }
+
+    function groupBy(slots: TimeSlot[], key: (s: TimeSlot) => string) {
+      const groups = new Map<string, TimeSlot[]>();
+      for (const s of slots) {
+        const k = key(s);
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k)!.push(s);
+      }
+      return groups;
+    }
+
+    /**
+     * Đổi cả một nhóm tiết giữa hai ô là chỗ dễ sai nhất trong mọi nước đi: sót một tiết của
+     * chuỗi là hai lớp cùng giờ, và vòng tìm kiếm chỉ bắt được nếu bộ chấm lỗi cứng bắt được.
+     * Nên thử hàng nghìn lần trên lịch ngẫu nhiên, không tin vào một ví dụ dựng tay.
+     */
+    it('không bao giờ tạo ra trùng giờ, và hoàn tác trả lịch về đúng từng ô', () => {
+      let applied = 0;
+      let multiLesson = 0;
+
+      for (let seed = 1; seed <= 20; seed++) {
+        const slots = clashFreeSchedule(seed);
+        expect(clashes(slots)).toBe(0);
+
+        const index = new GridIndex(slots, () => null);
+        const byClass = groupBy(slots, (s) => s.classId);
+        const byTeacher = groupBy(slots, (s) => s.teacherId);
+        const sampler = new HotspotSampler((service as any).constraintService, slots, slots, 0);
+
+        for (let attempt = 0; attempt < 300; attempt++) {
+          const before = slots.map((s) => `${s.day}|${s.period}`).join(',');
+          const undo = (service as any).indexedKempeMove(index, byClass, byTeacher, sampler);
+          if (!undo) continue;
+
+          applied++;
+          const moved = slots.filter((s, i) => `${s.day}|${s.period}` !== before.split(',')[i]).length;
+          if (moved > 1) multiLesson++;
+
+          expect(clashes(slots)).toBe(0);
+
+          // Nửa số lần giữ nước đi để lịch trôi đi xa, nửa còn lại hoàn tác và so từng ô
+          if (attempt % 2 === 0) {
+            undo();
+            expect(slots.map((s) => `${s.day}|${s.period}`).join(',')).toBe(before);
+          }
+        }
+      }
+
+      // Phép thử phải thật sự chạy qua những chuỗi nhiều tiết, không chỉ những lần dời một tiết
+      expect(applied).toBeGreaterThan(500);
+      expect(multiLesson).toBeGreaterThan(100);
+    });
+
+    /**
+     * Phòng thí nghiệm: một bộ giải quay về bản đã chụp rồi đi tiếp. Nếu việc quay về chỉ ghi
+     * đè ngày/tiết mà không báo cho chỉ mục lưới, mọi nước đi sau đó được kiểm hợp lệ trên
+     * một lưới không còn tồn tại — Tabu Search làm vậy ở MỖI bước và ra điểm tệ hơn cả không
+     * tối ưu gì.
+     */
+    it('quay về bản đã chụp rồi đi tiếp vẫn không tạo ra trùng giờ', () => {
+      for (let seed = 1; seed <= 10; seed++) {
+        const slots = clashFreeSchedule(seed);
+        const ops = service.moveOperations();
+        const snapshots: Array<Array<{ day: number; period: number }>> = [];
+
+        for (let step = 0; step < 3000; step++) {
+          ops.randomMove(slots);
+          expect(clashes(slots)).toBe(0);
+
+          if (step % 50 === 0) snapshots.push(slots.map((s) => ({ day: s.day, period: s.period })));
+          if (step % 97 === 0 && snapshots.length > 1) {
+            ops.restore(slots, snapshots[(step / 97) % snapshots.length | 0]);
+          }
+        }
+      }
+    });
+
+    it('chuỗi chạm vào tiết bị khoá thì không đi', () => {
+      const locked = slot({ classId: 'C1', teacherId: 'T2', day: 3, period: 2, isLocked: true });
+      const seed = slot({ classId: 'C1', teacherId: 'T1', day: 3, period: 1 });
+      const slots = [seed, locked];
+
+      const index = new GridIndex(slots, () => null);
+      const movable = [seed];
+      const byClass = groupBy(movable, (s) => s.classId);
+      const byTeacher = groupBy(movable, (s) => s.teacherId);
+      const sampler = new HotspotSampler((service as any).constraintService, slots, movable, 0);
+
+      const realRandom = Math.random;
+      // Bốc đúng ô đích là ô của tiết khoá: thứ 3, tiết 2
+      const draws = [0 /* sampler */, 1 / 6 + 0.01 /* ngày 3 */, 1 / 5 + 0.01 /* tiết 2 */];
+      Math.random = () => draws.shift() ?? realRandom();
+      try {
+        expect((service as any).indexedKempeMove(index, byClass, byTeacher, sampler)).toBeNull();
+      } finally {
+        Math.random = realRandom;
+      }
+      expect(seed.period).toBe(1);
     });
   });
 

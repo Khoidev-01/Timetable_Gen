@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { AlgorithmService } from './algorithm.service';
 import { ConstraintService, TimeSlot } from './constraint.service';
 import { IMPROVEMENT_SOLVERS, solverByKey } from './solvers/improvement.solvers';
-import { SolverBudget } from './solvers/solver.interface';
+import { ImprovementSolver, SolverBudget, makeTracer } from './solvers/solver.interface';
 
 export interface BenchmarkOptions {
   semesterId: string;
@@ -40,7 +40,7 @@ export interface BenchmarkReport {
 const MAX_RUNS = 30;
 // Ban chinh chay 600.000 nuoc di. Chan phong thi o 40.000 thi no khong bao gio so duoc voi
 // cai dang chay that — va ket qua no dua ra se bi doc nham thanh "kha nang cua thuat toan".
-const MAX_ITERATIONS = 1_000_000;
+const MAX_ITERATIONS = 2_400_000;
 
 /**
  * Runs several improvement strategies over the same problem so their quality can be
@@ -60,8 +60,42 @@ export class BenchmarkService {
     private readonly constraints: ConstraintService,
   ) {}
 
+  /**
+   * Thuật toán của hệ thống, đứng cạnh các thuật toán kinh điển.
+   *
+   * Nó gọi thẳng vòng tìm kiếm của bản chính, nên con số ở đây là con số của thứ đang
+   * xếp thời khoá biểu thật — không phải của một bản mô phỏng lại.
+   */
+  private productionSolver(): ImprovementSolver {
+    const algorithm = this.algorithm;
+    return {
+      key: 'SYSTEM_HYBRID',
+      label: 'Hybrid của hệ thống',
+      description:
+        'Luyện kim kết hợp nước đi chuỗi Kempe, bốc nước đi vào đúng chỗ đang lỗi, và không bao giờ đổi lỗi cứng lấy điểm mềm. Đây là thuật toán đang xếp thời khóa biểu thật.',
+      async improve(slots, ops, budget) {
+        const tracer = makeTracer(budget);
+        const start = ops.fitness(slots);
+        tracer.record(0, start, true);
+
+        let improvements = 0;
+        const score = await algorithm.runProductionSearch(slots, budget.iterations, (iteration, best) => {
+          improvements++;
+          tracer.record(iteration, best);
+        });
+
+        tracer.record(budget.iterations, score, true);
+        return { score, iterations: budget.iterations, improvements, trace: tracer.trace };
+      },
+    };
+  }
+
+  private allSolvers(): ImprovementSolver[] {
+    return [...IMPROVEMENT_SOLVERS, this.productionSolver()];
+  }
+
   listSolvers() {
-    return IMPROVEMENT_SOLVERS.map((solver) => ({
+    return this.allSolvers().map((solver) => ({
       key: solver.key,
       label: solver.label,
       description: solver.description,
@@ -72,12 +106,13 @@ export class BenchmarkService {
     const runs = Math.min(Math.max(options.runs ?? 10, 1), MAX_RUNS);
     const iterations = Math.min(Math.max(options.iterations ?? 8000, 100), MAX_ITERATIONS);
 
+    const available = this.allSolvers();
     const keys = options.solverKeys?.length
       ? options.solverKeys
-      : IMPROVEMENT_SOLVERS.map((s) => s.key);
+      : available.map((s) => s.key);
 
     const solvers = keys.map((key) => {
-      const solver = solverByKey(key);
+      const solver = available.find((s) => s.key === key) ?? solverByKey(key);
       if (!solver) throw new BadRequestException(`Không có thuật toán với mã "${key}".`);
       return solver;
     });
@@ -108,7 +143,7 @@ export class BenchmarkService {
         const slots = await this.algorithm.buildConstruction(data);
 
         const startedAt = Date.now();
-        const outcome = solver.improve(slots, ops, budget);
+        const outcome = await solver.improve(slots, ops, budget);
         durations.push(Date.now() - startedAt);
 
         const hard = this.constraints.checkHardConstraints(slots);

@@ -14,6 +14,71 @@ import { ChangeAction } from '@prisma/client';
 /** Progress frames are throttled: the search runs thousands of moves a second. */
 const BROADCAST_INTERVAL_MS = 250;
 
+/**
+ * Chiến lược cho vòng tìm kiếm chính.
+ *
+ * Ba thành phần lấy từ các bộ giải mạnh nhất cho bài toán xếp thời khoá biểu trong tài liệu:
+ *
+ *   - Nước đi chuỗi Kempe (Thompson & Dowsland 1998): đổi chỗ trọn một nhóm tiết giữa hai
+ *     ô sao cho không lớp nào, không giáo viên nào bị trùng giờ.
+ *   - Luyện kim có hâm nóng lại, kết hợp tìm kiếm cục bộ lặp (GOAL — giải nhất ITC2011).
+ *   - Chấp nhận muộn (Burke & Bykov): nhận nước đi nếu không tệ hơn điểm của L bước trước.
+ */
+export interface SearchStrategy {
+    /** Phần nước đi dùng chuỗi Kempe. 0 là tắt. */
+    kempeShare: number;
+    /** Số vòng không tìm ra bản tốt hơn thì hâm nóng lại. 0 là tắt. */
+    reheatAfter: number;
+    /** Hâm nóng lại lên bao nhiêu lần nhiệt độ ban đầu. */
+    reheatLevel: number;
+    /** Hâm nóng lại thì quay về bản tốt nhất trước (tìm kiếm cục bộ lặp) hay đi tiếp từ chỗ đang đứng. */
+    restartFromBest: boolean;
+    /** Luật nhận nước đi. */
+    acceptance: 'ANNEALING' | 'LATE_ACCEPTANCE';
+    /** Độ dài bộ nhớ của luật chấp nhận muộn. */
+    lateAcceptanceLength: number;
+}
+
+/** Đúng hành vi trước khi có các thành phần mới — giữ lại để các phép đo có mốc so. */
+export const BASELINE_STRATEGY: SearchStrategy = {
+    kempeShare: 0,
+    reheatAfter: 0,
+    reheatLevel: 0,
+    restartFromBest: false,
+    acceptance: 'ANNEALING',
+    lateAcceptanceLength: 0,
+};
+
+/**
+ * Chiến lược bản chính dùng: luyện kim, cộng 10% nước đi chuỗi Kempe.
+ *
+ * Chọn bằng đo, không phải vì tài liệu nói hay. Sàng lọc ở 600.000 nước đi, 4 lần mỗi
+ * chiến lược (điểm giữa):
+ *
+ *   mốc (luyện kim + bốc vào chỗ lỗi)     -4169
+ *   + chuỗi Kempe 10%                      -2806   thắng 100% cặp
+ *   + chuỗi Kempe 25%                      -2650   thắng 100%, nhưng chậm gấp đôi
+ *   + hâm nóng lại                         -4170   không hơn gì
+ *   + hâm nóng lại, quay về bản tốt nhất   -4012   hơn chút ít
+ *   chấp nhận muộn, bộ nhớ 2.000           -6494   thua hẳn
+ *   chấp nhận muộn, bộ nhớ 10.000          -6303   thua hẳn
+ *   Kempe 10% + hâm nóng + quay về         -2986   KÉM hơn Kempe một mình
+ *
+ * Nước đi Kempe đắt hơn nhiều lần nước đi thường, nên phép so quyết định là CÙNG THỜI
+ * GIAN, 4 lần mỗi bên, cùng máy, cùng lúc:
+ *
+ *   mốc, 1.200.000 nước đi        -3764   141 giây
+ *   Kempe 10%, 700.000            -2801   141 giây   thắng 16/16 cặp
+ *   Kempe 25%, 400.000            -2814   230 giây
+ *   Kempe 50%, 220.000            -2765   380 giây
+ *
+ * Tỉ lệ cao hơn gần như không mua thêm chất lượng mà tốn gấp mấy lần thời gian.
+ */
+export const PRODUCTION_STRATEGY: SearchStrategy = {
+    ...BASELINE_STRATEGY,
+    kempeShare: 0.1,
+};
+
 @Injectable()
 export class AlgorithmService {
     private readonly logger = new Logger(AlgorithmService.name);
@@ -266,6 +331,20 @@ export class AlgorithmService {
         const codeOf = new Map(subjects.map(subject => [subject.id, subject.code]));
 
         return locked.filter(slot => !ruleSubjects.has(codeOf.get(slot.subject_id) ?? ''));
+    }
+
+    /**
+     * Chạy đúng vòng tìm kiếm của bản chính trên một lịch có sẵn — để phòng thí nghiệm so
+     * nó với các thuật toán khác bằng chính mã đang chạy thật, không phải một bản chép lại.
+     */
+    public async runProductionSearch(
+        slots: TimeSlot[],
+        iterations: number,
+        onBest?: (iteration: number, score: number) => void,
+    ): Promise<number> {
+        const solution: any = { slots };
+        await this.phase3_LocalSearch(solution, null, () => undefined, iterations, onBest);
+        return solution.fitness_score;
     }
 
     /** Load everything a benchmark run needs, warming the constraint cache too. */
@@ -1172,18 +1251,23 @@ export class AlgorithmService {
     private hotspotShare = 0.75;
 
     /**
+     * Các thành phần của chiến lược tìm kiếm, mỗi cái bật tắt được riêng.
+     *
+     * Để dạng cấu hình chứ không viết cứng vì mỗi thành phần phải được đo riêng rồi mới
+     * được giữ — `scripts/probe-search-strategy.ts` so từng tổ hợp trên cùng dữ liệu.
+     */
+    private searchStrategy: SearchStrategy = { ...PRODUCTION_STRATEGY };
+
+    /**
      * Bao nhiêu nước đi cho vòng tìm kiếm chính.
      *
-     * Đo bằng cách quét, 3 lần mỗi mức, trên bộ dữ liệu 930 tiết (điểm giữa / giây mỗi lần
-     * dựng — bản chính dựng ba lần để có ba phương án cho người dùng chọn):
+     * Trước khi có nước đi chuỗi Kempe, quét trên bộ dữ liệu 930 tiết cho thấy 1,2 triệu
+     * nước đi là chỗ đáng tiền (600.000: -4137 · 1,2 triệu: -3690 · 2,4 triệu: -3390).
      *
-     *   600.000     -4137    53s   →  khoảng 2,7 phút một lần xếp
-     *   1.200.000   -3690    87s   →  khoảng 4,3 phút
-     *   2.400.000   -3390   160s   →  khoảng 8 phút
-     *
-     * Đường cong chưa phẳng ở 2,4 triệu — vẫn còn 323 điểm nữa nếu chịu gấp đôi thời gian.
-     * Lấy 1,2 triệu làm mặc định vì đó là chỗ +457 điểm chỉ tốn thêm 63% thời gian; ai muốn
-     * đi xa hơn thì đặt `TKB_SEARCH_MAIN`.
+     * Nước đi Kempe đắt hơn, nên cùng thời gian đó giờ chỉ chạy được khoảng 700.000 nước
+     * — và 700.000 nước có Kempe ra -2801, hơn hẳn 1,2 triệu nước không có Kempe (-3764) ở
+     * cùng 141 giây đo song song. Giữ nguyên thời gian một lần xếp, đổi lấy chất lượng.
+     * Ai muốn đi xa hơn thì đặt `TKB_SEARCH_MAIN`.
      *
      * Xếp thời khoá biểu chạy trong hàng đợi nền khi có Redis, nên thời gian dài không chặn
      * giao diện. Không có Redis thì nó chạy thẳng trong một yêu cầu HTTP — và ở đường ấy
@@ -1193,7 +1277,7 @@ export class AlgorithmService {
         const fromEnv = Number(process.env.TKB_SEARCH_MAIN ?? 0);
         if (fromEnv > 0) return fromEnv;
 
-        return Math.min(1_200_000, Math.max(30_000, slotCount * 1_300));
+        return Math.min(700_000, Math.max(30_000, slotCount * 760));
     }
 
     /**
@@ -1210,6 +1294,7 @@ export class AlgorithmService {
         data: any,
         log: (msg: string) => void,
         iterations = 12000,
+        onBest?: (iteration: number, score: number) => void,
     ) {
         const slots: TimeSlot[] = solution.slots;
 
@@ -1232,7 +1317,7 @@ export class AlgorithmService {
         // Ba cau hoi ve cho trong duoc hoi hang tram nghin lan; tra loi bang cach quet ca
         // luoi thi so vong lap chay duoc trong mot giay tut xuong, ma chinh con so do quyet
         // dinh chat luong loi giai
-        const index = new GridIndex(slots, id => this.constraintService.getRequiredRoomType(id));
+        let index = new GridIndex(slots, id => this.constraintService.getRequiredRoomType(id));
 
         // Nhom tiet theo lop, va theo lop+mon. Lop va mon cua mot tiet khong bao gio doi,
         // chi cho ngoi cua no doi, nen hai nhom nay dung mot lan la du cho ca vong tim kiem.
@@ -1271,11 +1356,43 @@ export class AlgorithmService {
         const END_TEMPERATURE = 0.15;
         const cooling = Math.log(END_TEMPERATURE / START_TEMPERATURE);
 
+        const strategy = this.searchStrategy;
+
+        // Chấp nhận muộn: nhớ điểm của L bước gần nhất
+        const lateMemory = strategy.acceptance === 'LATE_ACCEPTANCE'
+            ? new Array<number>(Math.max(1, strategy.lateAcceptanceLength)).fill(score)
+            : null;
+
+        // Hâm nóng lại: một đợt luyện kim phụ bắt đầu từ `reheatLevel` lần nhiệt độ ban đầu,
+        // nguội về đường chính trong một phần mười ngân sách
+        let lastBestAt = 0;
+        let reheatedAt = -1;
+        let reheats = 0;
+
         let improvements = 0;
         let accepted = 0;
 
         for (let i = 0; i < iterations; i++) {
-            const temperature = START_TEMPERATURE * Math.exp((cooling * i) / iterations);
+            let temperature = START_TEMPERATURE * Math.exp((cooling * i) / iterations);
+
+            if (strategy.reheatAfter > 0 && i - Math.max(lastBestAt, reheatedAt) >= strategy.reheatAfter) {
+                reheatedAt = i;
+                reheats++;
+
+                // Tìm kiếm cục bộ lặp: quay về bản tốt nhất rồi mới xáo lên. Ghi đè vị trí
+                // trực tiếp thì chỉ mục lưới lệch khỏi lưới thật, nên phải dựng lại nó.
+                if (strategy.restartFromBest) {
+                    this.restorePlacement(slots, bestPlacement);
+                    index = new GridIndex(slots, id => this.constraintService.getRequiredRoomType(id));
+                    score = scorer.fitness();
+                    hard = scorer.hardViolations();
+                }
+            }
+            if (reheatedAt >= 0) {
+                const span = Math.max(1, iterations / 10);
+                const boost = START_TEMPERATURE * strategy.reheatLevel * Math.exp((cooling * (i - reheatedAt)) / span);
+                temperature = Math.max(temperature, boost);
+            }
 
             const undo = this.randomNeighbourMove(movable, index, pairable, byClass, byTeacher, sampler);
             if (!undo) continue;
@@ -1293,7 +1410,11 @@ export class AlgorithmService {
             const candidate = scorer.fitness();
             const delta = candidate - score;
 
-            if (delta >= 0 || Math.random() < Math.exp(delta / temperature)) {
+            const accept = lateMemory
+                ? delta >= 0 || candidate >= lateMemory[i % lateMemory.length]
+                : delta >= 0 || Math.random() < Math.exp(delta / temperature);
+
+            if (accept) {
                 score = candidate;
                 hard = candidateHard;
                 accepted++;
@@ -1303,11 +1424,15 @@ export class AlgorithmService {
                     bestHard = hard;
                     bestPlacement = this.snapshotPlacement(slots);
                     improvements++;
+                    lastBestAt = i;
+                    onBest?.(i, best);
                     this.emitProgress('Tối ưu', slots);
                 }
             } else {
                 undo();
             }
+
+            if (lateMemory) lateMemory[i % lateMemory.length] = score;
         }
 
         // Kết thúc ở bản tốt nhất từng gặp, không phải ở chỗ vòng lặp tình cờ dừng lại
@@ -1317,7 +1442,7 @@ export class AlgorithmService {
         }
 
         solution.fitness_score = score;
-        log(`[DEBUG] Local search: ${initial} → ${score} (${improvements} lần cải thiện, ${accepted} nước được nhận).`);
+        log(`[DEBUG] Local search: ${initial} → ${score} (${improvements} lần cải thiện, ${accepted} nước được nhận, ${reheats} lần hâm nóng lại).`);
     }
 
     /** Mot nuoc di ngau nhien trong lan can, hoac null khi nuoc boc duoc la khong hop le. */
@@ -1329,11 +1454,112 @@ export class AlgorithmService {
         byTeacher: Map<string, TimeSlot[]>,
         sampler: HotspotSampler,
     ): (() => void) | null {
+        if (this.searchStrategy.kempeShare > 0 && Math.random() < this.searchStrategy.kempeShare) {
+            return this.indexedKempeMove(index, byClass, byTeacher, sampler);
+        }
+
         const roll = Math.random();
         if (roll < 0.25) return this.indexedPairMove(pairable, byClass, index);
         if (roll < 0.5) return this.indexedSwapMove(movable, index, sampler);
         if (roll < 0.75) return this.indexedRelocateMove(movable, index, sampler);
         return this.indexedConsolidateMove(byTeacher, index, sampler);
+    }
+
+    /**
+     * Đổi chỗ trọn một chuỗi Kempe giữa hai ô cùng buổi.
+     *
+     * Đổi hai tiết đơn lẻ thường bị chặn: tiết A sang ô của tiết B thì giáo viên của A đã có
+     * lớp khác ở ô đó. Chuỗi Kempe gom luôn tiết đang chặn ấy vào — rồi tiết đang chặn tiết
+     * ấy, cứ thế — cho tới khi được một nhóm mà đổi cả nhóm giữa hai ô thì không lớp nào,
+     * không giáo viên nào bị trùng giờ. Thompson & Dowsland (1998) so ba kiểu nước đi cho
+     * luyện kim trên bài toán xếp lịch và kết luận chuỗi Kempe mạnh nhất.
+     *
+     * Hai tiết nối nhau khi chúng ở hai ô khác nhau và chung lớp hoặc chung giáo viên. Chuỗi
+     * chạm vào tiết bị khoá thì bỏ: tiết khoá không được dời.
+     */
+    private indexedKempeMove(
+        index: GridIndex,
+        byClass: Map<string, TimeSlot[]>,
+        byTeacher: Map<string, TimeSlot[]>,
+        sampler: HotspotSampler,
+    ): (() => void) | null {
+        const MAX_CHAIN = 12;
+
+        const seed = sampler.pick();
+        const from = { day: seed.day, period: seed.period };
+        const [minP, maxP] = seed.period <= 5 ? [1, 5] : [6, 10];
+        const to = {
+            day: 2 + ((Math.random() * 6) | 0),
+            period: minP + ((Math.random() * (maxP - minP + 1)) | 0),
+        };
+
+        if (to.day === from.day && to.period === from.period) return null;
+        if (!this.isCellAllowed(from.day, from.period) || !this.isCellAllowed(to.day, to.period)) return null;
+
+        const at = (slot: TimeSlot, cell: { day: number; period: number }) =>
+            slot.day === cell.day && slot.period === cell.period;
+        const other = (slot: TimeSlot) => (at(slot, from) ? to : from);
+
+        // Gom chuỗi theo chiều rộng
+        const chain: TimeSlot[] = [seed];
+        const inChain = new Set<TimeSlot>(chain);
+        for (let cursor = 0; cursor < chain.length; cursor++) {
+            const lesson = chain[cursor];
+            const target = other(lesson);
+
+            for (const pool of [byClass.get(lesson.classId), byTeacher.get(lesson.teacherId)]) {
+                for (const neighbour of pool ?? []) {
+                    if (inChain.has(neighbour) || !at(neighbour, target)) continue;
+                    inChain.add(neighbour);
+                    chain.push(neighbour);
+                    if (chain.length > MAX_CHAIN) return null;
+                }
+            }
+        }
+
+        // Mỗi tiết sang ô mới: giáo viên không báo bận, và MỌI tiết cùng lớp / cùng giáo viên
+        // đang nằm ở ô đó đều thuộc chuỗi. Chỉ mục đếm cả tiết khoá, nên số đếm lớn hơn số
+        // tiết trong chuỗi nghĩa là có tiết khoá chắn đường.
+        for (const lesson of chain) {
+            const target = other(lesson);
+            if (this.constraintService.isTeacherBusy(lesson.teacherId, target.day, target.period)) return null;
+
+            let sameTeacher = 0;
+            let sameClass = 0;
+            for (const member of chain) {
+                if (!at(member, target)) continue;
+                if (member.teacherId === lesson.teacherId) sameTeacher++;
+                if (member.classId === lesson.classId) sameClass++;
+            }
+            if (index.teacherCount(lesson.teacherId, target.day, target.period) !== sameTeacher) return null;
+            if (index.classCount(lesson.classId, target.day, target.period) !== sameClass) return null;
+        }
+
+        // Phòng chức năng: sau khi đổi, số tiết cần mỗi loại phòng ở mỗi ô không vượt số phòng
+        const flow = new Map<string, number>();
+        for (const lesson of chain) {
+            const type = this.constraintService.getRequiredRoomType(lesson.subjectId);
+            if (!type) continue;
+            flow.set(type, (flow.get(type) ?? 0) + (at(lesson, from) ? 1 : -1));
+        }
+        for (const [type, net] of flow) {
+            if (net === 0) continue;
+            const capacity = this.constraintService.roomCountOfType(type);
+            if (capacity <= 0) continue;
+            const into = net > 0 ? to : from;
+            if (index.roomTypeUsage(type, into.day, into.period) + Math.abs(net) > capacity) return null;
+        }
+
+        const moves = chain.map(lesson => ({
+            lesson,
+            back: { day: lesson.day, period: lesson.period },
+            target: other(lesson),
+        }));
+        for (const { lesson, target } of moves) index.move(lesson, target.day, target.period);
+
+        return () => {
+            for (const { lesson, back } of moves) index.move(lesson, back.day, back.period);
+        };
     }
 
     /**
@@ -1581,6 +1807,7 @@ export class AlgorithmService {
          */
         const contexts = new WeakMap<TimeSlot[], {
             index: GridIndex;
+            position: Map<TimeSlot, number>;
             movable: TimeSlot[];
             pairable: TimeSlot[][];
             byClass: Map<string, TimeSlot[]>;
@@ -1615,6 +1842,7 @@ export class AlgorithmService {
 
             context = {
                 index: new GridIndex(slots, id => this.constraintService.getRequiredRoomType(id)),
+                position: new Map(slots.map((slot, i) => [slot, i])),
                 movable,
                 pairable: [...byClassSubject.values()].filter(group => group.length >= 2),
                 byClass,
@@ -1644,10 +1872,25 @@ export class AlgorithmService {
                 const context = contextFor(slots);
                 if (!context) return null;
 
+                const before = context.movable.map(slot => slot.day * 16 + slot.period);
                 const undo = this.randomNeighbourMove(context.movable, context.index, context.pairable, context.byClass, context.byTeacher, context.sampler);
                 if (!undo) return null;
 
-                return { key: `move:${(Math.random() * 1e9) | 0}`, undo };
+                // Khoá của nước đi là tập tiết nó dời. Bản cũ dùng một số ngẫu nhiên, nên
+                // hai nước đi không bao giờ trùng khoá và danh sách cấm của Tabu Search
+                // chưa từng cấm được gì.
+                const moved: number[] = [];
+                context.movable.forEach((slot, i) => {
+                    if (slot.day * 16 + slot.period !== before[i]) moved.push(context.position.get(slot)!);
+                });
+                return { key: `move:${moved.sort((a, b) => a - b).join(',')}`, undo };
+            },
+            restore: (slots: TimeSlot[], placement: Array<{ day: number; period: number }>) => {
+                this.restorePlacement(slots, placement);
+                const context = contexts.get(slots);
+                if (context) {
+                    context.index = new GridIndex(slots, id => this.constraintService.getRequiredRoomType(id));
+                }
             },
         };
     }

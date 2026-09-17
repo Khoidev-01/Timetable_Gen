@@ -107,6 +107,16 @@ export class GridIndex {
     return 1;
   }
 
+  /** Số tiết giáo viên này đang có ở ô đó — kể cả tiết bị khoá. */
+  teacherCount(teacherId: string, day: number, period: number): number {
+    return this.teacherCells.get(teacherId)?.get(cellOf(day, period)) ?? 0;
+  }
+
+  /** Số tiết lớp này đang có ở ô đó — kể cả tiết bị khoá. */
+  classCount(classId: string, day: number, period: number): number {
+    return this.classCells.get(classId)?.get(cellOf(day, period)) ?? 0;
+  }
+
   /** Số tiết đang cần loại phòng đó vào giờ đó. */
   roomTypeUsage(type: string, day: number, period: number, ignore?: TimeSlot): number {
     const cell = cellOf(day, period);

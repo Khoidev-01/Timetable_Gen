@@ -1,5 +1,7 @@
 import { TimeSlot } from '../constraint.service';
 
+export type Placement = Array<{ day: number; period: number }>;
+
 /**
  * One reversible change to a schedule. `key` identifies the change so a tabu list can
  * forbid undoing it straight away.
@@ -15,6 +17,15 @@ export interface MoveOperations {
   hardViolations(slots: TimeSlot[]): number;
   /** Apply a random legal change, or return null when the draw produced nothing valid. */
   randomMove(slots: TimeSlot[]): Move | null;
+  /**
+   * Đưa lịch về một vị trí đã chụp.
+   *
+   * Bộ giải KHÔNG được tự ghi đè ngày/tiết của từng tiết. Nước đi tra cứu ai đang ở ô nào
+   * qua một chỉ mục lưới; ghi đè trực tiếp thì chỉ mục vẫn nhớ vị trí cũ, và mọi nước đi
+   * sau đó được kiểm hợp lệ trên một lưới không còn tồn tại. Tabu Search từng làm đúng
+   * như vậy ở MỖI bước — đó là lý do nó ra điểm tệ hơn cả không tối ưu gì.
+   */
+  restore(slots: TimeSlot[], placement: Placement): void;
 }
 
 export interface SolverBudget {
@@ -35,10 +46,8 @@ export interface ImprovementSolver {
   readonly key: string;
   readonly label: string;
   readonly description: string;
-  improve(slots: TimeSlot[], ops: MoveOperations, budget: SolverBudget): SolverOutcome;
+  improve(slots: TimeSlot[], ops: MoveOperations, budget: SolverBudget): SolverOutcome | Promise<SolverOutcome>;
 }
-
-export type Placement = Array<{ day: number; period: number }>;
 
 /**
  * A solver that accepts downhill moves wanders away from the best solution it found.
