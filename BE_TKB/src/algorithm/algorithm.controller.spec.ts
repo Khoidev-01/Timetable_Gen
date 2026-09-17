@@ -3,7 +3,6 @@ import { AlgorithmProducer } from '../worker/algorithm.producer';
 import { AlgorithmController } from './algorithm.controller';
 import { AlgorithmService } from './algorithm.service';
 import { ExportService } from './export.service';
-import { BenchmarkService } from './benchmark.service';
 import { FeasibilityService } from './feasibility.service';
 import { VariantService } from './variant.service';
 import { SwapGraphService } from './swap-graph.service';
@@ -24,7 +23,6 @@ describe('AlgorithmController', () => {
         { provide: AlgorithmProducer, useValue: {} },
         { provide: ExportService, useValue: {} },
         { provide: FeasibilityService, useValue: {} },
-        { provide: BenchmarkService, useValue: {} },
         { provide: VariantService, useValue: {} },
         { provide: SwapGraphService, useValue: {} },
         { provide: ChangeLogService, useValue: {} },

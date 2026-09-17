@@ -1,6 +1,6 @@
 /**
- * Chay phong thi nghiem thuat toan tu dong lenh, qua DUNG dich vu ma trang "Thu nghiem
- * thuat toan" goi — de con so trong bao cao va con so tren giao dien la mot.
+ * Chay phong thi nghiem thuat toan tu dong lenh. Day la cach DUY NHAT de chay no: trang
+ * "Thu nghiem thuat toan" tren giao dien da bo.
  *
  * Moi thuat toan nhan cung mot bo nuoc di (ke ca chuoi Kempe) va cung mot ngan sach vong
  * lap, nen bang nay so CHIEN LUOC TIM KIEM chu khong so bo nuoc di. Moi lan chay dung loi

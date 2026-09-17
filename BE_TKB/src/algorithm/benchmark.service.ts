@@ -46,6 +46,11 @@ const MAX_ITERATIONS = 2_400_000;
  * Runs several improvement strategies over the same problem so their quality can be
  * compared with numbers instead of intuition.
  *
+ * Chỉ chạy từ dòng lệnh (`scripts/benchmark-lab-parallel.sh`). Trang "Thử nghiệm thuật toán"
+ * và hai API của nó đã bỏ: hệ thống chỉ dùng một thuật toán, và một nút bấm chiếm hết CPU của
+ * máy chủ hàng chục phút không có chỗ trong màn hình của người xếp lịch. Dịch vụ còn lại để
+ * tái tạo được bảng số liệu trong readme.
+ *
  * Every solver starts from its own freshly built construction. Reusing one construction
  * would make the comparison tighter but also unrealistic - in production each run builds
  * its own, and the spread between constructions is part of what a strategy has to cope

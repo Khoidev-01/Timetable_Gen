@@ -143,9 +143,9 @@ bảng chất lượng, so sánh phương án, gợi ý khi kéo thả hay đổ
 ký xếp lịch và dữ liệu công cụ trả cho trợ lý AI đều nói bằng bậc hoặc bằng chữ "tốt hơn / kém đi". Điểm số chỉ còn
 bên trong: thuật toán vẫn tối ưu đúng hàm mục tiêu cũ, không đổi một trọng số nào.
 
-Ba nơi **vẫn còn số**, có chủ ý: trang *Thử nghiệm thuật toán* (so sánh bằng số là việc của
-nó), biểu đồ Pareto (trục điểm chất lượng đối với độ chênh lệch), và trang *Công bằng* (điểm
-gánh nặng của từng giáo viên — một thước đo khác, không phải điểm của thời khoá biểu).
+Hai nơi **vẫn còn số**, có chủ ý: biểu đồ Pareto (trục điểm chất lượng đối với độ chênh lệch),
+và trang *Công bằng* (điểm gánh nặng của từng giáo viên — một thước đo khác, không phải điểm
+của thời khoá biểu).
 
 Xếp hạng đo bằng **số điểm phạt còn tránh được trên mỗi tiết**, chuẩn hoá ba lần:
 
@@ -362,7 +362,7 @@ viên nào bị trùng giờ.
 
 ### Phòng thí nghiệm: bảy thuật toán, cùng bộ nước đi
 
-`scripts/benchmark-lab-parallel.sh` chạy đúng dịch vụ mà trang *Thử nghiệm thuật toán* gọi, 5
+`scripts/benchmark-lab-parallel.sh` chạy bảy thuật toán trên dòng lệnh, 5
 lần mỗi thuật toán, 700.000 vòng lặp mỗi lần, mỗi lần dựng lời giải ban đầu riêng. Mọi thuật
 toán nhận **cùng một bộ nước đi** — kể cả chuỗi Kempe — nên bảng này so *chiến lược tìm kiếm*,
 không so bộ nước đi. Số liệu gốc: [docs/benchmark/2026-09-17.csv](docs/benchmark/2026-09-17.csv).

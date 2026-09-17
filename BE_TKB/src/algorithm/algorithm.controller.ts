@@ -6,7 +6,6 @@ import type { Request, Response } from 'express';
 import { buildAttachmentDisposition } from '../excel/excel.utils';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { FeasibilityService } from './feasibility.service';
-import { BenchmarkService } from './benchmark.service';
 import { VariantService } from './variant.service';
 import { SwapGraphService } from './swap-graph.service';
 import { ChangeLogService } from './change-log.service';
@@ -25,7 +24,6 @@ export class AlgorithmController {
         private readonly algorithmProducer: AlgorithmProducer,
         private readonly exportService: ExportService,
         private readonly feasibilityService: FeasibilityService,
-        private readonly benchmarkService: BenchmarkService,
         private readonly variantService: VariantService,
         private readonly swapGraph: SwapGraphService,
         private readonly changeLog: ChangeLogService,
@@ -136,19 +134,6 @@ export class AlgorithmController {
     @Get('public-link/:timetableId')
     async publicLink(@Param('timetableId') timetableId: string) {
         return this.variantService.publicLink(timetableId);
-    }
-
-    @Roles('ADMIN')
-    @Get('solvers')
-    listSolvers() {
-        return this.benchmarkService.listSolvers();
-    }
-
-    /** Compare improvement strategies on the same problem, with numbers. */
-    @Roles('ADMIN')
-    @Post('benchmark')
-    async benchmark(@Body() body: { semesterId: string; solverKeys?: string[]; runs?: number; iterations?: number }) {
-        return this.benchmarkService.run(body);
     }
 
     @Roles('ADMIN')
