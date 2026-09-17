@@ -90,7 +90,7 @@ export class AutoAssignService {
     ];
 
     // Title row
-    applyTitleRow(ws, 1, 'DANH SÁCH GIÁO VIÊN — PHÂN CÔNG TỰ ĐỘNG', headers.length);
+    applyTitleRow(ws, 1, 'DANH SÁCH GIÁO VIÊN - PHÂN CÔNG TỰ ĐỘNG', headers.length);
 
     // Header row
     const headerRow = ws.getRow(2);
@@ -446,7 +446,7 @@ export class AutoAssignService {
       'GV HK2 - Mã', 'GV HK2 - Họ tên',
     ];
 
-    applyTitleRow(ws, 1, `BẢNG PHÂN CÔNG CHUYÊN MÔN — NĂM HỌC ${year.name}`, headers.length);
+    applyTitleRow(ws, 1, `BẢNG PHÂN CÔNG CHUYÊN MÔN - NĂM HỌC ${year.name}`, headers.length);
 
     const headerRow = ws.getRow(2);
     setRowValues(headerRow, headers);

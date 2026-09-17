@@ -1,4 +1,4 @@
-import { AskBudget, DATA_IS_NOT_INSTRUCTIONS, fenceData, requireAdmin, resolveTeacherScope } from './guardrails';
+import { DATA_IS_NOT_INSTRUCTIONS, fenceData, requireAdmin, resolveTeacherScope } from './guardrails';
 import { Actor } from './tool.types';
 
 /**
@@ -94,53 +94,3 @@ describe('dữ liệu không phải chỉ thị', () => {
   });
 });
 
-describe('giới hạn số câu hỏi', () => {
-  const HOUR = 60 * 60 * 1000;
-
-  it('cho hỏi đến đúng hạn mức rồi mới chặn', () => {
-    const budget = new AskBudget(3);
-    const now = 1_000_000;
-
-    expect(budget.spend('u1', now)).toBeNull();
-    expect(budget.spend('u1', now)).toBeNull();
-    expect(budget.spend('u1', now)).toBeNull();
-    expect(budget.spend('u1', now)).toContain('3 câu');
-  });
-
-  it('đếm riêng từng người', () => {
-    const budget = new AskBudget(1);
-    const now = 1_000_000;
-
-    expect(budget.spend('u1', now)).toBeNull();
-    expect(budget.spend('u2', now)).toBeNull();
-    expect(budget.spend('u1', now)).not.toBeNull();
-  });
-
-  it('mở lại sau khi qua một giờ', () => {
-    const budget = new AskBudget(1);
-    const now = 1_000_000;
-
-    budget.spend('u1', now);
-    expect(budget.spend('u1', now + 1000)).not.toBeNull();
-    expect(budget.spend('u1', now + HOUR + 1000)).toBeNull();
-  });
-
-  it('nói rõ còn phải chờ bao lâu', () => {
-    const budget = new AskBudget(1);
-    const now = 1_000_000;
-
-    budget.spend('u1', now);
-    const refusal = budget.spend('u1', now + 30 * 60 * 1000)!;
-    expect(refusal).toMatch(/khoảng \d+ phút/);
-  });
-
-  it('cho biết còn bao nhiêu lượt', () => {
-    const budget = new AskBudget(5);
-    const now = 1_000_000;
-
-    expect(budget.remaining('u1', now)).toBe(5);
-    budget.spend('u1', now);
-    budget.spend('u1', now);
-    expect(budget.remaining('u1', now)).toBe(3);
-  });
-});

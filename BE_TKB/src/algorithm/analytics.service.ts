@@ -111,7 +111,7 @@ export class AnalyticsService {
     const fitness = this.constraints.getFitnessDetails(slots);
     if (!fitness.isValid) warnings.push(`Thời khóa biểu còn ${fitness.hardViolations} lỗi cứng`);
     if (!timetable.is_official) {
-      warnings.push('Thời khóa biểu chưa được công bố — giáo viên chưa nhìn thấy');
+      warnings.push('Thời khóa biểu chưa được công bố - giáo viên chưa nhìn thấy');
     }
 
     const cellCounts = new Map<string, number>();
@@ -143,7 +143,7 @@ export class AnalyticsService {
 
         if (overQuota) {
           warnings.push(
-            `${teacher.code} — ${teacher.full_name}: ${teaching.length}/${quota} tiết, vượt định mức`,
+            `${teacher.code} - ${teacher.full_name}: ${teaching.length}/${quota} tiết, vượt định mức`,
           );
         }
 

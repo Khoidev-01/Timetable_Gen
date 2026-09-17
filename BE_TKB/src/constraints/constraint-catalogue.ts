@@ -285,7 +285,7 @@ export const CONSTRAINT_CATALOGUE: CatalogueEntry[] = [
     code: 'SC_17',
     name: 'Tránh giờ giáo viên xin né',
     description:
-      'Giáo viên đánh dấu "hạn chế" ở khung giờ nào thì thuật toán cố tránh, nhưng vẫn xếp được nếu không còn cách khác — khác với "bận" là tuyệt đối không xếp.',
+      'Giáo viên đánh dấu "hạn chế" ở khung giờ nào thì thuật toán cố tránh, nhưng vẫn xếp được nếu không còn cách khác - khác với "bận" là tuyệt đối không xếp.',
     defaultWeight: 14,
     canDisable: true,
   },

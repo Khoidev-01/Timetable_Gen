@@ -5,7 +5,7 @@ Kho tài liệu trợ lý được phép trích dẫn. Mỗi mục là một m�
 
 **Về số hiệu điều khoản.** Các mục dẫn văn bản pháp quy chỉ ghi tên văn bản, không ghi số
 Điều hay Khoản. Nội dung ở đây là bản tóm tắt phục vụ xếp lịch, không phải bản sao nguyên
-văn, nên gán một số Điều vào đó là bịa ra một trích dẫn không kiểm chứng được — đúng thứ mà
+văn, nên gán một số Điều vào đó là bịa ra một trích dẫn không kiểm chứng được - đúng thứ mà
 việc tra cứu này sinh ra để tránh. Ai cần trích dẫn chính xác thì phải mở văn bản gốc. Các
 mục về quy tắc của chính hệ thống thì có số mục thật, vì chúng trỏ tới tài liệu của dự án.
 
@@ -50,7 +50,7 @@ học sáng, buổi chiều được xếp tối đa 3 tiết.
 
 ---
 
-## [Quy tắc xếp lịch, mục 4.1] Ràng buộc cứng — vi phạm là thời khóa biểu không dùng được
+## [Quy tắc xếp lịch, mục 4.1] Ràng buộc cứng - vi phạm là thời khóa biểu không dùng được
 
 Một thời khóa biểu vi phạm bất kỳ điều nào dưới đây là không hợp lệ, không phải là "chất
 lượng thấp":
@@ -60,12 +60,12 @@ lượng thấp":
 - Một phòng không thể có hai lớp cùng một lúc.
 - Không xếp tiết cho giáo viên vào khung giờ họ đã đăng ký bận.
 - Mỗi cặp (lớp, môn) phải nhận đủ số tiết đã phân công. Thiếu tiết là lỗi cứng.
-- Lớp không được có tiết trống xen giữa hai tiết học trong cùng một buổi — học sinh không
+- Lớp không được có tiết trống xen giữa hai tiết học trong cùng một buổi - học sinh không
   có chỗ nào để đi trong tiết đó.
 - Số lớp cùng cần một loại phòng chức năng tại một thời điểm không được vượt quá số phòng
   loại đó mà trường có.
 
-## [Quy tắc xếp lịch, mục 4.2] Ràng buộc mềm — vi phạm là chất lượng kém đi
+## [Quy tắc xếp lịch, mục 4.2] Ràng buộc mềm - vi phạm là chất lượng kém đi
 
 Những điều này không làm thời khóa biểu vô hiệu, nhưng mỗi lần vi phạm đều bị trừ điểm, và
 tổng điểm là thứ dùng để so hai phương án:
@@ -121,7 +121,7 @@ Kiểm tra này chạy trước khi xếp và chia kết quả làm ba mức:
 
 Giáo viên chọn tiết của mình, hệ thống gợi ý những tiết đổi được mà không sinh lỗi cứng.
 Đồng nghiệp được hỏi đồng ý hoặc từ chối kèm lý do. Đồng ý rồi thì yêu cầu chuyển sang chờ
-quản trị viên duyệt — thời khóa biểu chưa thay đổi ở bước này.
+quản trị viên duyệt - thời khóa biểu chưa thay đổi ở bước này.
 
 Ràng buộc được kiểm hai lần: một lần lúc gợi ý, và một lần nữa ngay tại thời điểm duyệt.
 Hai giáo viên đồng ý với nhau hôm thứ hai không làm cho cuộc đổi đó hợp lệ vào thứ sáu, vì

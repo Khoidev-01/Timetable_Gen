@@ -279,7 +279,7 @@ export class ConstraintService {
             );
             if (changed.length || disabledHard.size) {
                 this.logger.log(
-                    `Admin overrides in effect — ${changed.map(([k, v]) => `${k}=${v}`).join(', ') || 'no weight change'}` +
+                    `Admin overrides in effect - ${changed.map(([k, v]) => `${k}=${v}`).join(', ') || 'no weight change'}` +
                     (disabledHard.size ? `; disabled: ${[...disabledHard].join(', ')}` : ''),
                 );
             }
@@ -1468,7 +1468,7 @@ export class ConstraintService {
              * sang đó. Đây là đường dẫn họ cần.
              */
             hardship: this.measureHardship(teacherSchedule),
-            usableLabel: usable ? 'Dùng được' : `Chưa dùng được — ${hardViolations} lỗi cứng`,
+            usableLabel: usable ? 'Dùng được' : `Chưa dùng được - ${hardViolations} lỗi cứng`,
             usableReason: usable
                 ? 'Không còn lỗi cứng nào: mọi lớp đủ tiết, không ai trùng giờ, không phòng nào bị xếp hai lớp.'
                 : 'Còn lỗi cứng. Thời khóa biểu chưa dùng được cho tới khi số này về 0, dù các mặt khác có tốt đến đâu.',

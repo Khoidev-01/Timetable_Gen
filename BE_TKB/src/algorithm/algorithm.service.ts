@@ -678,6 +678,10 @@ export class AlgorithmService {
             const assignment = data.assignments.find((a: any) =>
                 a.class_id === cls.id && a.subject_id === subject.id);
             teacherId = assignment?.teacher_id ?? null;
+            // A fixed subject must be taught by the teacher assigned to that
+            // subject for this class. Never silently substitute the homeroom
+            // teacher when the underlying assignment data is incomplete.
+            if (!teacherId) return null;
         } else {
             teacherId = cls.homeroom_teacher_id ?? null;
         }
@@ -2132,7 +2136,7 @@ export class AlgorithmService {
             for (const r of rejected.slice(0, SHOWN)) {
                 const className = data.classes.find((c: any) => c.id === r.slot.classId)?.name ?? r.slot.classId;
                 const subjectName = data.subjects.find((s: any) => s.id === r.slot.subjectId)?.name ?? r.slot.subjectId;
-                log(`[WARN]   Thứ ${r.slot.day} tiết ${r.slot.period} · ${className} · ${subjectName} — ${r.reason}`);
+                log(`[WARN]   Thứ ${r.slot.day} tiết ${r.slot.period} · ${className} · ${subjectName} - ${r.reason}`);
             }
             if (rejected.length > SHOWN) {
                 log(`[WARN]   ... và ${rejected.length - SHOWN} tiết khác`);
@@ -2141,7 +2145,7 @@ export class AlgorithmService {
 
         const timetable = await this.prisma.generatedTimetable.create({
             data: {
-                name: label ? `${label} — ${new Date().toLocaleString('vi-VN')}`
+                name: label ? `${label} - ${new Date().toLocaleString('vi-VN')}`
                             : `TKB ${new Date().toLocaleString('vi-VN')}`,
                 semester_id: semesterId,
             }
@@ -2188,7 +2192,7 @@ export class AlgorithmService {
         });
 
         log(`[DEBUG] Sinh ${generated} tiết → lưu ${stored.length} tiết → từ chối ${rejected.length} tiết.`);
-        log(`[DEBUG] Chấm trên dữ liệu đã lưu: chất lượng ${fitness.quality.gradeLabel} — ${fitness.isValid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ'}`);
+        log(`[DEBUG] Chấm trên dữ liệu đã lưu: chất lượng ${fitness.quality.gradeLabel} - ${fitness.isValid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ'}`);
         fitness.details.forEach((d: string) => log(`[DEBUG]   ${d}`));
 
         return {

@@ -6,7 +6,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { OrchestratorService } from './orchestrator.service';
 import { AssistantEvalService } from './eval/assistant-eval.service';
 import { ScheduleTools } from './tools/schedule.tools';
-import { AskBudget } from './tools/guardrails';
 import { Actor } from './tools/tool.types';
 
 const MAX_QUESTION_LENGTH = 500;
@@ -15,8 +14,6 @@ const MAX_QUESTION_LENGTH = 500;
 @ApiBearerAuth('access-token')
 @Controller('ai')
 export class AssistantController {
-  private readonly budget = new AskBudget(Number(process.env.AI_ASKS_PER_HOUR ?? 20));
-
   constructor(
     private readonly orchestrator: OrchestratorService,
     private readonly tools: ScheduleTools,
@@ -40,11 +37,9 @@ export class AssistantController {
 
   /** Whether the assistant can be used at all, so the UI can hide itself rather than fail. */
   @Get('status')
-  status(@Req() request: Request) {
-    const user: any = (request as any).user;
+  status() {
     return {
       ready: this.orchestrator.isReady(),
-      asksRemaining: user?.id ? this.budget.remaining(user.id, Date.now()) : 0,
       toolCount: this.tools.all().length,
     };
   }
@@ -69,9 +64,6 @@ export class AssistantController {
     }
 
     const actor = await this.actorOf(request);
-    const refusal = this.budget.spend(actor.userId, Date.now());
-    if (refusal) throw new BadRequestException(refusal);
-
     const semesterId = body?.semesterId ?? (await this.currentSemesterId());
     if (!semesterId) throw new BadRequestException('Chưa có học kỳ nào để tra cứu.');
 

@@ -110,7 +110,7 @@ export class NotificationService {
     return this.create({
       category: 'TIMETABLE',
       title: 'Xếp TKB hoàn tất',
-      message: `Đã tạo thời khóa biểu ${semesterName} — Fitness: ${fitness.toFixed(1)}`,
+      message: `Đã tạo thời khóa biểu ${semesterName} - Fitness: ${fitness.toFixed(1)}`,
       metadata: { semesterName, fitness },
     });
   }

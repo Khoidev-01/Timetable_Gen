@@ -46,9 +46,12 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-tkb_db}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-superscretkeytkb2024}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-sonnet-4.6}
+      # Local-development fallback only; production must provide a private JWT_SECRET.
+      JWT_SECRET: ${JWT_SECRET:-mikitimetable-local-dev-secret-change-me}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://airouter.mikitech.io/api/v1}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: ${LLM_MODEL:-cxgptsol}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
       PORT: 4000
     ports:
       - "4000:4000"

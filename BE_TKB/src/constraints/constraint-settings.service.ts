@@ -59,7 +59,7 @@ export class ConstraintSettingsService {
 
     if (changes.isActive === false && !entry.canDisable) {
       throw new BadRequestException(
-        `"${entry.name}" không thể tắt — một thời khóa biểu vi phạm điều này là không thực hiện được, không phải kém tối ưu.`,
+        `"${entry.name}" không thể tắt - một thời khóa biểu vi phạm điều này là không thực hiện được, không phải kém tối ưu.`,
       );
     }
 
@@ -70,7 +70,7 @@ export class ConstraintSettingsService {
       // Hard checks are counted, not weighted; only the shared penalty has a number
       if (entry.kind === 'HARD') {
         throw new BadRequestException(
-          'Ràng buộc cứng không có trọng số riêng — sửa "Mức phạt mỗi lỗi cứng" để đổi mức phạt chung.',
+          'Ràng buộc cứng không có trọng số riêng - sửa "Mức phạt mỗi lỗi cứng" để đổi mức phạt chung.',
         );
       }
       if (entry.key === 'hardViolation' && changes.weight === 0) {

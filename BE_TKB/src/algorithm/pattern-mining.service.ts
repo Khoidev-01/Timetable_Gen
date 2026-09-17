@@ -308,7 +308,7 @@ export class PatternMiningService {
       kind: 'SUBJECT_AVOIDS_CELL' as const,
       title: `Môn ${byId.get(entry.subjectId)?.name ?? entry.subjectId} hay bị chuyển khỏi Thứ ${entry.day} tiết ${entry.period}`,
       detail: `Đã ${entry.count} lần môn này bị chuyển ra khỏi ô Thứ ${entry.day} tiết ${entry.period}, với ${entry.teachers.size} giáo viên và ${entry.classes.size} lớp khác nhau.`,
-      suggestion: 'Có thể trường có quy ước không xếp môn này vào khung giờ đó — cân nhắc thêm một quy tắc.',
+      suggestion: 'Có thể trường có quy ước không xếp môn này vào khung giờ đó - cân nhắc thêm một quy tắc.',
       observations: entry.count,
       confidence: Math.min(90, 50 + (entry.count - MIN_OBSERVATIONS) * 12),
     }));

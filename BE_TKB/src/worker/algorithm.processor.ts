@@ -26,7 +26,7 @@ export class AlgorithmProcessor extends WorkerHost {
             if (result.success) {
                 const { generated, saved, rejected } = result.stats ?? {};
                 console.log(
-                    `[Worker] Optimization Finished. Timetable ${result.id} — ` +
+                    `[Worker] Optimization Finished. Timetable ${result.id} - ` +
                     `${saved}/${generated} tiết lưu được (${rejected} bị từ chối), ` +
                     `${result.isValid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ'}`
                 );

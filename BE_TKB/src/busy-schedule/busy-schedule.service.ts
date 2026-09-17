@@ -445,7 +445,7 @@ export class BusyScheduleService {
                 },
                 select: { id: true },
             });
-            if (conflict) throw new BadRequestException('Hoán đổi gây trùng tiết, thời khóa biểu đã thay đổi — vui lòng tải lại');
+            if (conflict) throw new BadRequestException('Hoán đổi gây trùng tiết, thời khóa biểu đã thay đổi - vui lòng tải lại');
 
             await tx.timetableSlot.update({ where: { id: a.id }, data: { teacher_id: b.teacher_id } });
             await tx.timetableSlot.update({ where: { id: b.id }, data: { teacher_id: a.teacher_id } });

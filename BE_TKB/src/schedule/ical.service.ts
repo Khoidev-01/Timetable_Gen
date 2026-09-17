@@ -70,7 +70,7 @@ export class IcalService {
           period.change?.note,
         ]
           .filter(Boolean)
-          .join(' — ');
+          .join(' - ');
 
         events.push(
           [

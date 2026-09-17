@@ -136,7 +136,7 @@ export class ScheduleTools {
       name: 'find_free_teachers',
       description:
         'Những giáo viên không có tiết vào một khung giờ cụ thể. ' +
-        'Chỉ cần thứ và tiết là gọi được — KHÔNG hỏi lại người dùng về môn, ' +
+        'Chỉ cần thứ và tiết là gọi được - KHÔNG hỏi lại người dùng về môn, ' +
         'bỏ trống subject thì trả về mọi giáo viên rảnh.',
       parameters: {
         type: 'object',
@@ -467,7 +467,7 @@ export class ScheduleTools {
     return {
       name: 'create_busy_registration',
       description:
-        'Chuẩn bị một đơn xin nghỉ. KHÔNG gửi ngay — trả về thẻ xác nhận để người dùng bấm duyệt.',
+        'Chuẩn bị một đơn xin nghỉ. KHÔNG gửi ngay - trả về thẻ xác nhận để người dùng bấm duyệt.',
       parameters: {
         type: 'object',
         properties: {
@@ -498,7 +498,7 @@ export class ScheduleTools {
           ok: true,
           confirmation: {
             action: 'create_busy_registration',
-            summary: `Xin nghỉ tuần ${week}, ${DAY_LABEL[day]} tiết ${period} — lý do: ${reason}`,
+            summary: `Xin nghỉ tuần ${week}, ${DAY_LABEL[day]} tiết ${period} - lý do: ${reason}`,
             payload: {
               teacherId: scope.teacherId,
               semesterId: context.semesterId,

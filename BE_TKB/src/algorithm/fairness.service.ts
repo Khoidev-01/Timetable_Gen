@@ -307,12 +307,12 @@ export class FairnessService {
     const worst = teacher.burdens[0];
     const suggestions: Record<string, string> = {
       'Tiết trống phải chờ': 'Dồn các tiết trong buổi lại liền nhau để giáo viên không phải chờ.',
-      'Buổi đến trường dư': 'Gom tiết vào ít buổi hơn — mỗi buổi bớt được là một lần đi lại.',
+      'Buổi đến trường dư': 'Gom tiết vào ít buổi hơn - mỗi buổi bớt được là một lần đi lại.',
       'Không có ngày nghỉ': 'Dồn tiết của một ngày sang ngày khác để giáo viên có trọn một ngày nghỉ.',
       'Tiết cuối buổi': 'Chuyển bớt tiết cuối buổi sang khung giờ sớm hơn.',
       'Phải đổi tầng': 'Xếp các tiết liền nhau vào cùng tầng, hoặc chèn một tiết trống giữa hai tầng.',
       'Dạy 5 tiết liền': 'Chèn một tiết nghỉ vào giữa chuỗi dạy liên tục.',
-      'Nguyện vọng không được đáp ứng': 'Xem lại các khung giờ giáo viên đã đăng ký mong muốn — có thể đổi được với đồng nghiệp.',
+      'Nguyện vọng không được đáp ứng': 'Xem lại các khung giờ giáo viên đã đăng ký mong muốn - có thể đổi được với đồng nghiệp.',
     };
 
     return {

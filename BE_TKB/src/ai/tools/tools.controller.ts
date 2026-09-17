@@ -3,7 +3,6 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScheduleTools } from './schedule.tools';
-import { AskBudget } from './guardrails';
 import { Actor } from './tool.types';
 
 /**
@@ -17,10 +16,6 @@ import { Actor } from './tool.types';
 @ApiBearerAuth('access-token')
 @Controller('ai/tools')
 export class ToolsController {
-  private readonly budget = new AskBudget(
-    Number(process.env.AI_ASKS_PER_HOUR ?? 20),
-  );
-
   constructor(
     private readonly tools: ScheduleTools,
     private readonly prisma: PrismaService,
@@ -47,11 +42,6 @@ export class ToolsController {
     if (!tool) throw new BadRequestException(`Không có công cụ tên "${name}".`);
 
     const actor = await this.actorOf(request);
-
-    // Counted here rather than in the orchestrator so a direct caller cannot walk around
-    // the limit by skipping the chat endpoint
-    const refusal = this.budget.spend(actor.userId, Date.now());
-    if (refusal) throw new BadRequestException(refusal);
 
     const semesterId = body?.semesterId ?? (await this.currentSemesterId());
     if (!semesterId) throw new BadRequestException('Chưa có học kỳ nào để tra cứu.');

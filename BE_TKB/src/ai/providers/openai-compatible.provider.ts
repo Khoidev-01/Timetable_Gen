@@ -6,8 +6,8 @@ import {
   LlmToolSpec,
 } from './llm-provider.interface';
 
-const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.6';
+const DEFAULT_BASE_URL = 'https://airouter.mikitech.io/api/v1';
+const DEFAULT_MODEL = 'cxgptsol';
 const TIMEOUT_MS = 60_000;
 const MAX_ATTEMPTS = 3;
 const RETRY_BASE_MS = 1_200;
@@ -18,9 +18,9 @@ const RETRY_BASE_MS = 1_200;
  * That is OpenAI, OpenRouter, Groq, Together, and Ollama running on the user's own machine.
  * Three environment variables decide which:
  *
- *   LLM_BASE_URL=https://api.openai.com/v1      LLM_MODEL=gpt-4.1-mini
- *   LLM_BASE_URL=https://openrouter.ai/api/v1   LLM_MODEL=anthropic/claude-sonnet-4.6
- *   LLM_BASE_URL=http://localhost:11434/v1      LLM_MODEL=qwen2.5:7b
+ *   LLM_BASE_URL=https://airouter.mikitech.io/api/v1   LLM_MODEL=cxgptsol
+ *   LLM_BASE_URL=https://api.openai.com/v1             LLM_MODEL=gpt-4.1-mini
+ *   LLM_BASE_URL=http://localhost:11434/v1             LLM_MODEL=qwen2.5:7b
  *
  * Kept behind an interface so the orchestrator can be tested against a scripted model. A
  * real model is too non-deterministic to assert against, and the parts worth testing - the

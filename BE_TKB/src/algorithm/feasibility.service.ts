@@ -158,7 +158,7 @@ export class FeasibilityService {
         level: 'NOTE',
         code: 'TEACHER_IDLE',
         title: `${idleTeachers.length} giáo viên chưa được phân công tiết nào`,
-        detail: idleTeachers.slice(0, 10).map((t) => `${t.code} — ${t.full_name}`).join(' · '),
+        detail: idleTeachers.slice(0, 10).map((t) => `${t.code} - ${t.full_name}`).join(' · '),
         suggestion: 'Kiểm tra lại nếu đây không phải giáo viên nghỉ hoặc kiêm nhiệm toàn phần.',
       });
     }
@@ -226,7 +226,7 @@ export class FeasibilityService {
         issues.push({
           level: 'BLOCK',
           code: 'TEACHER_OVER_QUOTA',
-          title: `${teacher.code} — ${teacher.full_name} vượt định mức`,
+          title: `${teacher.code} - ${teacher.full_name} vượt định mức`,
           detail: `Được phân công ${assigned} tiết/tuần trên định mức ${quota}.`,
           suggestion: `Chuyển ${assigned - quota} tiết sang giáo viên khác, hoặc điều chỉnh định mức nếu có kiêm nhiệm.`,
           link: { label: 'Quản lý giáo viên', href: '/admin/teachers' },
@@ -235,7 +235,7 @@ export class FeasibilityService {
         issues.push({
           level: 'RISK',
           code: 'TEACHER_NO_SLACK',
-          title: `${teacher.code} — ${teacher.full_name} kín định mức`,
+          title: `${teacher.code} - ${teacher.full_name} kín định mức`,
           detail: `Được phân công đúng ${assigned}/${quota} tiết, không còn dư một tiết nào.`,
           suggestion:
             'Chỉ cần một xung đột lịch là mất tiết vĩnh viễn. Nên chừa lại 1–2 tiết dự phòng.',
@@ -260,7 +260,7 @@ export class FeasibilityService {
         issues.push({
           level: 'BLOCK',
           code: 'TEACHER_BUSY_CONFLICT',
-          title: `${teacher.code} — ${teacher.full_name} đăng ký bận quá nhiều`,
+          title: `${teacher.code} - ${teacher.full_name} đăng ký bận quá nhiều`,
           detail: `Phải dạy ${assigned} tiết nhưng chỉ còn ${free} ô rảnh sau khi trừ ${busy} ô đã báo bận.`,
           suggestion: 'Đề nghị giáo viên bỏ bớt ô bận, hoặc giảm số tiết được phân công.',
           link: { label: 'Quản lý giáo viên', href: '/admin/teachers' },
@@ -269,7 +269,7 @@ export class FeasibilityService {
         issues.push({
           level: 'RISK',
           code: 'TEACHER_BUSY_TIGHT',
-          title: `${teacher.code} — ${teacher.full_name} có ít ô xoay xở`,
+          title: `${teacher.code} - ${teacher.full_name} có ít ô xoay xở`,
           detail: `Dạy ${assigned} tiết trong ${free} ô rảnh (đã báo bận ${busy} ô).`,
           suggestion: 'Lịch của giáo viên này sẽ khó tối ưu, dễ bị trống tiết rải rác.',
         });
@@ -288,7 +288,7 @@ export class FeasibilityService {
       level: 'BLOCK',
       code: 'CLASS_NO_HOMEROOM',
       title: `${without.length} lớp chưa có giáo viên chủ nhiệm`,
-      detail: `${without.map((c) => c.name).join(', ')} — các tiết chào cờ và sinh hoạt sẽ không xếp được.`,
+      detail: `${without.map((c) => c.name).join(', ')} - các tiết chào cờ và sinh hoạt sẽ không xếp được.`,
       suggestion: 'Gán giáo viên chủ nhiệm cho các lớp này.',
       link: { label: 'Quản lý lớp học', href: '/admin/classes' },
     });
@@ -426,7 +426,7 @@ export class FeasibilityService {
           title: `Quy tắc "${rule.name}" trùng giáo viên`,
           detail: `Thứ ${rule.day_of_week} tiết ${rule.period} được ghim cho ${classNames.join(', ')} nhưng cùng một giáo viên phụ trách.`,
           suggestion:
-            'Một giáo viên không thể dạy nhiều lớp cùng lúc — chỉ lớp đầu tiên giữ được tiết ghim, các lớp còn lại sẽ do thuật toán tự xếp.',
+            'Một giáo viên không thể dạy nhiều lớp cùng lúc - chỉ lớp đầu tiên giữ được tiết ghim, các lớp còn lại sẽ do thuật toán tự xếp.',
           link: { label: 'Tiết cố định', href: '/admin/fixed-periods' },
         });
       }
