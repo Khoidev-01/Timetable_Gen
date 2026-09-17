@@ -187,7 +187,7 @@ export class BenchmarkService {
       iterations,
       constructionScore,
       results,
-      csv: this.toCsv(results),
+      csv: benchmarkCsv(results),
     };
   }
 
@@ -218,36 +218,40 @@ export class BenchmarkService {
     }
     return out;
   }
+}
 
-  private toCsv(results: SolverStatistics[]): string {
-    const header = [
-      'Thuat_toan',
-      'So_lan_chay',
-      'Diem_tot_nhat',
-      'Diem_te_nhat',
-      'Diem_trung_binh',
-      'Do_lech_chuan',
-      'Loi_cung_TB',
-      'Ty_le_hop_le_%',
-      'Thoi_gian_TB_ms',
-      'So_vong_lap_TB',
-    ].join(',');
+/**
+ * Bảng CSV dán thẳng vào chương Thực nghiệm. Nằm ngoài lớp để ghép được kết quả của nhiều
+ * tiến trình chạy song song, không chỉ của một lần gọi `run`.
+ */
+export function benchmarkCsv(results: SolverStatistics[]): string {
+  const header = [
+    'Thuat_toan',
+    'So_lan_chay',
+    'Diem_tot_nhat',
+    'Diem_te_nhat',
+    'Diem_trung_binh',
+    'Do_lech_chuan',
+    'Loi_cung_TB',
+    'Ty_le_hop_le_%',
+    'Thoi_gian_TB_ms',
+    'So_vong_lap_TB',
+  ].join(',');
 
-    const rows = results.map((r) =>
-      [
-        r.label,
-        r.runs,
-        r.bestScore,
-        r.worstScore,
-        r.meanScore,
-        r.stdDeviation,
-        r.meanHardViolations,
-        r.validRate,
-        r.meanDurationMs,
-        r.meanIterations,
-      ].join(','),
-    );
+  const rows = results.map((r) =>
+    [
+      r.label,
+      r.runs,
+      r.bestScore,
+      r.worstScore,
+      r.meanScore,
+      r.stdDeviation,
+      r.meanHardViolations,
+      r.validRate,
+      r.meanDurationMs,
+      r.meanIterations,
+    ].join(','),
+  );
 
-    return [header, ...rows].join('\n');
-  }
+  return [header, ...rows].join('\n');
 }

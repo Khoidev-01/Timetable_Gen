@@ -40,7 +40,7 @@ Quy trình nghiệp vụ được chia thành 3 giai đoạn chính: **Đầu v�
     *   Hệ thống ghi nhận đây là **Ràng buộc Cứng** (Hard Constraint) để thuật toán tuyệt đối tránh.
 
 ### 3.2. Giai đoạn 2: Xếp lịch Tự động (Processing)
-Hệ thống dựng lời giải bằng heuristic rồi cải thiện bằng **tìm kiếm cục bộ có khởi động lại** (local search with restarts).
+Hệ thống dựng lời giải bằng heuristic rồi cải thiện bằng **luyện kim (simulated annealing) với nước đi chuỗi Kempe**.
 
 1.  **Bước 1: Xếp các Tiết Cố định (Fixed Slots)**:
     *   Đọc từ bảng `fixed_period_rules` — cấu hình được từ màn hình `/admin/fixed-periods`, không hardcode.
@@ -57,13 +57,14 @@ Hệ thống dựng lời giải bằng heuristic rồi cải thiện bằng **t
     *   `compactClassSchedules` kéo tiết về đầu buổi để lớp không bị trống tiết giữa buổi.
     *   `alignHomeroomToEndOfDay` đưa sinh hoạt về cuối buổi thực tế của lớp.
 
-4.  **Bước 4: Tìm kiếm cục bộ**:
-    *   Ba phép biến đổi: hoán vị hai tiết (kể cả **liên lớp**), di chuyển một tiết sang ô trống, và gom tiết của giáo viên về ít buổi hơn.
-    *   Chấp nhận nước đi làm điểm tăng **hoặc bằng** để thoát cao nguyên.
-    *   Dừng sớm khi không cải thiện được nữa.
+4.  **Bước 4: Luyện kim**:
+    *   Năm phép biến đổi: ghép tiết đôi, hoán vị hai tiết (kể cả **liên lớp**), dời một tiết sang ô trống, gom tiết của giáo viên về ít buổi hơn, và **đổi cả một chuỗi Kempe** giữa hai ô.
+    *   3/4 lượt bốc tiết lấy từ những tiết đang gây ra khoản phạt, thay vì bốc đều khắp lưới.
+    *   Nhận nước đi tệ hơn với xác suất giảm dần theo nhiệt độ (2,5 xuống 0,15, đo bằng quét). **Không bao giờ** nhận nước đi làm tăng lỗi cứng.
+    *   Kết thúc ở bản tốt nhất từng gặp, không phải ở chỗ vòng lặp tình cờ dừng.
 
 5.  **Bước 5: Chọn phương án tốt nhất**:
-    *   Chạy tối đa 12 lần, dừng sớm khi có phương án 0 lỗi cứng.
+    *   Dựng ít nhất 3, tối đa 6 lần, để có 3 phương án khác nhau cho người dùng chọn.
     *   So sánh **từ điển**: ít lỗi cứng trước, điểm mềm sau — một TKB dùng được luôn thắng một TKB đẹp hơn nhưng không dùng được.
 
 6.  **Bước 6: Gán phòng**:
@@ -104,7 +105,7 @@ Là các điều kiện về "chất lượng" và sự "thuận tiện". Vi ph�
 
 ## 5. CHIẾN LƯỢC THUẬT TOÁN (ALGORITHMIC STRATEGY)
 
-Hệ thống dùng **Heuristic dựng lời giải + Tìm kiếm cục bộ có khởi động lại** (không phải Genetic Algorithm).
+Hệ thống dùng **Heuristic dựng lời giải + Luyện kim với nước đi chuỗi Kempe** (không phải Genetic Algorithm).
 
 ### 5.1. Hàm mục tiêu
 
@@ -294,6 +295,96 @@ Cộng cả ba, trên cùng bộ dữ liệu:
 | Xếp hạng | Khá | **Tốt** |
 | Giáo viên không có ngày nghỉ | 3/76 | **2/76** |
 | Người nặng nhất so với người nhẹ nhất | 8,8 lần | **8,6 lần** |
+
+### Chọn thuật toán: tài liệu gợi ý, đo quyết định
+
+Ba hướng đã thắng trên bài toán xếp thời khoá biểu trường phổ thông:
+
+- **GOAL**, giải nhất cuộc thi quốc tế ITC2011: luyện kim có hâm nóng lại kết hợp tìm kiếm
+  cục bộ lặp ([Fonseca & Santos](https://link.springer.com/article/10.1007/s10479-014-1685-4)).
+- **Late Acceptance Hill Climbing**: nhận nước đi nếu không tệ hơn điểm của L bước trước;
+  không cần chỉnh nhiệt độ ([Burke & Bykov](https://www.sciencedirect.com/science/article/abs/pii/S0377221716305495)).
+- **Nước đi chuỗi Kempe**: Thompson & Dowsland so ba kiểu nước đi cho luyện kim và kết luận
+  chuỗi Kempe mạnh nhất ([tổng hợp](https://www.researchgate.net/publication/221635609_A_Hybrid_Simulated_Annealing_with_Kempe_Chain_Neighborhood_for_the_University_Timetabling_Problem)).
+
+"Mạnh trên bài toán của người khác" không có nghĩa là mạnh trên bài toán này, nên cả ba được
+cài thành cấu hình bật tắt được và đo riêng (`scripts/probe-search-strategy.ts`, 600.000 nước
+đi, 4 lần mỗi cấu hình, điểm giữa):
+
+```
+mốc (luyện kim + bốc vào chỗ lỗi)          -4169
++ chuỗi Kempe 10%                           -2806   thắng 100% cặp đối đầu
++ chuỗi Kempe 25%                           -2650   nhưng chậm gấp đôi
++ hâm nóng lại                              -4170   không hơn gì
++ hâm nóng lại, quay về bản tốt nhất        -4012   hơn chút ít
+chấp nhận muộn, bộ nhớ 2.000                -6494   thua hẳn
+chấp nhận muộn, bộ nhớ 10.000               -6303   thua hẳn
+Kempe + hâm nóng + quay về                  -2986   KÉM hơn Kempe một mình
+```
+
+Hai thứ tài liệu khen — chấp nhận muộn và hâm nóng lại — không mua được gì ở đây: nhiệt độ
+của bản chính đã được chỉnh bằng đo, nên phần mà hâm nóng lại sinh ra để bù thì không còn.
+
+Nước đi Kempe đắt hơn nước đi thường nhiều lần, nên so cùng số vòng lặp là không công bằng.
+Phép so quyết định là **cùng thời gian**, trên cùng máy, cùng lúc:
+
+```
+mốc, 1.200.000 nước đi        -3764   141 giây
+Kempe 10%, 700.000            -2801   141 giây   thắng 16/16 cặp
+Kempe 25%, 400.000            -2814   230 giây
+Kempe 50%, 220.000            -2765   380 giây
+```
+
+Bản chính dùng **Kempe 10%, 700.000 nước đi**. Xếp lại qua đúng đường của bản chính: 930/930
+tiết được lưu, cả ba phương án hợp lệ, bản tốt nhất **−2798** (trước −3532), xếp hạng *Tốt*
+ở **4,02** điểm phạt tránh được mỗi tiết, đạt 21/21 mục định lượng. Một chỗ tệ đi: người nặng
+nhất gánh gấp 15,7 lần người nhẹ nhất (trước 8,6 lần).
+
+**Chuỗi Kempe là gì.** Đổi hai tiết đơn lẻ thường bị chặn: tiết A sang ô của tiết B thì giáo
+viên của A đã có lớp khác ở ô đó. Chuỗi Kempe gom luôn tiết đang chặn vào — rồi tiết đang chặn
+tiết ấy, cứ thế — tới khi được một nhóm mà đổi cả nhóm giữa hai ô thì không lớp nào, không giáo
+viên nào bị trùng giờ.
+
+### Phòng thí nghiệm: bảy thuật toán, cùng bộ nước đi
+
+`scripts/benchmark-lab-parallel.sh` chạy đúng dịch vụ mà trang *Thử nghiệm thuật toán* gọi, 5
+lần mỗi thuật toán, 700.000 vòng lặp mỗi lần, mỗi lần dựng lời giải ban đầu riêng. Mọi thuật
+toán nhận **cùng một bộ nước đi** — kể cả chuỗi Kempe — nên bảng này so *chiến lược tìm kiếm*,
+không so bộ nước đi. Số liệu gốc: [docs/benchmark/2026-09-17.csv](docs/benchmark/2026-09-17.csv).
+
+```
+Thuật toán               TB       tốt nhất  tệ nhất  lệch chuẩn  lỗi cứng TB  hợp lệ
+Hybrid của hệ thống      -3045    -3007     -3088     26         1,0          20%
+Local Search             -3058    -2977     -3192     83         0,6          60%
+Simulated Annealing      -3064    -2934     -3249    120         2,2           0%
+Hill Climbing            -3528    -3423     -3622     71         1,6           0%
+Late Acceptance          -6659    -6621     -6736     42         8,4           0%
+Tabu Search             -10619   -10428    -10853    136        39,8           0%
+Greedy (không tối ưu)   -12775   -12450    -13086    270        49,4           0%
+```
+
+Đọc bảng này cho đúng:
+
+- **Ba thuật toán đầu hoà nhau.** Chênh lệch trung bình 19 điểm, nhỏ hơn cả độ lệch chuẩn của
+  từng cái. Hybrid của hệ thống không thắng về điểm trung bình; nó thắng về **độ ổn định** —
+  lệch chuẩn 26, so với 83 và 120.
+- **Bộ nước đi quan trọng hơn chiến lược tìm kiếm.** Thêm chuỗi Kempe mua được hơn 1.300 điểm;
+  đổi luyện kim sang tìm kiếm cục bộ thì gần như không mua được gì.
+- **Cột "hợp lệ" thấp là do cách đặt bài thí nghiệm, không phải do thuật toán.** Phòng thí
+  nghiệm đưa mỗi thuật toán lời giải dựng thô rồi cho tìm kiếm một mạch. Bản chính thì tìm kiếm
+  ngắn, chạy lại bước sửa tiết thiếu và dồn tiết, rồi mới tìm kiếm chính — và 3/3 phương án
+  của lần xếp thật đều 0 lỗi cứng.
+- **Tabu Search và Late Acceptance vẫn thua xa.** Tabu thử 12 nước đi rồi mới đi một bước, nên
+  cùng 700.000 lượt đánh giá nó chỉ đi được khoảng 58.000 bước. Hai lỗi cài đặt làm nó tệ hơn
+  cả không làm gì đã được sửa, nhưng sửa lỗi không biến nó thành thuật toán hợp với bài này.
+- **Cột thời gian không so được với nhau.** Tám tiến trình chạy song song trên máy đang bận,
+  nên số giây phản ánh lúc chạy nhiều hơn phản ánh thuật toán.
+
+**Vì sao không chạy trên GPU.** Luyện kim đi tuần tự: mỗi nước đi được kiểm trên đúng lịch mà
+nước đi trước để lại, và mỗi bước là tra bảng băm, gom chuỗi, chấm lại vài lớp — không phải
+phép tính ma trận lặp lại hàng nghìn lần mà GPU giỏi. Muốn dùng GPU phải viết lại toàn bộ 15
+tiêu chí thành kernel và chạy hàng nghìn chuỗi độc lập. Thứ song song được là **các lần chạy**:
+chúng độc lập với nhau, nên chạy nhiều tiến trình CPU cùng lúc.
 
 ### 5.3. Định mức và quy định tham chiếu
 
