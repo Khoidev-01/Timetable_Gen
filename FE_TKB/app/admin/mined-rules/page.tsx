@@ -178,7 +178,7 @@ export default function MinedRulesPage() {
       )}
 
       <p className="text-xs text-[var(--text-muted)]">
-        Hệ thống chỉ đặt câu hỏi, không tự thêm ràng buộc — cùng một thao tác kéo có thể do
+        Hệ thống chỉ đặt câu hỏi, không tự thêm ràng buộc - cùng một thao tác kéo có thể do
         nhiều lý do khác nhau, chỉ người xếp lịch mới biết lý do thật.
       </p>
     </div>

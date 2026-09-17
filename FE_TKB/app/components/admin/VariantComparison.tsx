@@ -159,7 +159,7 @@ export default function VariantComparison({ semesterId, onPublished }: Props) {
               <tr key={variant.id} className="border-t border-gray-200">
                 <td className="p-2">
                   <span className="flex items-center gap-2 font-medium">
-                    {variant.name.split(' — ')[0]}
+                    {variant.name.split(' - ')[0]}
                     {variant.isOfficial && (
                       <span className="flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-bold text-emerald-700">
                         <BadgeCheck size={12} /> Chính thức
@@ -228,7 +228,7 @@ export default function VariantComparison({ semesterId, onPublished }: Props) {
             <p className="font-semibold text-emerald-800">Liên kết công khai cho giáo viên</p>
             <p className="mt-1 text-sm text-emerald-700">
               Dán mã QR này lên bảng tin. Giáo viên quét là xem được lịch thật của hôm nay, kể cả
-              các tiết dạy thay — không cần tài khoản.
+              các tiết dạy thay - không cần tài khoản.
             </p>
             <code className="mt-2 block truncate rounded bg-white px-2 py-1 text-xs text-gray-600">
               {share.url}

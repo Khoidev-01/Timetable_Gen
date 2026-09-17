@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useEffect } from 'react';
 import { toast } from '@/lib/toast';
 import SubjectModal from '../../components/admin/SubjectModal';
@@ -135,7 +135,7 @@ export default function SubjectsPage() {
 
     const handleDeleteAll = async () => {
         if (!confirm(`Xóa TOÀN BỘ ${subjects.length} môn học cùng phân công và TKB liên quan? Hành động này không thể hoàn tác.`)) return;
-        if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
+        if (!confirm('Xác nhận lần cuối - bạn chắc chắn muốn xóa hết?')) return;
         try {
             const res = await fetch(`${API_URL}/resources/subjects/all`, {
                 method: 'DELETE',

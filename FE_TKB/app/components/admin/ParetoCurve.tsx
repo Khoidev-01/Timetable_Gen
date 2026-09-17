@@ -67,7 +67,7 @@ export default function ParetoCurve({ semesterId }: { semesterId: string }) {
       <p className="mb-4 max-w-2xl text-xs text-[var(--text-muted)]">
         Không thể vừa tối đa chất lượng tổng vừa tối đa độ đồng đều. Nút dưới đây giải lại bài
         toán nhiều lần với các mức ưu tiên công bằng khác nhau, rồi cho biết mỗi mức đắt bao
-        nhiêu — bằng số, không phải bằng cảm tính. Mỗi điểm là một lần giải thật, mất vài chục
+        nhiêu - bằng số, không phải bằng cảm tính. Mỗi điểm là một lần giải thật, mất vài chục
         giây.
       </p>
 
@@ -107,7 +107,7 @@ export default function ParetoCurve({ semesterId }: { semesterId: string }) {
                     className={`border-b border-[var(--border-light)] ${point.onFrontier ? '' : 'opacity-45'}`}
                   >
                     <td className="py-2 font-medium text-[var(--text-primary)]">
-                      {point.fairnessWeight === 0 ? '0 — như hiện tại' : point.fairnessWeight}
+                      {point.fairnessWeight === 0 ? '0 - như hiện tại' : point.fairnessWeight}
                     </td>
                     <td className="py-2 text-right text-[var(--text-primary)]">{point.score}</td>
                     <td className="py-2 text-right text-[var(--text-primary)]">{point.gini.toFixed(3)}</td>
@@ -129,7 +129,7 @@ export default function ParetoCurve({ semesterId }: { semesterId: string }) {
           </div>
 
           <p className="text-xs text-[var(--text-muted)]">
-            &ldquo;Bị lấn át&rdquo; nghĩa là có phương án khác tốt hơn ở <em>cả hai</em> mặt —
+            &ldquo;Bị lấn át&rdquo; nghĩa là có phương án khác tốt hơn ở <em>cả hai</em> mặt -
             không ai nên chọn nó, dù coi trọng điều gì đi nữa.
           </p>
 
@@ -140,7 +140,7 @@ export default function ParetoCurve({ semesterId }: { semesterId: string }) {
               </p>
               <p className="mt-1 text-sm text-[var(--text-primary)]">{sweep.recommendation.reason}</p>
               <p className="mt-2 text-xs text-[var(--text-muted)]">
-                Đây là gợi ý, không phải quyết định — đánh đổi này là việc của nhà trường. Đặt
+                Đây là gợi ý, không phải quyết định - đánh đổi này là việc của nhà trường. Đặt
                 mức đã chọn ở trang Cấu hình ràng buộc rồi xếp lại.
               </p>
             </div>
@@ -213,10 +213,10 @@ function Scatter({ points }: { points: ParetoPoint[] }) {
         ))}
 
         <text x={width / 2} y={height - 8} textAnchor="middle" className="fill-[var(--text-muted)] text-[10px]">
-          Gini — càng trái càng đồng đều
+          Gini - càng trái càng đồng đều
         </text>
         <text x={12} y={height / 2} textAnchor="middle" transform={`rotate(-90 12 ${height / 2})`} className="fill-[var(--text-muted)] text-[10px]">
-          Điểm tổng — càng lên càng tốt
+          Điểm tổng - càng lên càng tốt
         </text>
       </svg>
     </div>

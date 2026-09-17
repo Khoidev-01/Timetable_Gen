@@ -5,11 +5,11 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { LayoutDashboard, CalendarDays, Clock, KeyRound, LogOut, PanelLeftClose, PanelLeft, Bell, Check , CalendarOff, ArrowLeftRight } from 'lucide-react';
 import AppLogo from '../components/AppLogo';
-import ThemeToggle from '../components/ThemeToggle';
 import { API_URL } from '@/lib/api';
 import { useLiveNotifications } from '@/lib/useLiveNotifications';
 import { Toaster } from '@/lib/toast';
 import AssistantWidget from '../components/AssistantWidget';
+import { formatDisplayName } from '@/lib/format-display-name';
 
 const teacherMenuItems = [
   { name: 'Tổng quan', href: '/teacher', icon: LayoutDashboard },
@@ -143,12 +143,10 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
           flex items-center justify-between px-4 md:px-6 z-20 transition-colors">
           <h2 className="text-sm font-medium text-[var(--text-secondary)]">
             Xin chào, <span className="text-[var(--text-primary)] font-semibold">
-              {user.full_name || user.ho_ten || user.username}
+              Thầy/Cô {formatDisplayName(user.full_name || user.ho_ten || user.username)}
             </span>
           </h2>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
-
             {/* Notification Bell */}
             <div className="relative" ref={notifRef}>
               <button
@@ -166,7 +164,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-80 rounded-[var(--radius-md)] border border-[var(--border-default)]
+                <div className="dropdown-enter absolute right-0 top-full mt-2 w-80 origin-top-right rounded-[var(--radius-md)] border border-[var(--border-default)]
                   bg-[var(--bg-surface)] shadow-2xl z-50 overflow-hidden">
                   <div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center justify-between">
                     <h3 className="font-bold text-sm text-[var(--text-primary)]">Thông báo</h3>
@@ -177,7 +175,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
                       </button>
                     )}
                   </div>
-                  <div className="max-h-80 overflow-y-auto">
+                  <div className="dropdown-stagger scrollbar-hidden max-h-80 overflow-y-auto">
                     {notifications.length === 0 ? (
                       <div className="p-8 text-center">
                         <Bell size={28} className="mx-auto mb-2 text-[var(--text-muted)] opacity-40" />

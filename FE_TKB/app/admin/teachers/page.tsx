@@ -71,7 +71,7 @@ export default function TeachersPage() {
 
   const handleDeleteAll = async () => {
     if (!confirm(`Xóa TOÀN BỘ ${teachers.length} giáo viên cùng phân công và TKB liên quan? Hành động này không thể hoàn tác.`)) return;
-    if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
+    if (!confirm('Xác nhận lần cuối - bạn chắc chắn muốn xóa hết?')) return;
     try {
       const res = await fetch(`${API_URL}/resources/teachers/all`, {
         method: 'DELETE',

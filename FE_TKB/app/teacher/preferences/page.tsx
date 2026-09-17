@@ -21,7 +21,7 @@ const LEVELS: Array<{ key: Level; label: string; meaning: string; cell: string; 
   {
     key: 'BUSY',
     label: 'Bận',
-    meaning: 'Không thể dạy — họp, đi học, đưa đón con. Hệ thống tuyệt đối không xếp.',
+    meaning: 'Không thể dạy - họp, đi học, đưa đón con. Hệ thống tuyệt đối không xếp.',
     cell: 'bg-red-500 text-white',
     swatch: 'bg-red-500',
   },
@@ -206,7 +206,7 @@ export default function PreferencesPage() {
                         <td key={day}>
                           <button
                             onClick={() => paint(day, session, period)}
-                            aria-label={`${DAY_LABEL[day]} tiết ${period} ${session === 0 ? 'sáng' : 'chiều'}${style ? ` — ${style.label}` : ''}`}
+                            aria-label={`${DAY_LABEL[day]} tiết ${period} ${session === 0 ? 'sáng' : 'chiều'}${style ? ` - ${style.label}` : ''}`}
                             className={`h-9 w-full rounded-md text-xs font-medium transition-colors ${
                               style?.cell ?? 'bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:bg-[var(--border-light)]'
                             }`}
@@ -236,7 +236,7 @@ export default function PreferencesPage() {
 
         {status === 'saved' && (
           <span className="flex items-center gap-1.5 text-sm text-emerald-600">
-            <Check size={16} /> Đã lưu — sẽ áp dụng từ lần xếp lịch tiếp theo
+            <Check size={16} /> Đã lưu - sẽ áp dụng từ lần xếp lịch tiếp theo
           </span>
         )}
         {typeof status === 'string' && !['idle', 'saving', 'saved'].includes(status) && (

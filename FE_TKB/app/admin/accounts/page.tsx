@@ -1,4 +1,4 @@
-﻿
+
 'use client';
 import { useState, useEffect } from 'react';
 import { toast } from '@/lib/toast';
@@ -80,7 +80,7 @@ export default function AccountsPage() {
         const otherCount = accounts.filter(a => a.id !== currentUser.id).length;
         if (otherCount === 0) { toast('Không có tài khoản nào khác để xóa.', "error"); return; }
         if (!confirm(`Xóa TOÀN BỘ ${otherCount} tài khoản (giữ lại admin hiện tại)? Hành động này không thể hoàn tác.`)) return;
-        if (!confirm('Xác nhận lần cuối — bạn chắc chắn muốn xóa hết?')) return;
+        if (!confirm('Xác nhận lần cuối - bạn chắc chắn muốn xóa hết?')) return;
         const token = localStorage.getItem('token');
         const res = await fetch(`${API_URL}/users/all?except_id=${encodeURIComponent(currentUser.id)}`, {
             method: 'DELETE',

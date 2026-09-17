@@ -90,7 +90,7 @@ export default function ConfigurationPage() {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-[var(--text-muted)]">
             Thuật toán đọc đúng những con số dưới đây. Thay đổi có hiệu lực từ lần xếp thời
-            khóa biểu tiếp theo — thời khóa biểu đang có không tự tính lại.
+            khóa biểu tiếp theo - thời khóa biểu đang có không tự tính lại.
           </p>
         </div>
 

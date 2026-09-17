@@ -11,7 +11,7 @@
  *
  * Bump CACHE_VERSION to retire every old cache on the next activation.
  */
-const CACHE_VERSION = 'tkb-v1';
+const CACHE_VERSION = 'tkb-v2';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const DATA_CACHE = `${CACHE_VERSION}-data`;
 

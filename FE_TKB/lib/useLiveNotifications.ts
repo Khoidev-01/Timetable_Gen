@@ -8,7 +8,7 @@ export interface AppNotification {
   id: string;
   title: string;
   message: string;
-  /** Nhóm sự kiện, ví dụ SWAP_REQUEST — màn hình quản trị lọc chuông theo cột này */
+  /** Nhóm sự kiện, ví dụ SWAP_REQUEST - màn hình quản trị lọc chuông theo cột này */
   category?: string;
   is_read: boolean;
   created_at: string;
@@ -20,8 +20,8 @@ export interface AppNotification {
  * Trước đây cả hai giao diện đều hỏi máy chủ mỗi 30 giây. Với việc đổi tiết thì nửa phút đủ
  * để đồng nghiệp bỏ lỡ; với báo vắng lúc 6h45, tiết đầu 7h00, thì nửa phút là quá muộn.
  *
- * Vẫn giữ một nhịp hỏi lại nhưng thưa hẳn. Ổ cắm có thể đứt mà trình duyệt không kịp báo —
- * mất mạng chốc lát, máy vừa mở nắp, proxy công ty cắt kết nối nhàn rỗi — và khi đó cái
+ * Vẫn giữ một nhịp hỏi lại nhưng thưa hẳn. Ổ cắm có thể đứt mà trình duyệt không kịp báo -
+ * mất mạng chốc lát, máy vừa mở nắp, proxy công ty cắt kết nối nhàn rỗi - và khi đó cái
  * chuông im lặng trông y hệt một cái chuông không có gì mới.
  */
 const FALLBACK_REFRESH_MS = 5 * 60 * 1000;

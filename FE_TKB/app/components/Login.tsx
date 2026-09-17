@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { API_URL } from '@/lib/api';
 import { LogIn, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
-import ThemeToggle from './ThemeToggle';
 
 interface LoginProps {
   onLoginSuccess: (user: any) => void;
@@ -67,22 +66,17 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center px-4 bg-[var(--bg-base)] transition-colors">
-      {/* Background decoration — single accent, restrained */}
+      {/* Background decoration - single accent, restrained */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[var(--accent)]/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[var(--accent)]/5 rounded-full blur-3xl" />
       </div>
       <div className="grain-overlay" aria-hidden />
 
-      {/* Theme toggle */}
-      <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
-
       <div className="relative w-full max-w-md animate-rise">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <Image src="/logo.png" alt="MiKiTimetable" width={72} height={72} className="rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] mb-4" />
+          <Image src="/favicon.svg?v=2" alt="MiKiTimetable" width={72} height={72} className="mb-4 rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)]" />
           <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">
             MiKiTimetable
           </h1>

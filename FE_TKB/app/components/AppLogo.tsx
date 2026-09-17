@@ -12,7 +12,7 @@ export default function AppLogo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) 
 
   return (
     <div className="flex items-center gap-2.5">
-      <Image src="/logo.png" alt="MiKiTimetable" width={s.img} height={s.img} className="rounded-[var(--radius-md)]" />
+      <Image src="/favicon.svg?v=2" alt="MiKiTimetable" width={s.img} height={s.img} className="rounded-[var(--radius-md)]" />
       <div className="flex flex-col leading-tight">
         <span className={`${s.text} font-bold tracking-tight text-white`}>
           MiKiTimetable

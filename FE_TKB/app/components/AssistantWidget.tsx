@@ -1,7 +1,8 @@
 'use client';
 
+import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bot, Check, ChevronDown, FileText, Loader2, Send, Sparkles, X } from 'lucide-react';
+import { Check, ChevronDown, FileText, Loader2, Send, X } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 
 interface Step {
@@ -46,10 +47,16 @@ const STEP_LABEL: Record<string, string> = {
   create_busy_registration: 'Đang soạn đơn xin nghỉ',
 };
 
-const SUGGESTIONS = [
+const TEACHER_SUGGESTIONS = [
   'Tuần này tôi dạy bao nhiêu tiết?',
-  'Định mức tiết dạy của giáo viên THPT là bao nhiêu?',
+  'Tuần này tôi có tiết trống nào?',
   'Lịch dạy của tôi thứ hai có gì?',
+];
+
+const ADMIN_SUGGESTIONS = [
+  'Thứ năm tiết 3 có giáo viên nào rảnh không?',
+  'Lịch của lớp 10A1 trong tuần này thế nào?',
+  'Định mức tiết dạy của giáo viên THPT là bao nhiêu?',
 ];
 
 /**
@@ -62,11 +69,14 @@ const SUGGESTIONS = [
 export default function AssistantWidget() {
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState<boolean | null>(null);
-  const [remaining, setRemaining] = useState<number | null>(null);
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
   const [isAsking, setIsAsking] = useState(false);
+  const [showInitialSuggestions, setShowInitialSuggestions] = useState(false);
+  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const hasOpenedRef = useRef(false);
+  const suggestions = role === 'TEACHER' ? TEACHER_SUGGESTIONS : ADMIN_SUGGESTIONS;
 
   const authHeaders = () => ({
     'Content-Type': 'application/json',
@@ -74,12 +84,20 @@ export default function AssistantWidget() {
   });
 
   useEffect(() => {
+    try {
+      const savedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
+      setRole(savedUser.role === 'TEACHER' ? 'TEACHER' : 'ADMIN');
+    } catch {
+      setRole('ADMIN');
+    }
+  }, []);
+
+  useEffect(() => {
     if (!open || ready !== null) return;
     fetch(`${API_URL}/ai/status`, { headers: authHeaders() })
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => {
         setReady(Boolean(body?.ready));
-        setRemaining(body?.asksRemaining ?? null);
       })
       .catch(() => setReady(false));
   }, [open, ready]);
@@ -87,6 +105,17 @@ export default function AssistantWidget() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [turns, isAsking]);
+
+  const openAssistant = () => {
+    setShowInitialSuggestions(!hasOpenedRef.current);
+    hasOpenedRef.current = true;
+    setOpen(true);
+  };
+
+  const closeAssistant = () => {
+    setShowInitialSuggestions(false);
+    setOpen(false);
+  };
 
   const ask = useCallback(
     async (text: string) => {
@@ -145,7 +174,6 @@ export default function AssistantWidget() {
             if (event === 'error') update((t) => ({ ...t, error: data.message }));
           }
         }
-        setRemaining((left) => (left === null ? null : Math.max(0, left - 1)));
       } catch {
         update((t) => ({ ...t, error: 'Mất kết nối tới máy chủ.' }));
       } finally {
@@ -176,25 +204,38 @@ export default function AssistantWidget() {
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Mở trợ lý"
-        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 transition-transform hover:scale-105"
-      >
-        <Sparkles size={22} />
-      </button>
+      <div className="fixed bottom-5 right-5 z-50">
+        <div className="shrink-0 motion-safe:animate-[assistant-breathe_4s_ease-in-out_infinite]">
+          <button
+            type="button"
+            onClick={openAssistant}
+            aria-label="Mở trợ lý MiKi"
+            className="group relative flex h-[60px] w-[60px] items-center justify-center rounded-full bg-gradient-to-br from-blue-500 via-blue-600 to-violet-600 shadow-[0_10px_22px_rgba(37,99,235,0.3)] ring-[3px] ring-white/80 transition-[transform,box-shadow] duration-200 hover:scale-[1.03] hover:shadow-[0_12px_26px_rgba(37,99,235,0.36)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300 active:scale-95"
+          >
+            <span className="absolute inset-1 rounded-full bg-white/10" aria-hidden="true" />
+            <Image
+              src="/images/assistant/miki-assistant-3d.png"
+              alt=""
+              width={64}
+              height={64}
+              priority
+              className="relative h-[52px] w-[52px] select-none object-contain drop-shadow-[0_4px_6px_rgba(15,23,42,0.22)] transition-transform duration-200 group-hover:-translate-y-0.5"
+            />
+            <span className="absolute right-0 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="fixed bottom-5 right-5 z-50 flex h-[min(34rem,80vh)] w-[min(26rem,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl">
       <header className="flex items-center gap-2 border-b border-[var(--border-default)] bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-white">
-        <Bot size={18} />
+        <Image src="/images/assistant/miki-assistant-3d.png" alt="" width={36} height={36} className="h-9 w-9 object-contain" />
         <div className="flex-1">
           <p className="text-sm font-semibold">Trợ lý thời khóa biểu</p>
-          {remaining !== null && <p className="text-xs text-blue-100">Còn {remaining} câu trong giờ này</p>}
         </div>
-        <button onClick={() => setOpen(false)} aria-label="Đóng" className="rounded p-1 hover:bg-white/20">
+        <button onClick={closeAssistant} aria-label="Đóng" className="rounded p-1 hover:bg-white/20">
           <X size={17} />
         </button>
       </header>
@@ -206,14 +247,15 @@ export default function AssistantWidget() {
           </p>
         )}
 
-        {turns.length === 0 && ready !== false && (
+        {turns.length === 0 && showInitialSuggestions && (
           <div className="space-y-2">
             <p className="text-sm text-[var(--text-muted)]">Thử hỏi:</p>
-            {SUGGESTIONS.map((text) => (
+            {suggestions.map((text) => (
               <button
                 key={text}
                 onClick={() => ask(text)}
-                className="block w-full rounded-lg border border-[var(--border-default)] px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]"
+                disabled={ready === false}
+                className="block w-full rounded-lg border border-[var(--border-default)] px-3 py-2 text-left text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {text}
               </button>
@@ -231,7 +273,7 @@ export default function AssistantWidget() {
               <p key={i} className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
                 <span className={`h-1.5 w-1.5 rounded-full ${step.ok ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                 {STEP_LABEL[step.tool] ?? step.tool}
-                {!step.ok && step.note && <span className="italic"> — {step.note}</span>}
+                {!step.ok && step.note && <span className="italic"> - {step.note}</span>}
               </p>
             ))}
 

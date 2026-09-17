@@ -36,7 +36,7 @@ const DAY_LABEL: Record<number, string> = {
  * A teacher arranging a trade with a colleague.
  *
  * The suggestions come from the server's own constraint check, so a teacher is never
- * offered a trade the admin would have to refuse — and when one does get refused later, it
+ * offered a trade the admin would have to refuse - and when one does get refused later, it
  * is because the timetable genuinely moved on, not because the two screens disagreed.
  */
 export default function TeacherSwapsPage() {
@@ -233,7 +233,7 @@ export default function TeacherSwapsPage() {
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Lý do xin đổi — đồng nghiệp sẽ đọc dòng này"
+            placeholder="Lý do xin đổi - đồng nghiệp sẽ đọc dòng này"
             className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
           />
           <button

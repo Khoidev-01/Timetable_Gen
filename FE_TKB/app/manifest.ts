@@ -9,7 +9,7 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'MiKiTimetable — Thời khóa biểu',
+    name: 'MiKiTimetable - Thời khóa biểu',
     short_name: 'TKB',
     description: 'Xem thời khóa biểu cá nhân, kể cả khi mất mạng',
     // Teachers install this for their own schedule, so that is where it should open

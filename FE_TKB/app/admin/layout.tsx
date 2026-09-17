@@ -3,12 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import AdminSidebar from '../components/admin/Sidebar';
-import ThemeToggle from '../components/ThemeToggle';
 import { Bell, LogOut, User, Settings, Check, FileSpreadsheet, Calendar, MessageSquare, Clock, Monitor } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 import { useLiveNotifications } from '@/lib/useLiveNotifications';
 import { Toaster } from '@/lib/toast';
 import AssistantWidget from '../components/AssistantWidget';
+import { formatDisplayName } from '@/lib/format-display-name';
 
 interface Notification {
   id: string;
@@ -108,11 +108,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <header data-print-hide className="h-14 bg-[var(--bg-surface)] border-b border-[var(--border-default)]
           flex items-center justify-between px-4 md:px-6 z-20 transition-colors">
           <h2 className="text-sm font-medium text-[var(--text-secondary)]">
-            Xin chào, <span className="text-[var(--text-primary)] font-semibold">{user.username}</span>
+            Xin chào,{' '}
+            <span className="text-[var(--text-primary)] font-semibold">
+              {formatDisplayName(user.full_name || user.username)}
+            </span>
           </h2>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
-
             {/* Notification Bell */}
             <div className="relative" ref={notifRef}>
               <button
@@ -130,7 +131,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-[28rem] rounded-[var(--radius-md)] border border-[var(--border-default)]
+                <div className="dropdown-enter absolute right-0 top-full mt-2 w-[28rem] origin-top-right rounded-[var(--radius-md)] border border-[var(--border-default)]
                   bg-[var(--bg-surface)] shadow-2xl z-50 overflow-hidden">
                   {/* Header */}
                   <div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center justify-between">
@@ -165,7 +166,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </div>
 
                   {/* Notification List */}
-                  <div className="max-h-80 overflow-y-auto">
+                  <div className="dropdown-stagger scrollbar-hidden max-h-80 overflow-y-auto">
                     {filteredNotifications.length === 0 ? (
                       <div className="p-8 text-center">
                         <Bell size={28} className="mx-auto mb-2 text-[var(--text-muted)] opacity-40" />
@@ -219,7 +220,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </button>
 
               {showProfileMenu && (
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-[var(--radius-md)] border border-[var(--border-default)]
+                <div className="dropdown-enter dropdown-stagger absolute right-0 top-full mt-2 w-56 origin-top-right rounded-[var(--radius-md)] border border-[var(--border-default)]
                   bg-[var(--bg-surface)] shadow-xl z-50 overflow-hidden">
                   <div className="px-4 py-3 border-b border-[var(--border-default)]">
                     <p className="font-bold text-sm text-[var(--text-primary)]">{user.username}</p>

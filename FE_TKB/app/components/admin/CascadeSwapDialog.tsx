@@ -115,7 +115,7 @@ export default function CascadeSwapDialog({ slotId, onClose, onApplied }: Props)
             {target && (
               <p className="mt-1 text-sm text-gray-600">
                 Giải phóng <strong>{target.subjectName}</strong> lớp <strong>{target.className}</strong>{' '}
-                ({target.teacherName}) — hiện ở {cell(target.from)}
+                ({target.teacherName}) - hiện ở {cell(target.from)}
               </p>
             )}
           </div>
@@ -129,7 +129,7 @@ export default function CascadeSwapDialog({ slotId, onClose, onApplied }: Props)
 
         {!isLoading && cycles.length === 0 && !error && (
           <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
-            Không tìm được chu trình đổi nào cho tiết này. Lịch hiện quá kín — thử mở khóa bớt tiết
+            Không tìm được chu trình đổi nào cho tiết này. Lịch hiện quá kín - thử mở khóa bớt tiết
             cố định, hoặc giảm số ô giáo viên đã đăng ký bận.
           </div>
         )}
@@ -177,7 +177,7 @@ export default function CascadeSwapDialog({ slotId, onClose, onApplied }: Props)
         </div>
 
         <p className="mt-4 text-xs text-gray-400">
-          Cả chu trình được thực hiện trong một giao dịch — hoặc tất cả cùng chuyển, hoặc không tiết
+          Cả chu trình được thực hiện trong một giao dịch - hoặc tất cả cùng chuyển, hoặc không tiết
           nào chuyển. Chu trình áp dụng xong sẽ tự khóa lại.
         </p>
       </div>

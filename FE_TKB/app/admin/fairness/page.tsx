@@ -115,7 +115,7 @@ export default function FairnessPage() {
           <p className={`mt-1 text-4xl font-bold ${reading.tone}`}>{report.gini.toFixed(3)}</p>
           <p className={`mt-1 text-sm font-medium ${reading.tone}`}>{reading.label}</p>
           <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)]">
-            0 nghĩa là mọi giáo viên có tuần làm việc tốt như nhau. Không trường nào đạt 0 —
+            0 nghĩa là mọi giáo viên có tuần làm việc tốt như nhau. Không trường nào đạt 0 -
             điều đáng xem là con số này tăng hay giảm giữa hai phương án.
           </p>
 
@@ -182,7 +182,7 @@ export default function FairnessPage() {
       <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6">
         <h2 className="mb-1 font-semibold text-[var(--text-primary)]">Điểm lịch từng giáo viên</h2>
         <p className="mb-4 text-xs text-[var(--text-muted)]">
-          Mỗi giáo viên được chấm so với chính khối lượng dạy của họ — người dạy 20 tiết không
+          Mỗi giáo viên được chấm so với chính khối lượng dạy của họ - người dạy 20 tiết không
           thể có tuần giống người dạy 8 tiết, nên trừ điểm vì điều đó là không công bằng.
         </p>
 
