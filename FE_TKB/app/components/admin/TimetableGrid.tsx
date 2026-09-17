@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react';
 import { DndContext, useDraggable, useDroppable, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core';
 import { API_URL } from '@/lib/api';
+import { describeChange } from './QualityGrade';
 
 interface MoveTarget { day: number; period: number; valid: boolean; reason?: string; deltaScore?: number }
 
@@ -275,11 +276,8 @@ export default function TimetableGrid({ schedule, viewMode, selectedEntityId, on
     const days = [2, 3, 4, 5, 6, 7];
     const periods = [1, 2, 3, 4, 5];
 
-    const formatDelta = (delta?: number) => {
-        if (delta === undefined) return undefined;
-        if (delta === 0) return 'không đổi điểm';
-        return `${delta > 0 ? '+' : ''}${delta} điểm`;
-    };
+    // Kéo thả nói bằng chữ: tốt hơn, kém đi, không đổi. Không hiện điểm số.
+    const formatDelta = (delta?: number) => describeChange(delta)?.text;
 
     const renderCell = (day: number, session: number, period: number) => {
         // Fix: Backend uses 1-10 for periods. Frontend displays 1-5 per session.

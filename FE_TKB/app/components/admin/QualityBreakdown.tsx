@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, CheckCircle2, ChevronDown, Users } from 'lucide-react';
+import { GradeBadge, QualityGrade, QualityScale } from './QualityGrade';
 
 export interface SoftItem {
   label: string;
@@ -18,10 +19,9 @@ export interface Quality {
   usable: boolean;
   usableLabel: string;
   usableReason: string;
-  grade: 'GOOD' | 'FAIR' | 'AVERAGE' | 'UNOPTIMISED';
+  grade: QualityGrade;
   gradeLabel: string;
-  avoidablePerSlot: number;
-  forcedPenalty: number;
+  gradeMeaning?: string;
   fixableCount: number;
   hardship?: {
     teacherCount: number;
@@ -31,41 +31,31 @@ export interface Quality {
   };
 }
 
-const GRADE_TONE: Record<Quality['grade'], string> = {
-  GOOD: 'text-emerald-700 dark:text-emerald-400',
-  FAIR: 'text-blue-700 dark:text-blue-400',
-  AVERAGE: 'text-amber-700 dark:text-amber-400',
-  UNOPTIMISED: 'text-red-700 dark:text-red-400',
-};
-
 /**
  * Thời khóa biểu này dùng được chưa, và tốt đến đâu.
  *
- * Trước đây chỗ này hiện đúng một dòng: `Fitness: -5211`. Không ai nhìn một số âm năm nghìn
- * mà dám đem thời khóa biểu đó ra dùng, kể cả khi nó hoàn toàn hợp lệ — mà nó hợp lệ thật.
- * Con số ấy là ngôn ngữ của thuật toán: một tổng tuyệt đối trên gần một nghìn tiết, lớn lên
- * theo quy mô trường, và không có mốc nào để biết bao nhiêu là đủ.
+ * Trước đây chỗ này hiện `Fitness: -5211`. Không ai nhìn một số âm năm nghìn mà dám đem thời
+ * khóa biểu ra dùng, kể cả khi nó hoàn toàn hợp lệ. Nay không còn con số nào: chỉ còn một thang
+ * sáu bậc từ Tệ đến Xuất sắc, và danh sách những chỗ còn sửa được, đếm bằng số chỗ.
  *
- * Hai câu hỏi được tách hẳn ra, vì trộn chúng lại là chỗ dễ hiểu sai nhất. **Dùng được hay
- * chưa** là nhị phân và chỉ phụ thuộc lỗi cứng. **Chất lượng** là thang bậc, và nó không có
- * quyền phủ quyết: một thời khóa biểu "Trung bình" mà không lỗi cứng vẫn in ra treo lên
- * tường được.
+ * Hai câu hỏi được tách hẳn ra. **Dùng được hay chưa** là nhị phân và chỉ phụ thuộc lỗi cứng.
+ * **Chất lượng** là thang bậc. Còn lỗi cứng thì chất lượng luôn là Tệ — một thời khóa biểu
+ * thiếu tiết không được phép mang nhãn đẹp.
  */
 export default function QualityBreakdown({
   quality,
-  score,
   slotCount,
   hardViolations,
   items,
 }: {
   quality?: Quality;
-  score: number | null;
   slotCount: number;
   hardViolations?: number;
   items: SoftItem[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Xếp theo mức ảnh hưởng tới chất lượng, nhưng chỉ hiện số chỗ
   const ranked = [...items]
     .filter((item) => item.count > 0)
     .sort((a, b) => b.count * b.weight - a.count * a.weight);
@@ -81,13 +71,12 @@ export default function QualityBreakdown({
           }`}
         >
           {usable ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
-          {quality?.usableLabel ?? (usable ? 'Dùng được' : `Chưa dùng được — ${hardViolations} lỗi cứng`)}
+          {quality?.usableLabel ?? (usable ? 'Dùng được' : `Chưa dùng được - ${hardViolations} lỗi cứng`)}
         </span>
 
         {quality && (
-          <span className="text-sm text-[var(--text-secondary)]">
-            Chất lượng:{' '}
-            <span className={`font-semibold ${GRADE_TONE[quality.grade]}`}>{quality.gradeLabel}</span>
+          <span className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
+            Chất lượng: <GradeBadge grade={quality.grade} />
           </span>
         )}
 
@@ -103,14 +92,17 @@ export default function QualityBreakdown({
       </div>
 
       {quality && (
-        <p className="px-4 pb-2 text-xs text-[var(--text-muted)]">{quality.usableReason}</p>
+        <div className="px-4 pb-3">
+          <QualityScale grade={quality.grade} />
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
+            {quality.gradeMeaning ?? quality.usableReason}
+          </p>
+        </div>
       )}
 
       {/*
-        Xếp hạng tổng là một con số trung bình, và trung bình che đi cả hai đầu. Lời phàn nàn
-        ở trường không đến từ trung bình — nó đến từ đúng người có lịch xấu nhất, và người đó
-        sẽ không thấy mình trong chữ "Tốt". Những con số này trang Công bằng đã tính từ trước,
-        nhưng nó là một màn hình khác nên người đọc chữ "Tốt" không có lý do nào đi sang đó.
+        Xếp hạng tổng là một trung bình, và trung bình che đi cả hai đầu. Lời phàn nàn ở trường
+        đến từ đúng người có lịch xấu nhất, và người đó sẽ không thấy mình trong chữ "Tốt".
       */}
       {quality?.hardship && quality.hardship.noDayOff > 0 && (
         <div className="mx-4 mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
@@ -129,23 +121,16 @@ export default function QualityBreakdown({
       {isOpen && (
         <div className="border-t border-[var(--border-default)] px-4 py-3">
           <p className="mb-3 text-xs leading-relaxed text-[var(--text-muted)]">
-            Xếp hạng đo bằng số điểm phạt <strong>còn tránh được</strong> trên mỗi tiết — đã trừ
-            phần bất khả kháng và đã chia cho quy mô trường, nên so được giữa hai trường khác
-            cỡ. Mốc lấy từ đo thật trên bốn mức công sức tối ưu: chưa tối ưu 9,4 · tối ưu đầy
-            đủ 5,3. <strong>&ldquo;Tốt&rdquo; nghĩa là ngang một lần tối ưu đầy đủ</strong>, không phải hoàn
-            hảo.
-            {quality && (
-              <>
-                {' '}
-                Bản này: <strong>{quality.avoidablePerSlot}</strong> điểm phạt tránh được mỗi tiết.
-              </>
-            )}
+            Mỗi bậc ứng với một mức công sức tối ưu đã đo thật trên dữ liệu: <strong>Tốt</strong> là
+            ngang một lần xếp đầy đủ của hệ thống, <strong>Xuất sắc</strong> là ngang một lần tìm kiếm
+            kéo dài gấp ba lần, còn các bậc dưới ứng với những lần tối ưu ngắn dần. Các bậc đã trừ phần
+            không thể tránh và tính theo quy mô trường, nên trường lớn và trường nhỏ so được với nhau.
           </p>
 
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-[var(--text-muted)]">
-                <th className="py-1 font-medium">Tiêu chí</th>
+                <th className="py-1 font-medium">Chỗ chưa tối ưu</th>
                 <th className="py-1 text-right font-medium">Số chỗ</th>
                 <th className="py-1 text-right font-medium">Còn sửa được</th>
               </tr>
@@ -178,15 +163,9 @@ export default function QualityBreakdown({
           </table>
 
           <p className="mt-3 text-xs text-[var(--text-muted)]">
-            &ldquo;Đã tối đa&rdquo; nghĩa là không xếp lại kiểu nào tốt hơn được: một giáo viên dạy cả
-            lớp học sáng lẫn lớp học chiều thì buộc phải tới trường hai buổi.
-            {score !== null && (
-              <>
-                {' '}
-                Điểm thô của thuật toán: <span className="font-mono">{score}</span> — dùng để so hai
-                phương án của cùng một lần xếp, không dùng để so hai trường.
-              </>
-            )}
+            Danh sách xếp theo mức ảnh hưởng tới chất lượng, chỗ nặng nhất lên đầu. &ldquo;Đã tối
+            đa&rdquo; nghĩa là không xếp lại kiểu nào tốt hơn được: một giáo viên dạy cả lớp học sáng
+            lẫn lớp học chiều thì buộc phải tới trường hai buổi.
           </p>
         </div>
       )}

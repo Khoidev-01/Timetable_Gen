@@ -12,6 +12,34 @@ function positionInSession(period: number): number {
     return period <= 5 ? period : period - 5;
 }
 
+/**
+ * Thang đánh giá sáu bậc, từ tốt nhất tới tệ nhất.
+ *
+ * Đo bằng khoản phạt CÒN TRÁNH ĐƯỢC trên mỗi tiết — đã trừ phần bất khả kháng và chia cho số
+ * tiết, nên trường lớn trường nhỏ so được. Mỗi bậc neo vào một mức công sức tối ưu đo thật,
+ * 3 lần mỗi mức trên bộ dữ liệu 930 tiết (`scripts/calibrate-grades.ts`, điểm giữa):
+ *
+ *   tối ưu kéo dài, 2,4 triệu nước đi   3,78   (3,68 · 3,78 · 3,85)
+ *   tối ưu đầy đủ, bản chính 700.000    4,01   (3,98 · 4,01 · 4,13)
+ *   tối ưu 150.000                      4,69
+ *   tối ưu 30.000                       5,94
+ *   tối ưu 5.000                        7,38
+ *   chỉ dựng thô                        9,35
+ *
+ * Ranh giới đặt ở giữa hai mốc liền kề, nên một lần xếp bình thường của hệ thống rơi vào
+ * "Tốt", và chỉ lên "Xuất sắc" khi ngang một lần tìm kiếm dài gấp hơn ba lần.
+ *
+ * Còn lỗi cứng thì luôn là "Tệ": một thời khóa biểu thiếu tiết không được mang nhãn đẹp.
+ */
+export const QUALITY_SCALE: Array<{ upTo: number; grade: string; label: string; meaning: string }> = [
+    { upTo: 3.9, grade: 'EXCELLENT', label: 'Xuất sắc', meaning: 'Ngang một lần tìm kiếm kéo dài gấp hơn ba lần lần xếp thường.' },
+    { upTo: 4.35, grade: 'GOOD', label: 'Tốt', meaning: 'Ngang một lần xếp đầy đủ của hệ thống.' },
+    { upTo: 5.3, grade: 'FAIR', label: 'Khá', meaning: 'Ngang một lần tối ưu ngắn. Xếp lại đầy đủ thường tốt hơn rõ.' },
+    { upTo: 6.7, grade: 'AVERAGE', label: 'Trung bình', meaning: 'Mới tối ưu sơ bộ. Nên xếp lại.' },
+    { upTo: 8.4, grade: 'WEAK', label: 'Yếu', meaning: 'Gần như chưa được tối ưu. Nên xếp lại.' },
+    { upTo: Infinity, grade: 'POOR', label: 'Tệ', meaning: 'Chưa được tối ưu.' },
+];
+
 export interface TimeSlot {
     id?: string;
     day: number;   // 2-7 (Mon-Sat)
@@ -1418,24 +1446,9 @@ export class ConstraintService {
 
         const usable = hardViolations === 0;
 
-        // Mốc đặt ngay trên mức đo được của từng công sức, để nhãn nói đúng cái nó đo
-        //
-        // Mỗi mốc đặt ngay trên mức đo được của một công sức tìm kiếm cụ thể, 3 lần mỗi mức
-        // trên dữ liệu thật (`scripts/calibrate-grades.ts`) — nên nhãn nói đúng cái nó đo:
-        // "Tốt" nghĩa là ngang một lần tối ưu đầy đủ, không phải một cảm tính.
-        //
-        //   tối ưu đầy đủ (600k nước đi)  5,46   — ba lần: 5,44 · 5,46 · 5,63
-        //   tối ưu ngắn   (100k)          6,54
-        //   tối ưu rất ngắn (20k)         7,41
-        //   chỉ dựng thô                  còn lỗi cứng, không phải thời khóa biểu dùng được
-        //
-        const BANDS: Array<{ upTo: number; grade: string; label: string }> = [
-            { upTo: 5.8, grade: 'GOOD', label: 'Tốt' },           // trên cả lần tối ưu đầy đủ tệ nhất (5,63)
-            { upTo: 6.8, grade: 'FAIR', label: 'Khá' },           // ngang tối ưu ngắn (6,54)
-            { upTo: 7.8, grade: 'AVERAGE', label: 'Trung bình' }, // ngang tối ưu rất ngắn (7,41)
-            { upTo: Infinity, grade: 'UNOPTIMISED', label: 'Chưa tối ưu' },
-        ];
-        const band = BANDS.find((b) => perSlot <= b.upTo)!;
+        const band = usable
+            ? QUALITY_SCALE.find((b) => perSlot <= b.upTo)!
+            : QUALITY_SCALE[QUALITY_SCALE.length - 1];
 
         const fixable = soft.reduce((sum, item) => sum + (item.count - (item.floor ?? 0)), 0);
 
@@ -1458,9 +1471,10 @@ export class ConstraintService {
             usableLabel: usable ? 'Dùng được' : `Chưa dùng được — ${hardViolations} lỗi cứng`,
             usableReason: usable
                 ? 'Không còn lỗi cứng nào: mọi lớp đủ tiết, không ai trùng giờ, không phòng nào bị xếp hai lớp.'
-                : 'Còn lỗi cứng. Thời khóa biểu chưa dùng được cho tới khi số này về 0, bất kể điểm chất lượng.',
+                : 'Còn lỗi cứng. Thời khóa biểu chưa dùng được cho tới khi số này về 0, dù các mặt khác có tốt đến đâu.',
             grade: band.grade,
             gradeLabel: band.label,
+            gradeMeaning: usable ? band.meaning : 'Còn lỗi cứng nên chưa dùng được — xếp lại hoặc sửa các lỗi cứng trước.',
             avoidablePerSlot: Number(perSlot.toFixed(2)),
             forcedPenalty,
             avoidablePenalty,
@@ -1582,17 +1596,18 @@ export class ConstraintService {
             (item as any).floor = floor;
             (item as any).avoidable = item.count - floor;
 
+            // Nhật ký hiện trên trang xếp lịch, nên nói bằng số chỗ chứ không bằng điểm
             details.push(
                 floor > 0
-                    ? `${item.label}: -${cost} điểm (${item.count}, trong đó ${floor} không thể tránh — còn ${item.count - floor} chỗ sửa được)`
-                    : `${item.label}: -${cost} điểm (${item.count})`,
+                    ? `${item.label}: ${item.count} chỗ (${floor} không thể tránh, còn ${item.count - floor} chỗ sửa được)`
+                    : `${item.label}: ${item.count} chỗ`,
             );
         }
 
         // Granted wishes are the one thing that gives points back
         const wishBonus = wishes.preferGranted * w.teacherPrefer;
         if (wishBonus > 0) {
-            details.push(`Đáp ứng nguyện vọng giáo viên: +${wishBonus} điểm (${wishes.preferGranted}/${wishes.preferAsked})`);
+            details.push(`Đáp ứng nguyện vọng giáo viên: ${wishes.preferGranted}/${wishes.preferAsked}`);
         }
 
         const score = 1000 - (hardViolations * w.hardViolation) - softPenalty + wishBonus;

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, RotateCw, Users, X } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import { describeChange } from './QualityGrade';
 
 interface SwapStep {
   slotId: string;
@@ -143,13 +144,8 @@ export default function CascadeSwapDialog({ slotId, onClose, onApplied }: Props)
                 <span className="flex items-center gap-1 text-sm text-gray-600">
                   <Users size={14} /> {cycle.teachersInvolved} giáo viên phải đồng ý
                 </span>
-                <span
-                  className={`text-sm font-semibold ${
-                    cycle.deltaScore >= 0 ? 'text-emerald-600' : 'text-amber-600'
-                  }`}
-                >
-                  Δ điểm {cycle.deltaScore >= 0 ? '+' : ''}
-                  {cycle.deltaScore}
+                <span className={`text-sm font-semibold ${describeChange(cycle.deltaScore)?.tone}`}>
+                  {describeChange(cycle.deltaScore)?.text}
                 </span>
 
                 <button

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeftRight, Loader2, Send } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import { describeChange } from '../../components/admin/QualityGrade';
 import SwapRequestPanel from '../../components/SwapRequestPanel';
 
 interface Slot {
@@ -185,8 +186,8 @@ export default function TeacherSwapsPage() {
         <section className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
           <h2 className="mb-1 font-semibold text-[var(--text-primary)]">2. Chọn tiết muốn đổi</h2>
           <p className="mb-3 text-xs text-[var(--text-muted)]">
-            Chỉ hiện những tiết đổi được mà không sinh lỗi cứng. Số điểm là mức thay đổi chất
-            lượng chung của thời khóa biểu.
+            Chỉ hiện những tiết đổi được mà không sinh lỗi cứng. Nhãn bên phải cho biết thời khóa
+            biểu chung sẽ tốt hơn hay kém đi sau khi đổi.
           </p>
 
           {suggestions === null ? (
@@ -211,11 +212,8 @@ export default function TeacherSwapsPage() {
                       <span className="font-medium text-[var(--text-primary)]">
                         {option.teacherName} · {option.subjectName} {option.className}
                       </span>
-                      <span
-                        className={`text-sm ${option.scoreDelta >= 0 ? 'text-emerald-600' : 'text-[var(--text-muted)]'}`}
-                      >
-                        {option.scoreDelta >= 0 ? '+' : ''}
-                        {option.scoreDelta} điểm
+                      <span className={`text-sm ${describeChange(option.scoreDelta)?.tone}`}>
+                        {describeChange(option.scoreDelta)?.text}
                       </span>
                     </div>
                     <span className="text-sm text-[var(--text-muted)]">

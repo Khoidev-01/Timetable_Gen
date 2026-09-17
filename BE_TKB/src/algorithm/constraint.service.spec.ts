@@ -1,4 +1,4 @@
-import { ConstraintService, TimeSlot } from './constraint.service';
+import { ConstraintService, QUALITY_SCALE, TimeSlot } from './constraint.service';
 
 const ROOMS = [
     { id: 1, name: '101', type: 'CLASSROOM', floor: 1 },
@@ -283,7 +283,38 @@ describe('ConstraintService', () => {
             const graded = service.getFitnessDetails(scattered).quality;
 
             expect(graded.usable).toBe(true);
-            expect(['GOOD', 'FAIR', 'AVERAGE', 'UNOPTIMISED']).toContain(graded.grade);
+            expect(['EXCELLENT', 'GOOD', 'FAIR', 'AVERAGE', 'WEAK', 'POOR']).toContain(graded.grade);
+        });
+
+        it('còn lỗi cứng thì luôn là Tệ, dù phần còn lại đẹp đến đâu', () => {
+            // Hai tiết cùng lớp cùng giờ: một lỗi cứng, và gần như không có khoản phạt mềm nào
+            const clashing = [slot({ period: 1 }), slot({ period: 1, subjectId: 2 })];
+            const graded = service.getFitnessDetails(clashing).quality;
+
+            expect(graded.grade).toBe('POOR');
+            expect(graded.gradeLabel).toBe('Tệ');
+        });
+
+        /**
+         * Sáu bậc neo vào sáu mức công sức đo thật. Nếu ai đó sửa một ranh giới mà làm thang
+         * lộn thứ tự, một thời khóa biểu tốt hơn có thể nhận nhãn tệ hơn — không ai nhìn ra
+         * trên giao diện, vì giao diện chỉ còn hiện chữ.
+         */
+        it('thang sáu bậc đi đúng một chiều, và bậc cuối nhận mọi mức tệ hơn', () => {
+            expect(QUALITY_SCALE.map((b) => b.label)).toEqual(['Xuất sắc', 'Tốt', 'Khá', 'Trung bình', 'Yếu', 'Tệ']);
+            for (let i = 1; i < QUALITY_SCALE.length; i++) {
+                expect(QUALITY_SCALE[i].upTo).toBeGreaterThan(QUALITY_SCALE[i - 1].upTo);
+            }
+            expect(QUALITY_SCALE[QUALITY_SCALE.length - 1].upTo).toBe(Infinity);
+        });
+
+        it('một lần xếp đầy đủ đo được rơi vào Tốt, lần tìm kiếm kéo dài rơi vào Xuất sắc', () => {
+            const bandOf = (perSlot: number) => QUALITY_SCALE.find((b) => perSlot <= b.upTo)!.grade;
+
+            // Các con số đo thật, xem chú thích của QUALITY_SCALE
+            for (const run of [3.98, 4.01, 4.13]) expect(bandOf(run)).toBe('GOOD');
+            for (const run of [3.68, 3.78, 3.85]) expect(bandOf(run)).toBe('EXCELLENT');
+            expect(bandOf(9.35)).toBe('POOR');
         });
 
         it('xếp hạng đo bằng phần TRÁNH ĐƯỢC, không tính phần bất khả kháng', () => {

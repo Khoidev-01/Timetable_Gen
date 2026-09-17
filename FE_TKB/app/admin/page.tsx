@@ -11,13 +11,14 @@ import {
   Users,
 } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import { GradeBadge } from '../components/admin/QualityGrade';
 
 interface Dashboard {
   counts: { teachers: number; classes: number; subjects: number; rooms: number };
   timetable: {
     exists: boolean;
     isOfficial: boolean;
-    score: number | null;
+    grade: string | null;
     hardViolations: number;
     slotCount: number;
     generatedAt: string | null;
@@ -135,8 +136,10 @@ export default function AdminDashboard() {
                 <dd className="font-bold text-[var(--text-primary)]">{data.timetable.slotCount}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-[var(--text-muted)]">Điểm đánh giá</dt>
-                <dd className="font-bold text-[var(--text-primary)]">{data.timetable.score}</dd>
+                <dt className="text-[var(--text-muted)]">Chất lượng</dt>
+                <dd>
+                  <GradeBadge grade={data.timetable.grade} />
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-[var(--text-muted)]">Lỗi cứng</dt>

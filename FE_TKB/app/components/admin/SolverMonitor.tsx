@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { GradeBadge, QUALITY_SCALE } from './QualityGrade';
 
 export interface SolveProgress {
   attempt: number;
@@ -9,12 +10,14 @@ export interface SolveProgress {
   placed: number;
   required: number;
   hardViolations: number;
-  score: number;
+  /** Bậc chất lượng của lời giải đang có, từ Tệ tới Xuất sắc. */
+  grade?: string;
   slots?: Array<[string, number, number, number, string]>;
 }
 
 interface Props {
   progress: SolveProgress | null;
+  /** Bậc chất lượng theo thời gian: 0 là Tệ, 5 là Xuất sắc. */
   history: number[];
   classes: Array<{ id: string; name: string }>;
   isRunning: boolean;
@@ -23,7 +26,7 @@ interface Props {
 const DAYS = [2, 3, 4, 5, 6, 7];
 const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-/** Live view of the solver: a filling grid, a score trace and the running counters. */
+/** Live view of the solver: a filling grid, the quality grade over time and the running counters. */
 export default function SolverMonitor({ progress, history, classes, isRunning }: Props) {
   // Which (class, day, period) cells are taken right now
   const filled = useMemo(() => {
@@ -34,21 +37,21 @@ export default function SolverMonitor({ progress, history, classes, isRunning }:
     return set;
   }, [progress?.slots]);
 
+  // Trục dọc cố định từ Tệ tới Xuất sắc, để đường đi lên là chất lượng tăng thật chứ không
+  // phải trục tự co giãn theo dữ liệu
   const chart = useMemo(() => {
     if (history.length < 2) return null;
-    const min = Math.min(...history);
-    const max = Math.max(...history);
-    const span = max - min || 1;
+    const top = QUALITY_SCALE.length - 1;
 
     const points = history
       .map((value, index) => {
         const x = (index / (history.length - 1)) * 100;
-        const y = 100 - ((value - min) / span) * 100;
+        const y = 100 - (value / top) * 100;
         return `${x.toFixed(2)},${y.toFixed(2)}`;
       })
       .join(' ');
 
-    return { points, min, max };
+    return { points };
   }, [history]);
 
   if (!progress) return null;
@@ -103,14 +106,14 @@ export default function SolverMonitor({ progress, history, classes, isRunning }:
         </div>
 
         <div className="rounded-lg bg-gray-50 p-3">
-          <p className="text-xs text-gray-500">Điểm</p>
-          <p className={`text-xl font-bold ${progress.score >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
-            {progress.score}
+          <p className="text-xs text-gray-500">Chất lượng hiện tại</p>
+          <p className="mt-1">
+            <GradeBadge grade={progress.grade} />
           </p>
         </div>
 
         <div className="rounded-lg bg-gray-50 p-3">
-          <p className="text-xs text-gray-500">Biến thiên điểm</p>
+          <p className="text-xs text-gray-500">Diễn biến chất lượng</p>
           {chart ? (
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="mt-1 h-10 w-full">
               <polyline points={chart.points} fill="none" stroke="#8b5cf6" strokeWidth="2" vectorEffect="non-scaling-stroke" />

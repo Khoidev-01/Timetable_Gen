@@ -133,10 +133,19 @@ Fitness = 1000 − (số lỗi cứng × 100) − tổng phạt mềm
 Hệ thống trả về **hai đánh giá tách rời nhau**, và không được trộn chúng lại:
 
 **Dùng được hay chưa** — nhị phân, chỉ phụ thuộc lỗi cứng. Bằng 0 thì in ra treo lên tường
-được, dù chất lượng có xếp hạng gì. Còn một lỗi cứng thôi thì vô dụng, dù điểm có đẹp.
+được. Còn một lỗi cứng thôi thì chưa dùng được, dù các mặt khác có đẹp.
 
-**Chất lượng** — thang bậc *Tốt · Khá · Trung bình · Chưa tối ưu*, và nó **không có quyền
-phủ quyết** tính dùng được.
+**Chất lượng** — thang sáu bậc *Tệ · Yếu · Trung bình · Khá · Tốt · Xuất sắc*. Còn lỗi cứng
+thì chất lượng luôn là *Tệ*: một thời khoá biểu thiếu tiết không được mang nhãn đẹp.
+
+**Giao diện không hiện điểm chất lượng thời khoá biểu** — trang tổng quan, màn hình xếp lịch trực tiếp,
+bảng chất lượng, so sánh phương án, gợi ý khi kéo thả hay đổi tiết (cả phía giáo viên), nhật
+ký xếp lịch và dữ liệu công cụ trả cho trợ lý AI đều nói bằng bậc hoặc bằng chữ "tốt hơn / kém đi". Điểm số chỉ còn
+bên trong: thuật toán vẫn tối ưu đúng hàm mục tiêu cũ, không đổi một trọng số nào.
+
+Ba nơi **vẫn còn số**, có chủ ý: trang *Thử nghiệm thuật toán* (so sánh bằng số là việc của
+nó), biểu đồ Pareto (trục điểm chất lượng đối với độ chênh lệch), và trang *Công bằng* (điểm
+gánh nặng của từng giáo viên — một thước đo khác, không phải điểm của thời khoá biểu).
 
 Xếp hạng đo bằng **số điểm phạt còn tránh được trên mỗi tiết**, chuẩn hoá ba lần:
 
@@ -146,35 +155,41 @@ Xếp hạng đo bằng **số điểm phạt còn tránh được trên mỗi t
 | Chia cho số tiết | Điểm thô là tổng tuyệt đối nên nó lớn lên theo quy mô trường. |
 | Đối chiếu mốc đo thật | Các mốc dưới đây không phải do nghĩ ra. |
 
-Mốc lấy từ `scripts/calibrate-grades.ts`, chạy bốn mức công sức trên cùng bộ dữ liệu 30 lớp:
+Mỗi bậc neo vào một mức công sức tối ưu, đo trên bộ dữ liệu 30 lớp 930 tiết, **ba lần mỗi
+mức** lấy số giữa (`scripts/calibrate-grades.ts`, chạy song song 18 lần dựng trong 10 phút):
 
 ```
-Tối ưu rất ngắn (20.000 nước đi)    7,41 điểm phạt tránh được mỗi tiết   → Trung bình
-Tối ưu ngắn     (100.000)           6,54                                 → Khá
-Tối ưu đầy đủ   (600.000)           5,46                                 → Tốt
-Chỉ dựng thô                        còn lỗi cứng — không phải thời khoá biểu dùng được
+Mức công sức                        tránh được/tiết   ba lần đo            ranh giới   bậc
+Tìm kiếm kéo dài, 2,4 triệu nước    3,78              3,68 · 3,78 · 3,85   ≤ 3,90      Xuất sắc
+Bản chính, 700.000 nước             4,01              3,98 · 4,01 · 4,13   ≤ 4,35      Tốt
+Tối ưu 150.000 nước                 4,69              4,58 · 4,69 · 4,74   ≤ 5,30      Khá
+Tối ưu 30.000 nước                  5,94              5,68 · 5,94 · 6,01   ≤ 6,70      Trung bình
+Tối ưu 5.000 nước                   7,38              7,18 · 7,38 · 7,40   ≤ 8,40      Yếu
+Chỉ dựng thô                        9,35              9,31 · 9,35 · 9,46   còn lại     Tệ
 ```
 
-Mỗi mức chạy **ba lần** và lấy số giữa: một lần chạy lệch tới vài trăm điểm, mà mốc xếp
-hạng thì đặt trên nó. Mức "tối ưu đầy đủ" ba lần ra 5,44 · 5,46 · 5,63, nên mốc "Tốt" đặt
-ở 5,8 — trên cả lần tệ nhất.
+Ranh giới đặt **giữa hai mốc liền kề**. Nhờ vậy cả ba lần xếp đầy đủ của bản chính rơi vào
+*Tốt*, cả ba lần tìm kiếm kéo dài rơi vào *Xuất sắc*, và không lần đo nào nằm sai bậc — test
+`constraint.service.spec.ts` giữ đúng điều đó bằng chính các con số đo được.
 
-Mốc đã hiệu chỉnh lại **bốn lần**. Hai lần đầu sau khi sửa dữ liệu mẫu: đưa số tiết về đúng
+Mốc đã hiệu chỉnh lại **năm lần**. Hai lần đầu sau khi sửa dữ liệu mẫu: đưa số tiết về đúng
 định mức (Toán 4 xuống 3), rồi phân công lại để mỗi giáo viên chỉ phục vụ một ca. Lần thứ
 ba vì một mức sàn sai — xem mục ngay dưới. Lần thứ tư vì công thức bắt đầu đo được thứ nó
-từng mù: "môn ưu tiên ở tiết cuối" chỉ nhìn buổi sáng, nên 9 trên 30 lớp học chính buổi
-chiều chưa bao giờ được tiêu chí ấy bảo vệ.
+từng mù: "môn ưu tiên ở tiết cuối" chỉ nhìn buổi sáng. Lần thứ năm khi chuyển sang sáu bậc,
+đo trên thuật toán có nước đi chuỗi Kempe.
 
 **Đổi dữ liệu mẫu là phải chạy lại `scripts/calibrate-grades.ts`** — một thang đo neo vào dữ
 liệu không còn tồn tại thì không đo được gì.
 
-Nên **"Tốt" nghĩa là ngang một lần tối ưu đầy đủ**, không phải hoàn hảo. Thang này đo công
-sức tối ưu đã bỏ ra, và nó được hiệu chỉnh trên một bộ dữ liệu nên trường khác có thể lệch.
+Nên **"Tốt" nghĩa là ngang một lần xếp đầy đủ của hệ thống**, không phải hoàn hảo. Thang này
+đo công sức tối ưu đã bỏ ra, và nó được hiệu chỉnh trên một bộ dữ liệu nên trường khác có thể
+lệch.
 
-**Điểm thô vẫn còn**, nhưng chỉ dùng để so hai phương án của cùng một lần xếp. Đem điểm thô
-của hai trường khác quy mô ra so là so hai thứ khác nhau: bộ dữ liệu 217 tiết cho khoảng
-**−120 đến +150**, bộ 961 tiết cho **−5211**, mà chất lượng trên mỗi tiết chỉ chênh nhau
-khoảng 50%.
+**Vì sao không hiện điểm thô.** Điểm thô là `1000 − tổng điểm phạt`, một tổng tuyệt đối lớn
+lên theo quy mô trường: bộ dữ liệu 217 tiết cho khoảng **−120 đến +150**, bộ 961 tiết cho
+**−5211**, mà chất lượng trên mỗi tiết chỉ chênh nhau khoảng 50%. Trường 930 tiết muốn ra số
+dương thì phải xuống 1,08 điểm phạt mỗi tiết, trong khi lần tìm kiếm dài nhất từng chạy mới
+xuống 3,74. Con số âm nói về công thức nhiều hơn nói về thời khoá biểu.
 
 ### Vì sao điểm thô không bao giờ gần 1000
 

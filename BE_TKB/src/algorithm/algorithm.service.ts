@@ -110,14 +110,18 @@ export class AlgorithmService {
         if (!force && now - this.broadcast.lastSentAt < BROADCAST_INTERVAL_MS) return;
         this.broadcast.lastSentAt = now;
 
+        // Một lần chấm đầy đủ thay cho hai lần chấm riêng lỗi cứng và điểm: giao diện cần bậc
+        // chất lượng, mà bậc thì phải trừ phần bất khả kháng
+        const fitness = this.constraintService.getFitnessDetails(slots);
         this.gateway.publish(semesterId, {
             attempt: this.broadcast.attempt,
             maxAttempts: this.broadcast.maxAttempts,
             phase,
             placed: slots.length,
             required: this.broadcast.required,
-            hardViolations: this.constraintService.checkHardConstraints(slots),
-            score: this.calculateFitness(slots),
+            hardViolations: fitness.hardViolations,
+            score: fitness.score,
+            grade: fitness.quality.grade,
             slots: withSlots ? this.toTuples(slots) : undefined,
         });
     }
@@ -242,7 +246,8 @@ export class AlgorithmService {
 
                 const hard = this.constraintService.checkHardConstraints(candidate.slots);
                 const score = this.calculateFitness(candidate.slots);
-                log(`[DEBUG] Lần thử ${attempt}: ${candidate.slots.length} tiết, ${hard} lỗi cứng, điểm ${score}.`);
+                const gradeLabel = this.constraintService.getFitnessDetails(candidate.slots).quality.gradeLabel;
+                log(`[DEBUG] Lần thử ${attempt}: ${candidate.slots.length} tiết, ${hard} lỗi cứng, chất lượng ${gradeLabel}.`);
 
                 candidates.push({ slots: candidate.slots, hard, score });
 
@@ -257,7 +262,7 @@ export class AlgorithmService {
             const best = variants[0];
 
             solution.slots = best.slots;
-            log(`[DEBUG] Giữ ${variants.length} phương án, tốt nhất: ${best.hard} lỗi cứng, điểm ${best.score}.`);
+            log(`[DEBUG] Giữ ${variants.length} phương án, tốt nhất: ${best.hard} lỗi cứng, chất lượng ${this.constraintService.getFitnessDetails(best.slots).quality.gradeLabel}.`);
             this.emitProgress('Hoàn tất', solution.slots, true);
 
             // 5. Save every variant, then score what was actually stored
@@ -285,6 +290,7 @@ export class AlgorithmService {
                     id: v.id,
                     label: v.label,
                     score: v.fitness.score,
+                    grade: v.fitness.quality.grade,
                     isValid: v.fitness.isValid,
                     hardViolations: v.fitness.hardViolations,
                 })),
@@ -2182,7 +2188,7 @@ export class AlgorithmService {
         });
 
         log(`[DEBUG] Sinh ${generated} tiết → lưu ${stored.length} tiết → từ chối ${rejected.length} tiết.`);
-        log(`[DEBUG] Điểm chấm trên dữ liệu đã lưu: ${fitness.score} — ${fitness.isValid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ'}`);
+        log(`[DEBUG] Chấm trên dữ liệu đã lưu: chất lượng ${fitness.quality.gradeLabel} — ${fitness.isValid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ'}`);
         fitness.details.forEach((d: string) => log(`[DEBUG]   ${d}`));
 
         return {

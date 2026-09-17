@@ -8,6 +8,7 @@ export interface DashboardStats {
     exists: boolean;
     isOfficial: boolean;
     score: number | null;
+    grade: string | null;
     hardViolations: number;
     slotCount: number;
     generatedAt: Date | null;
@@ -84,6 +85,7 @@ export class AnalyticsService {
           exists: false,
           isOfficial: false,
           score: null,
+          grade: null,
           hardViolations: 0,
           slotCount: 0,
           generatedAt: null,
@@ -185,6 +187,7 @@ export class AnalyticsService {
         exists: true,
         isOfficial: timetable.is_official,
         score: fitness.score,
+        grade: fitness.quality.grade,
         hardViolations: fitness.hardViolations,
         slotCount: slots.length,
         generatedAt: timetable.created_at,

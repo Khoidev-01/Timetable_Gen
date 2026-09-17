@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BadgeCheck, QrCode, RefreshCw } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import { GradeBadge } from './QualityGrade';
 
 interface Variant {
   id: string;
   name: string;
   isOfficial: boolean;
-  score: number;
+  grade: string;
   hardViolations: number;
   isValid: boolean;
   slotCount: number;
@@ -144,7 +145,7 @@ export default function VariantComparison({ semesterId, onPublished }: Props) {
           <thead className="bg-gray-50 text-gray-600">
             <tr>
               <th className="p-2 text-left">Phương án</th>
-              <th className="p-2 text-right">Điểm</th>
+              <th className="p-2 text-right">Chất lượng</th>
               {COLUMNS.map((column) => (
                 <th key={column.key} className="p-2 text-right" title={column.hint}>
                   {column.label}
@@ -171,7 +172,9 @@ export default function VariantComparison({ semesterId, onPublished }: Props) {
                     )}
                   </span>
                 </td>
-                <td className="p-2 text-right font-bold">{variant.score}</td>
+                <td className="p-2 text-right">
+                  <GradeBadge grade={variant.grade} />
+                </td>
 
                 {COLUMNS.map((column) => {
                   const value = variant.metrics[column.key];

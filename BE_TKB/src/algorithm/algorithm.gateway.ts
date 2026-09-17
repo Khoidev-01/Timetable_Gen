@@ -20,6 +20,8 @@ export interface SolveProgress {
   required: number;
   hardViolations: number;
   score: number;
+  /** Bậc chất lượng — thứ giao diện hiện, thay cho điểm số. */
+  grade: string;
   slots?: SlotTuple[];
 }
 

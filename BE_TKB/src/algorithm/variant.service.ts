@@ -71,6 +71,7 @@ export class VariantService {
         createdAt: timetable.created_at,
         isOfficial: timetable.is_official,
         score: fitness.score,
+        grade: fitness.quality.grade,
         hardViolations: fitness.hardViolations,
         isValid: fitness.isValid,
         slotCount: slots.length,

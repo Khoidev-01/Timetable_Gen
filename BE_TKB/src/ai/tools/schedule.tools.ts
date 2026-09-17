@@ -271,7 +271,9 @@ export class ScheduleTools {
           return {
             day: DAY_LABEL[target.day],
             period: target.period,
-            scoreDelta: target.deltaScore ?? 0,
+            // Nói bằng chữ để trợ lý thuật lại bằng chữ: giao diện không hiện điểm số
+            qualityChange:
+              (target.deltaScore ?? 0) > 0 ? 'tốt hơn' : (target.deltaScore ?? 0) < 0 ? 'kém đi' : 'không đổi',
             ...(partner
               ? {
                   swapsWithSlotId: target.swapsWith,
@@ -348,8 +350,8 @@ export class ScheduleTools {
           feasible: after.hardViolations === 0,
           hardViolationsBefore: before.hardViolations,
           hardViolationsAfter: after.hardViolations,
-          scoreBefore: before.score,
-          scoreAfter: after.score,
+          qualityBefore: before.quality.gradeLabel,
+          qualityAfter: after.quality.gradeLabel,
           // The model reports this; it never decides it
           verdict:
             after.hardViolations > 0

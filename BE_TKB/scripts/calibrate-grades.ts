@@ -1,45 +1,53 @@
 /**
- * Do xem "tot" va "kem" thuc su nam o dau, truoc khi dat ten cho chung.
+ * Do xem sau bac danh gia thuc su nam o dau, truoc khi dat ten cho chung.
  *
  * Dat nhan chat luong theo cam tinh thi cai nhan do khong noi len gi: goi mot thoi khoa bieu
  * la "Kha" ma khong biet "Kha" hon cai gi va kem cai gi thi chi la doi mot con so kho hieu
  * lay mot chu kho hieu.
  *
- * Kich ban nay dung ba loi giai o ba muc cong suc khac nhau tren cung mot bo du lieu, roi
- * lay khoan phat CO THE TRANH duoc tren moi tiet lam thuoc do. Phan bat kha khang bi tru ra:
- * cham diem mot bo giai bang thu no khong the sua duoc la cham sai cho.
+ * Kich ban nay dung loi giai o sau muc cong suc tren cung mot bo du lieu, roi lay khoan phat
+ * CO THE TRANH duoc tren moi tiet lam thuoc do. Phan bat kha khang bi tru ra: cham mot bo
+ * giai bang thu no khong the sua duoc la cham sai cho.
+ *
+ * Moi lan dung chi dung mot luong CPU va cac lan dung doc lap nhau, nen co hai cach chay:
+ *
+ *   npx ts-node scripts/calibrate-grades.ts                    tat ca, 3 lan moi muc, tuan tu
+ *   npx ts-node scripts/calibrate-grades.ts <MUC> <tep.json>   dung MOT lan, de chay song song
  */
 import '../src/load-env';
-import { writeSync } from 'fs';
-
-/** Ghi thang xuong mo ta tep: mot phep do chay hang phut thi phai nhin duoc no da toi dau. */
-const say = (line = '') => writeSync(1, `${line}
-`);
-
-/** So lan dung o moi muc. Mot lan chay lech toi vai tram diem, ma moc xep hang dat tren no. */
-const RUNS = Number(process.argv[2] ?? 3);
-
-const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+import { mkdirSync, writeFileSync, writeSync } from 'fs';
+import { dirname } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AlgorithmService } from '../src/algorithm/algorithm.service';
 import { ConstraintService } from '../src/algorithm/constraint.service';
 
-interface Level {
+/** Ghi thang xuong mo ta tep: mot phep do chay hang phut thi phai nhin duoc no da toi dau. */
+const say = (line = '') => writeSync(1, `${line}\n`);
+
+const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+
+export interface Level {
+  key: string;
   name: string;
   /** Số nước đi cho vòng tìm kiếm chính. 0 nghĩa là không tối ưu gì cả. */
   search: number;
 }
 
-const LEVELS: Level[] = [
-  { name: 'Chỉ dựng thô, không tối ưu', search: 0 },
-  { name: 'Tối ưu rất ngắn', search: 20_000 },
-  { name: 'Tối ưu ngắn', search: 100_000 },
-  { name: 'Tối ưu đầy đủ', search: 600_000 },
+export const LEVELS: Level[] = [
+  { key: 'RAW', name: 'Chỉ dựng thô, không tối ưu', search: 0 },
+  { key: 'S5K', name: 'Tối ưu 5.000 nước đi', search: 5_000 },
+  { key: 'S30K', name: 'Tối ưu 30.000 nước đi', search: 30_000 },
+  { key: 'S150K', name: 'Tối ưu 150.000 nước đi', search: 150_000 },
+  { key: 'S700K', name: 'Tối ưu đầy đủ (bản chính)', search: 700_000 },
+  { key: 'S2400K', name: 'Tối ưu kéo dài 2,4 triệu', search: 2_400_000 },
 ];
 
 async function main() {
+  const onlyKey = process.argv[2];
+  const out = process.argv[3];
+
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error'] });
   const prisma = app.get(PrismaService);
   const algorithm = app.get(AlgorithmService);
@@ -49,53 +57,53 @@ async function main() {
   const data = await (algorithm as any).loadData(semester!.id);
   await constraints.initialize(semester!.id);
 
-  say(`${RUNS} lan moi muc, lay so giua
-`);
-  say('Muc cong suc                 | phat/tiet | tranh duoc/tiet | loi cung | tung lan');
-  say('-----------------------------|-----------|-----------------|----------|---------');
-
-  for (const level of LEVELS) {
+  const measure = async (level: Level) => {
     process.env.TKB_SEARCH_MAIN = String(Math.max(1, level.search));
 
-    const penalties: number[] = [];
-    const avoidables: number[] = [];
-    const hardEachRun: number[] = [];
-
-    for (let run = 0; run < RUNS; run++) {
-      const solution: any = { slots: [] };
-      if (level.search === 0) {
-        solution.slots = await (algorithm as any).buildConstruction(data);
-        (algorithm as any).assignRooms(solution, data, () => undefined);
-      } else {
-        await (algorithm as any).buildOneSolution(solution, data, () => undefined);
-      }
-
-      const detail = constraints.getFitnessDetails(solution.slots);
-      // Ban dung tho gan nhu luc nao cung con loi cung — no la diem XUAT PHAT, khong phai
-      // mot thoi khoa bieu dung duoc. Van bao con so cua no, nhung bao kem so loi cung de
-      // khong ai doc no nhu mot muc chat luong.
-      hardEachRun.push(detail.hardViolations);
-
-      const floor = (detail.breakdown?.soft ?? []).reduce(
-        (sum: number, item: any) => sum + (item.floor ?? 0) * item.weight,
-        0,
-      );
-      penalties.push(detail.penaltyPerSlot);
-      avoidables.push((detail.softPenalty - floor) / solution.slots.length);
+    const solution: any = { slots: [] };
+    if (level.search === 0) {
+      solution.slots = await (algorithm as any).buildConstruction(data);
+      (algorithm as any).assignRooms(solution, data, () => undefined);
+    } else {
+      await (algorithm as any).buildOneSolution(solution, data, () => undefined);
     }
 
-    say(
-      `${level.name.padEnd(28)} | ${median(penalties).toFixed(2).padStart(9)} | ` +
-        `${median(avoidables).toFixed(2).padStart(15)} | ` +
-        `${String(median(hardEachRun)).padStart(8)} | ` +
-        avoidables.map((a) => a.toFixed(2)).sort().join('  '),
-    );
+    const detail = constraints.getFitnessDetails(solution.slots);
+    return {
+      level: level.key,
+      search: level.search,
+      penaltyPerSlot: detail.penaltyPerSlot,
+      avoidablePerSlot: detail.quality.avoidablePerSlot,
+      hardViolations: detail.hardViolations,
+    };
+  };
+
+  if (onlyKey) {
+    const level = LEVELS.find((l) => l.key === onlyKey);
+    if (!level) throw new Error(`Khong co muc ${onlyKey}`);
+    const result = await measure(level);
+    say(JSON.stringify(result));
+    if (out) {
+      mkdirSync(dirname(out), { recursive: true });
+      writeFileSync(out, JSON.stringify(result), 'utf-8');
+    }
+    process.exit(0);
   }
 
+  const RUNS = 3;
+  say(`${RUNS} lan moi muc, lay so giua\n`);
+  say('Muc cong suc                  | tranh duoc/tiet | loi cung | tung lan');
+  say('------------------------------|-----------------|----------|---------');
+  for (const level of LEVELS) {
+    const runs: Array<Awaited<ReturnType<typeof measure>>> = [];
+    for (let i = 0; i < RUNS; i++) runs.push(await measure(level));
+    const avoidable = runs.map((r) => r.avoidablePerSlot);
+    say(
+      `${level.name.padEnd(29)} | ${median(avoidable).toFixed(2).padStart(15)} | ` +
+      `${String(median(runs.map((r) => r.hardViolations))).padStart(8)} | ${avoidable.map((a) => a.toFixed(2)).join('  ')}`,
+    );
+  }
   process.exit(0);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main().catch((e) => { say(`Hong: ${e?.stack ?? e}`); process.exit(1); });

@@ -28,7 +28,7 @@ export class AlgorithmProcessor extends WorkerHost {
                 console.log(
                     `[Worker] Optimization Finished. Timetable ${result.id} — ` +
                     `${saved}/${generated} tiết lưu được (${rejected} bị từ chối), ` +
-                    `điểm ${result.fitnessScore}, ${result.isValid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ'}`
+                    `${result.isValid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ'}`
                 );
             } else {
                 this.logger.warn(`Optimization LOGICALLY Failed: ${result.error}`);

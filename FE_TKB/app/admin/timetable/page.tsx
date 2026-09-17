@@ -5,6 +5,7 @@ import { io, Socket } from 'socket.io-client';
 import TimetableGrid from '../../components/admin/TimetableGrid';
 import QualityBreakdown from '../../components/admin/QualityBreakdown';
 import SolverMonitor, { SolveProgress } from '../../components/admin/SolverMonitor';
+import { QUALITY_SCALE } from '../../components/admin/QualityGrade';
 import VariantComparison from '../../components/admin/VariantComparison';
 import CascadeSwapDialog from '../../components/admin/CascadeSwapDialog';
 import ChangeHistory from '../../components/admin/ChangeHistory';
@@ -54,7 +55,7 @@ export default function TimetablePage() {
   const [isMoving, setIsMoving] = useState(false);
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
   const [progress, setProgress] = useState<SolveProgress | null>(null);
-  const [scoreHistory, setScoreHistory] = useState<number[]>([]);
+  const [gradeHistory, setGradeHistory] = useState<number[]>([]);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
@@ -81,7 +82,8 @@ export default function TimetablePage() {
 
     socket.on('progress', (frame: SolveProgress) => {
       setProgress(frame);
-      setScoreHistory((previous) => [...previous.slice(-119), frame.score]);
+      const level = QUALITY_SCALE.findIndex((item) => item.grade === frame.grade);
+      if (level >= 0) setGradeHistory((previous) => [...previous.slice(-119), level]);
     });
 
     socket.on('done', async (payload: any) => {
@@ -280,7 +282,7 @@ export default function TimetablePage() {
 
     setIsGenerating(true);
     setProgress(null);
-    setScoreHistory([]);
+    setGradeHistory([]);
     setLogs((previous) => [...previous, `[${new Date().toLocaleTimeString()}] Bắt đầu xếp thời khóa biểu...`]);
 
     try {
@@ -302,7 +304,7 @@ export default function TimetablePage() {
 
       const payload = await response.json();
       setLogs((previous) => [...previous, `Đã tạo job ${payload.jobId}, đang theo dõi trực tiếp...`]);
-      setScoreHistory([]);
+      setGradeHistory([]);
     } catch (error) {
       console.error(error);
       setIsGenerating(false);
@@ -576,7 +578,7 @@ export default function TimetablePage() {
 
         <SolverMonitor
           progress={progress}
-          history={scoreHistory}
+          history={gradeHistory}
           classes={classes}
           isRunning={isGenerating}
         />
@@ -618,7 +620,6 @@ export default function TimetablePage() {
               <div className="mt-2 max-w-xl">
                 <QualityBreakdown
                   quality={result.quality}
-                  score={result.fitness_score ?? null}
                   slotCount={result.bestSchedule?.length ?? 0}
                   hardViolations={result.hardViolations}
                   items={result.softBreakdown ?? []}

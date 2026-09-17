@@ -99,6 +99,8 @@ describe('ScheduleTools', () => {
       getFitnessDetails: (slots: any[]) => ({
         hardViolations: slots.some((s) => s.day === 9) ? 1 : 0,
         score: slots.some((s) => s.day === 9) ? -500 : 100,
+        // Đúng hình dạng hàm thật trả về: công cụ đọc bậc chất lượng, không đọc điểm
+        quality: { gradeLabel: slots.some((s) => s.day === 9) ? 'Tệ' : 'Tốt' },
       }),
     };
 
