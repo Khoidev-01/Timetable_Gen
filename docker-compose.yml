@@ -63,6 +63,7 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM}
+      TEACHER_INITIAL_PASSWORD: ${TEACHER_INITIAL_PASSWORD:-123456}
       PORT: 4000
     ports:
       - "4000:4000"
