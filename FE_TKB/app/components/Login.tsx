@@ -160,11 +160,14 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center px-4 bg-[var(--bg-base)] transition-colors">
-      {/* Background decoration - single accent, restrained */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[var(--accent)]/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[var(--accent)]/5 rounded-full blur-3xl" />
-      </div>
+      {/* Ảnh nền voxel: đồ vật dồn ra hai mép, giữa để trống cho thẻ đăng nhập. Màn hẹp chỉ
+          còn thấy phần giữa trống, nên không cần bản dọc riêng. Màu nền là màu trung bình
+          của ảnh, để lúc ảnh chưa tải xong không bị chớp trắng. */}
+      <div
+        className="fixed inset-0 pointer-events-none bg-[#e5edfc] bg-cover bg-center"
+        style={{ backgroundImage: "url('/images/login-background.webp')" }}
+        aria-hidden
+      />
       <div className="grain-overlay" aria-hidden />
 
       <div
