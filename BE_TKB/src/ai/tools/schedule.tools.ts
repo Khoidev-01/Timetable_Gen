@@ -43,6 +43,7 @@ export class ScheduleTools {
       this.explainSlot(),
       this.searchRegulations(),
       this.createBusyRegistration(),
+      this.createSwapRequest(),
     ];
   }
 
@@ -512,6 +513,74 @@ export class ScheduleTools {
               period,
               reason,
             },
+          },
+        };
+      },
+    };
+  }
+
+  /**
+   * Nhờ đồng nghiệp đổi tiết, ngay trong khung chat.
+   *
+   * Người hỏi vừa nghe `find_swap_candidates` đọc ra các phương án kèm mã tiết; bắt họ chép
+   * hai mã đó sang một trang khác chỉ để bấm Gửi là quãng đường thừa. Nhưng công cụ này
+   * cũng không tự gửi: nó dựng thẻ xác nhận, việc ghi nằm sau nút bấm của con người.
+   */
+  private createSwapRequest(): ToolDefinition {
+    return {
+      name: 'create_swap_request',
+      description:
+        'Chuẩn bị lời nhờ đổi tiết với một đồng nghiệp. ' +
+        'Dùng sau khi find_swap_candidates đã đưa ra phương án và người dùng chọn một phương án. ' +
+        'KHÔNG gửi ngay - trả về thẻ xác nhận để người dùng bấm.',
+      parameters: {
+        type: 'object',
+        properties: {
+          slotId: { type: 'string', description: 'Mã tiết của chính người hỏi, tiết muốn nhờ đổi' },
+          partnerSlotId: { type: 'string', description: 'Mã tiết của đồng nghiệp, lấy từ swapsWithSlotId' },
+          reason: { type: 'string', description: 'Lý do xin đổi, nói theo lời người dùng' },
+        },
+        required: ['slotId', 'partnerSlotId', 'reason'],
+      },
+      writes: true,
+      run: async (args, context): Promise<ToolResult> => {
+        const reason = String(args.reason ?? '').trim();
+        if (reason.length < 3) return denied('Cần cho biết lý do xin đổi tiết.');
+
+        const [mine, theirs] = await Promise.all([
+          this.prisma.timetableSlot.findUnique({
+            where: { id: String(args.slotId ?? '') },
+            include: { subject: true, class: true, teacher: true },
+          }),
+          this.prisma.timetableSlot.findUnique({
+            where: { id: String(args.partnerSlotId ?? '') },
+            include: { subject: true, class: true, teacher: true },
+          }),
+        ]);
+        if (!mine || !theirs) return denied('Không tìm thấy một trong hai tiết.');
+
+        const scope = resolveTeacherScope(context.actor, mine.teacher_id);
+        if (!scope.allowed) return denied('Bạn chỉ nhờ đổi được tiết của chính mình.');
+        if (mine.teacher_id === theirs.teacher_id) {
+          return denied('Hai tiết cùng một giáo viên thì không phải đổi với ai.');
+        }
+        if (mine.timetable_id !== theirs.timetable_id) {
+          return denied('Hai tiết không thuộc cùng một thời khóa biểu.');
+        }
+        if (mine.is_locked || theirs.is_locked) {
+          return denied('Một trong hai tiết đang bị khóa nên không đổi được.');
+        }
+
+        const when = (slot: typeof mine) => `${DAY_LABEL[slot.day]} tiết ${slot.period}`;
+        return {
+          ok: true,
+          confirmation: {
+            action: 'create_swap_request',
+            summary:
+              `Nhờ ${theirs.teacher?.full_name ?? 'đồng nghiệp'} đổi tiết: ` +
+              `${mine.subject?.name} ${mine.class?.name} ${when(mine)} ` +
+              `lấy ${theirs.subject?.name} ${theirs.class?.name} ${when(theirs)}. Lý do: ${reason}`,
+            payload: { requesterSlotId: mine.id, partnerSlotId: theirs.id, reason },
           },
         };
       },

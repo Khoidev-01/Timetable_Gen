@@ -19,9 +19,9 @@ const TEACHER: Actor = {
 const ADMIN: Actor = { userId: 'u2', username: 'admin', role: 'ADMIN' };
 
 const SLOTS = [
-  { id: 's1', day: 2, period: 1, class_id: 'C1', subject_id: 1, teacher_id: 'T1', room_id: 1, is_locked: false },
-  { id: 's2', day: 3, period: 4, class_id: 'C1', subject_id: 2, teacher_id: 'T2', room_id: 1, is_locked: false },
-  { id: 's3', day: 2, period: 2, class_id: 'C2', subject_id: 1, teacher_id: 'T1', room_id: 1, is_locked: true },
+  { id: 's1', day: 2, period: 1, class_id: 'C1', subject_id: 1, teacher_id: 'T1', room_id: 1, is_locked: false, timetable_id: 'tt1' },
+  { id: 's2', day: 3, period: 4, class_id: 'C1', subject_id: 2, teacher_id: 'T2', room_id: 1, is_locked: false, timetable_id: 'tt1' },
+  { id: 's3', day: 2, period: 2, class_id: 'C2', subject_id: 1, teacher_id: 'T1', room_id: 1, is_locked: true, timetable_id: 'tt1' },
 ];
 
 describe('ScheduleTools', () => {
@@ -42,7 +42,7 @@ describe('ScheduleTools', () => {
             ...slot,
             subject: { name: 'Toán', code: 'TOAN' },
             class: { name: '10A1', grade_level: 10, main_session: 0 },
-            teacher: { full_name: 'Cô Lan' },
+            teacher: { full_name: slot.teacher_id === 'T1' ? 'Cô Lan' : 'Thầy Minh' },
             room: { name: 'P101' },
           };
         },
@@ -150,10 +150,10 @@ describe('ScheduleTools', () => {
     tools = module.get(ScheduleTools);
   });
 
-  it('có đúng 9 công cụ, tên không trùng', () => {
+  it('có đúng 10 công cụ, tên không trùng', () => {
     const names = tools.all().map((t) => t.name);
-    expect(names).toHaveLength(9);
-    expect(new Set(names).size).toBe(9);
+    expect(names).toHaveLength(10);
+    expect(new Set(names).size).toBe(10);
   });
 
   it('mọi công cụ đều khai báo tham số theo JSON Schema', () => {
@@ -321,8 +321,34 @@ describe('ScheduleTools', () => {
     expect(noReason.message).toContain('lý do');
   });
 
-  it('chỉ đúng một công cụ được đánh dấu là ghi dữ liệu', () => {
+  it('nhờ đổi tiết chỉ dựng thẻ xác nhận, chưa gửi đi', async () => {
+    const result = await call('create_swap_request', { slotId: 's1', partnerSlotId: 's2', reason: 'Bận họp' }, TEACHER);
+
+    expect(result.ok).toBe(true);
+    expect(result.confirmation!.action).toBe('create_swap_request');
+    expect(result.confirmation!.summary).toContain('Thầy Minh');
+    expect(result.confirmation!.summary).toContain('Bận họp');
+    expect(result.confirmation!.payload).toEqual({ requesterSlotId: 's1', partnerSlotId: 's2', reason: 'Bận họp' });
+    // Không có data nghĩa là chưa có yêu cầu nào được ghi xuống
+    expect(result.data).toBeUndefined();
+  });
+
+  it('không nhờ đổi hộ tiết của người khác, cũng không đụng tiết bị khóa', async () => {
+    const notMine = await call('create_swap_request', { slotId: 's2', partnerSlotId: 's1', reason: 'Bận họp' }, TEACHER);
+    expect(notMine.ok).toBe(false);
+    expect(notMine.message).toContain('của chính mình');
+
+    const locked = await call('create_swap_request', { slotId: 's3', partnerSlotId: 's2', reason: 'Bận họp' }, TEACHER);
+    expect(locked.ok).toBe(false);
+    expect(locked.message).toContain('khóa');
+
+    const noReason = await call('create_swap_request', { slotId: 's1', partnerSlotId: 's2', reason: '' }, TEACHER);
+    expect(noReason.ok).toBe(false);
+    expect(noReason.message).toContain('lý do');
+  });
+
+  it('chỉ các công cụ thay đổi dữ liệu mới được đánh dấu là ghi', () => {
     const writers = tools.all().filter((t) => t.writes);
-    expect(writers.map((t) => t.name)).toEqual(['create_busy_registration']);
+    expect(writers.map((t) => t.name)).toEqual(['create_busy_registration', 'create_swap_request']);
   });
 });

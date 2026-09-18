@@ -9,6 +9,7 @@ import { ScheduleTools } from './tools/schedule.tools';
 import { Actor } from './tools/tool.types';
 import { AssistantGuardService } from './assistant-guard.service';
 import { ConversationMemoryService } from './conversation-memory.service';
+import { SwapRequestService } from '../schedule/swap-request.service';
 
 const MAX_QUESTION_LENGTH = 2000;
 /** Bối cảnh trình duyệt gửi kèm không được phình vô hạn; phần cũ đã có tóm tắt. */
@@ -26,6 +27,7 @@ export class AssistantController {
     private readonly evaluation: AssistantEvalService,
     private readonly guard: AssistantGuardService,
     private readonly memory: ConversationMemoryService,
+    private readonly swaps: SwapRequestService,
   ) {}
 
   /**
@@ -142,6 +144,24 @@ export class AssistantController {
     const actor = await this.actorOf(request);
     const action = String(body?.action ?? '');
     const payload = body?.payload ?? {};
+
+    // Đổi tiết đi qua đúng dịch vụ mà trang Đổi tiết dùng: nó tự kiểm tiết có phải của
+    // người bấm không, hai tiết có cùng thời khóa biểu không, và báo cho đồng nghiệp.
+    if (action === 'create_swap_request') {
+      const created = await this.swaps.create(
+        {
+          requesterSlotId: String(payload.requesterSlotId ?? ''),
+          partnerSlotId: String(payload.partnerSlotId ?? ''),
+          reason: String(payload.reason ?? ''),
+        },
+        actor,
+      );
+      return {
+        success: true,
+        requestId: created.id,
+        message: 'Đã gửi lời nhờ đổi tiết. Đồng nghiệp trả lời xong thì quản trị viên duyệt.',
+      };
+    }
 
     if (action !== 'create_busy_registration') {
       throw new BadRequestException(`Không hỗ trợ hành động "${action}".`);

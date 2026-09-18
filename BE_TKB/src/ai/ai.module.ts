@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AlgorithmModule } from '../algorithm/algorithm.module';
+import { ScheduleModule } from '../schedule/schedule.module';
 import { ScheduleTools } from './tools/schedule.tools';
 import { ToolsController } from './tools/tools.controller';
 import { AssistantController } from './assistant.controller';
@@ -14,7 +15,7 @@ import { ConversationMemoryService } from './conversation-memory.service';
 import { AiService } from './ai.service';
 
 @Module({
-    imports: [PrismaModule, AlgorithmModule],
+    imports: [PrismaModule, AlgorithmModule, ScheduleModule],
     controllers: [ToolsController, AssistantController],
     providers: [
         AssistantGuardService,
