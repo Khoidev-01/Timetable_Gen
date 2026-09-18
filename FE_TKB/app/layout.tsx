@@ -8,7 +8,9 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://gettimetable.cloud"),
   applicationName: "MiKiTimetable",
   title: {
-    default: "MiKiTimetable – Xếp thời khóa biểu tự động",
+    // Tab trình duyệt chỉ hiện tên. Câu mô tả vẫn nằm ở openGraph bên dưới, cho thẻ xem
+    // trước khi dán link vào Zalo hay Facebook.
+    default: "MiKiTimetable",
     template: "%s | MiKiTimetable",
   },
   description:
