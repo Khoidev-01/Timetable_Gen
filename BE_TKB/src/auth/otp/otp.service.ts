@@ -152,6 +152,14 @@ export class OtpService implements OnModuleDestroy {
     await this.redis.set(cooldownKey, '1', 'EX', RESEND_COOLDOWN_SECONDS);
   }
 
+  private async releaseSpamReservation(email: string) {
+    const key = email.toLowerCase();
+    const hourlyKey = `otp:hourly:${key}`;
+    await this.redis.del(`otp:cooldown:${key}`);
+    const remaining = await this.redis.decr(hourlyKey);
+    if (remaining <= 0) await this.redis.del(hourlyKey);
+  }
+
   private async send(email: string) {
     await this.guardSpam(email);
     try {
@@ -161,6 +169,9 @@ export class OtpService implements OnModuleDestroy {
       const otp = await this.auth.api.createVerificationOTP({ body: { email, type: 'sign-in' } });
       await this.mail.sendOtp(email, otp);
     } catch (error) {
+      await this.releaseSpamReservation(email).catch((releaseError) =>
+        this.logger.warn(`Không hoàn được giới hạn gửi OTP cho ${maskEmail(email)}: ${releaseError}`),
+      );
       this.logger.error(`Không gửi được OTP tới ${maskEmail(email)}: ${error}`);
       throw new BadRequestException('Không gửi được email mã đăng nhập. Thử lại sau hoặc liên hệ quản trị.');
     }

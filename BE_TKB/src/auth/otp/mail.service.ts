@@ -15,11 +15,19 @@ export class MailService {
     const host = process.env.SMTP_HOST;
     if (!host) throw new Error('Chưa cấu hình SMTP_HOST nên không gửi được email.');
     const port = Number(process.env.SMTP_PORT || 587);
+    const user = process.env.SMTP_USER?.trim();
+    const pass = process.env.SMTP_PASS?.trim();
+    if ((user && !pass) || (!user && pass)) {
+      throw new Error('SMTP_USER và SMTP_PASS phải được cấu hình cùng nhau.');
+    }
+    if (host === 'smtp.resend.com' && (!user || !pass)) {
+      throw new Error('Resend yêu cầu SMTP_USER=resend và SMTP_PASS là API key hợp lệ.');
+    }
     this.transport = nodemailer.createTransport({
       host,
       port,
       secure: process.env.SMTP_SECURE === 'true' || port === 465,
-      auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+      auth: user && pass ? { user, pass } : undefined,
     });
     return this.transport;
   }
