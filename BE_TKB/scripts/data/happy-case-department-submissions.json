@@ -1,0 +1,1850 @@
+[
+  {
+    "department": "Tổ Ngữ văn",
+    "headTeacherCode": "GV012",
+    "fileName": "phan-cong-tổ-ngữ-văn-2026-2027.xlsx",
+    "rows": [
+      {
+        "className": "10C1",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV014",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C2",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV010",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C3",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV015",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C4",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV013",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C5",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV012",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C6",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV014",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C7",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV015",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C8",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV013",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C9",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV012",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C10",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV014",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B1",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV017",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B2",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV016",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B3",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV018",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B4",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV017",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B5",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV018",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B6",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV017",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B7",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV018",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B8",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV017",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B9",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV018",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A1",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV015",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A2",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV011",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A3",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV013",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A4",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV012",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A5",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV014",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A6",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV015",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A7",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV010",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A8",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV011",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A9",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV013",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A10",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV012",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A11",
+        "subjectCode": "VAN",
+        "hk1TeacherCode": "GV014",
+        "hk2TeacherCode": ""
+      }
+    ],
+    "issues": []
+  },
+  {
+    "department": "Tổ Ngoại ngữ",
+    "headTeacherCode": "GV021",
+    "fileName": "phan-cong-tổ-ngoại-ngữ-2026-2027.xlsx",
+    "rows": [
+      {
+        "className": "10C1",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV023",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C2",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV024",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C3",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV019",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C4",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV022",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C5",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV021",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C6",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV023",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C7",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV024",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C8",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV022",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C9",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV021",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C10",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV023",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B1",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV026",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B2",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV027",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B3",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV025",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B4",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV026",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B5",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV027",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B6",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV026",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B7",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV027",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B8",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV026",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B9",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV027",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A1",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV024",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A2",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV020",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A3",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV020",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A4",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV022",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A5",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV021",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A6",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV023",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A7",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV024",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A8",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV019",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A9",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV022",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A10",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV021",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A11",
+        "subjectCode": "ANH",
+        "hk1TeacherCode": "GV023",
+        "hk2TeacherCode": ""
+      }
+    ],
+    "issues": []
+  },
+  {
+    "department": "Tổ Vật lý - Tin học",
+    "headTeacherCode": "GV030",
+    "fileName": "phan-cong-tổ-vật-lý---tin-học-2026-2027.xlsx",
+    "rows": [
+      {
+        "className": "10C1",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV031",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C2",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV030",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C3",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV031",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C4",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV028",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C4",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV037",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C4",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV036",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C5",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV030",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C5",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV034",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C5",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV037",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C6",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV029",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C6",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV036",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C6",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV028",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C7",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV037",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C7",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV029",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C8",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV036",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C8",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV031",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B1",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV033",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B2",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV033",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B3",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV032",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B4",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV032",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B4",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV039",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B4",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV039",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B5",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV033",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B5",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV038",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B5",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV038",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B6",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV039",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B6",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV039",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B7",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV039",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B7",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV033",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A1",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV031",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A2",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV030",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A3",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV028",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A4",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV029",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A4",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV037",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A4",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV034",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A5",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV031",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A5",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV035",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A5",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV035",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A6",
+        "subjectCode": "LY",
+        "hk1TeacherCode": "GV030",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A6",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV036",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A6",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV036",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A7",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV037",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A7",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV037",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A8",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV034",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A8",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV028",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A9",
+        "subjectCode": "TIN",
+        "hk1TeacherCode": "GV035",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A9",
+        "subjectCode": "CNCN",
+        "hk1TeacherCode": "GV029",
+        "hk2TeacherCode": ""
+      }
+    ],
+    "issues": []
+  },
+  {
+    "department": "Tổ Hóa học - Sinh học",
+    "headTeacherCode": "GV042",
+    "fileName": "phan-cong-tổ-hóa-học---sinh-học-2026-2027.xlsx",
+    "rows": [
+      {
+        "className": "10C1",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV043",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C1",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV049",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C1",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV047",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C2",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV042",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C2",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV048",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C2",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV042",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C3",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV043",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C3",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV049",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C3",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV047",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C4",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV042",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C5",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV040",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C6",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV040",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C9",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV048",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C9",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV048",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C10",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV049",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C10",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV049",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B1",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV045",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B1",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV051",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B1",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV050",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B2",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV045",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B2",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV051",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B2",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV045",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B3",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV044",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B3",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV051",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B3",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV050",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B4",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV045",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B5",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV044",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B8",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV050",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B8",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV051",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B9",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV051",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B9",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV044",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A1",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV041",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A1",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV046",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A1",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV040",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A2",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV043",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A2",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV047",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A2",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV043",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A3",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV042",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A3",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV048",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A3",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV046",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A4",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV041",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A5",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV043",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A6",
+        "subjectCode": "HOA",
+        "hk1TeacherCode": "GV041",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A10",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV049",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A10",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV042",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A11",
+        "subjectCode": "SINH",
+        "hk1TeacherCode": "GV046",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A11",
+        "subjectCode": "CNNN",
+        "hk1TeacherCode": "GV047",
+        "hk2TeacherCode": ""
+      }
+    ],
+    "issues": []
+  },
+  {
+    "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+    "headTeacherCode": "GV054",
+    "fileName": "phan-cong-tổ-lịch-sử---địa-lý---gdkt&pl-2026-2027.xlsx",
+    "rows": [
+      {
+        "className": "10C1",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV056",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C1",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV054",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C2",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV055",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C2",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV055",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C3",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV056",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C3",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV054",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C4",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV054",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C4",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV055",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C5",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV055",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C5",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV056",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C6",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV056",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C6",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV052",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C7",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV054",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C7",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV053",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C7",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV061",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C7",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV066",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C8",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV052",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C8",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV054",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C8",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV061",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C8",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV066",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C9",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV055",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C9",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV055",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C9",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV059",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C9",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV066",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C10",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV056",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C10",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV056",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C10",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV061",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C10",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV064",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B1",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV058",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B1",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV063",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B2",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV058",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B2",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV062",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B3",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV058",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B3",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV063",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B4",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV058",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B4",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV062",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B5",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV057",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B5",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV063",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B6",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV058",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B6",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV058",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B6",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV063",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B6",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV067",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B7",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV057",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B7",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV062",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B7",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV063",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B7",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV067",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B8",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV057",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B8",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV057",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B8",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV063",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B8",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV067",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B9",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV058",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B9",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV058",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B9",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV062",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B9",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV067",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A1",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV053",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A1",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV059",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A2",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV054",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A2",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV060",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A3",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV055",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A3",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV052",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A4",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV056",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A4",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV053",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A5",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV052",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A5",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV056",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A6",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV053",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A6",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV059",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A7",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV054",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A7",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV060",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A7",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV060",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A7",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV065",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A8",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV053",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A8",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV052",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A8",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV061",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A8",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV066",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A9",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV055",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A9",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV053",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A9",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV060",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A9",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV064",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A10",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV056",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A10",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV059",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A10",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV059",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A10",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV065",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A11",
+        "subjectCode": "LS",
+        "hk1TeacherCode": "GV052",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A11",
+        "subjectCode": "GDDP",
+        "hk1TeacherCode": "GV060",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A11",
+        "subjectCode": "DIA",
+        "hk1TeacherCode": "GV061",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A11",
+        "subjectCode": "GDKT",
+        "hk1TeacherCode": "GV066",
+        "hk2TeacherCode": ""
+      }
+    ],
+    "issues": []
+  },
+  {
+    "department": "Tổ Thể chất - Quốc phòng",
+    "headTeacherCode": "GV068",
+    "fileName": "phan-cong-tổ-thể-chất---quốc-phòng-2026-2027.xlsx",
+    "rows": [
+      {
+        "className": "10C1",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV070",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C1",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C2",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV071",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C2",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C3",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV069",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C3",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C4",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV070",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C4",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C5",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV071",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C5",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C6",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV068",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C6",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C7",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV069",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C7",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C8",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV070",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C8",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C9",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV071",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C9",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C10",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV068",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "10C10",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B1",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV069",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B1",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B2",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV070",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B2",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B3",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV071",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B3",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B4",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV068",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B4",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B5",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV069",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B5",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B6",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV070",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B6",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B7",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV071",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B7",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B8",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV068",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B8",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B9",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV069",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "11B9",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A1",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV070",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A1",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A2",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV071",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A2",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A3",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV068",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A3",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A4",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV069",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A4",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A5",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV070",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A5",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A6",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV071",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A6",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A7",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV068",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A7",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A8",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV069",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A8",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A9",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV070",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A9",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A10",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV071",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A10",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV072",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A11",
+        "subjectCode": "GDTC",
+        "hk1TeacherCode": "GV068",
+        "hk2TeacherCode": ""
+      },
+      {
+        "className": "12A11",
+        "subjectCode": "GDQP",
+        "hk1TeacherCode": "GV073",
+        "hk2TeacherCode": ""
+      }
+    ],
+    "issues": []
+  }
+]
