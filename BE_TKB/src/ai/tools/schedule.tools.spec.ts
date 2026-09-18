@@ -208,7 +208,8 @@ describe('ScheduleTools', () => {
     const allowed: any = await call('find_free_teachers', { day: 2, period: 1 }, ADMIN);
     expect(allowed.ok).toBe(true);
     // T1 đang dạy, T3 đã đăng ký bận -> chỉ còn T2
-    expect(allowed.data.free.map((t: any) => t.teacherId)).toEqual(['T2']);
+    expect(allowed.data.free.map((t: any) => t.name)).toEqual(['Thầy Minh']);
+    expect(allowed.data.free[0].teacherId).toBeUndefined();
   });
 
   it('lọc theo môn dựa trên phân công, không dựa vào major_subject đang rỗng', async () => {
@@ -220,7 +221,7 @@ describe('ScheduleTools', () => {
 
     // Cùng môn đó, giờ khác: T1 và T3 đều rảnh
     const later: any = await call('find_free_teachers', { day: 4, period: 5, subject: 'TOAN' }, ADMIN);
-    expect(later.data.free.map((t: any) => t.teacherId)).toEqual(['T1', 'T3']);
+    expect(later.data.free.map((t: any) => t.name)).toEqual(['Cô Lan', 'Cô Hoa']);
   });
 
   it('nói rõ là không có môn đó, thay vì trả lời "không ai rảnh"', async () => {
