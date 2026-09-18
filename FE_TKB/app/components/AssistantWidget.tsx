@@ -108,6 +108,10 @@ export default function AssistantWidget() {
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
   const [isAsking, setIsAsking] = useState(false);
+  // Only an answer received while this panel is open may use the typing effect.
+  // The last history item is still the last item after reopening, so its index alone
+  // cannot distinguish a new answer from an old one.
+  const [animatingAnswerIndex, setAnimatingAnswerIndex] = useState<number | null>(null);
   const [showInitialSuggestions, setShowInitialSuggestions] = useState(false);
   const [role, setRole] = useState<'ADMIN' | 'TEACHER' | null>(null);
   const [account, setAccount] = useState<MyAccount | null>(null);
@@ -117,12 +121,14 @@ export default function AssistantWidget() {
   // Bối cảnh gửi kèm mỗi câu hỏi: tóm tắt do máy chủ nén + các lượt chưa nén. Dùng ref vì
   // ask() được ghi nhớ theo isAsking, đọc state trực tiếp sẽ bị cũ.
   const turnsRef = useRef<Turn[]>([]);
+  const openRef = useRef(false);
   const memoryRef = useRef<{ summary: string | null; folded: number }>({ summary: null, folded: 0 });
   const [foldedTurns, setFoldedTurns] = useState(0);
   turnsRef.current = turns;
 
   const startNewConversation = () => {
     setTurns([]);
+    setAnimatingAnswerIndex(null);
     memoryRef.current = { summary: null, folded: 0 };
     setFoldedTurns(0);
     setShowInitialSuggestions(true);
@@ -168,12 +174,15 @@ export default function AssistantWidget() {
   }, [turns, isAsking]);
 
   const openAssistant = () => {
+    openRef.current = true;
     setShowInitialSuggestions(!hasOpenedRef.current);
     hasOpenedRef.current = true;
     setOpen(true);
   };
 
   const closeAssistant = () => {
+    openRef.current = false;
+    setAnimatingAnswerIndex(null);
     setShowInitialSuggestions(false);
     setOpen(false);
   };
@@ -228,6 +237,7 @@ export default function AssistantWidget() {
     async (text: string) => {
       const asked = text.trim();
       if (!asked || isAsking) return;
+      const turnIndex = turnsRef.current.length;
 
       setQuestion('');
       setIsAsking(true);
@@ -279,6 +289,7 @@ export default function AssistantWidget() {
             const data = JSON.parse(raw);
             if (event === 'step') update((t) => ({ ...t, steps: [...t.steps, data] }));
             if (event === 'answer') {
+              if (openRef.current) setAnimatingAnswerIndex(turnIndex);
               if (data.memory) {
                 memoryRef.current = {
                   summary: data.memory.summary ?? null,
@@ -436,10 +447,10 @@ export default function AssistantWidget() {
                   className="h-7 w-7 shrink-0 rounded-full bg-white object-contain ring-1 ring-[var(--border-default)]"
                 />
                 <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-[var(--bg-surface-hover)] px-3 py-2 text-sm text-[var(--text-primary)]">
-                  {/* Chỉ câu mới nhất gõ dần; câu cũ hiện ngay khi mở lại */}
+                  {/* Chỉ câu vừa nhận trong lần mở hiện tại gõ dần; mở lại thì lịch sử hiện ngay. */}
                   <TypedAnswer
                     text={turn.answer}
-                    animate={index === turns.length - 1}
+                    animate={index === animatingAnswerIndex}
                     onProgress={() => endRef.current?.scrollIntoView({ block: 'end' })}
                   />
                 </div>
