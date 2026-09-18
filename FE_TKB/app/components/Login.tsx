@@ -165,7 +165,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           của ảnh, để lúc ảnh chưa tải xong không bị chớp trắng. */}
       <div
         className="fixed inset-0 pointer-events-none bg-[#e5edfc] bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/login-background.webp')" }}
+        style={{ backgroundImage: "url('/images/login-background.webp?v=2')" }}
         aria-hidden
       />
       <div className="grain-overlay" aria-hidden />
