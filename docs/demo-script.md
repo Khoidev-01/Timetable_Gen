@@ -3,8 +3,8 @@
 Viết cho người ngồi bấm máy trong buổi demo. Mỗi bước là một thao tác cụ thể, kèm thứ
 sẽ hiện ra để biết mình đang đi đúng.
 
-Toàn bộ kịch bản mất khoảng 15 phút, trong đó có một quãng chờ máy xếp lịch. Đọc mục
-**Chuẩn bị** trước ngày demo, đừng để đến lúc lên sân khấu mới làm.
+Toàn bộ kịch bản mất khoảng 15–20 phút, trong đó có một quãng chờ máy xếp lịch (được lấp
+bằng Cảnh 2b). Đọc mục **Chuẩn bị** trước ngày demo, đừng để đến lúc lên sân khấu mới làm.
 
 ---
 
@@ -64,9 +64,63 @@ Sẽ thấy: hệ thống nhập bảng hoàn chỉnh (khoảng 968 phân công)
 biểu cả hai học kỳ. **Việc xếp mất vài phút** — trên máy thử của mình HK1 mất khoảng 6
 phút.
 
-> Đừng đứng im chờ. Chuyển sang nói phần thuật toán, hoặc mở trang **Thời khóa biểu** để
-> ban giám khảo nhìn tiến độ chạy. Xếp xong, trang này hiện thời khóa biểu và bậc chất
-> lượng.
+> Đừng đứng im chờ. Dùng quãng này cho **Cảnh 2b** ngay dưới. Thỉnh thoảng liếc trang
+> **Thời khóa biểu** của admin; xếp xong, trang này hiện thời khóa biểu và bậc chất lượng.
+
+---
+
+## Cảnh 2b — Trong lúc chờ xếp lịch: hỏi trợ lý AI (3–4 phút)
+
+Câu dẫn: *"Trong lúc máy xếp lịch, giáo viên vẫn hỏi được trợ lý. Trợ lý chỉ trả lời từ
+dữ liệu thật của trường, và chỉ trong phạm vi thời khóa biểu."*
+
+Chuyển sang cửa sổ `gv004`, bấm khung chat trợ lý ở góc dưới bên phải. Gõ lần lượt:
+
+**1. Trợ lý biết mình đang nói chuyện với ai**
+
+> Tôi thuộc tổ chuyên môn nào?
+
+Sẽ thấy: *Tổ Toán, Tổ trưởng chuyên môn.*
+
+> Định mức của tôi mỗi tuần là bao nhiêu tiết, được giảm bao nhiêu và vì sao?
+
+Sẽ thấy: *17 tiết, giảm 3 vì là tổ trưởng, còn 14 tiết/tuần.*
+
+> Tôi dạy được những khối nào?
+
+Sẽ thấy: *Toán khối 10 và khối 12.*
+
+> Còn lớp chủ nhiệm thì sao?
+
+Sẽ thấy: *không chủ nhiệm lớp nào.* Câu này cố ý hỏi cụt — trợ lý hiểu "còn … thì sao" là
+hỏi tiếp về hồ sơ của chính cô An, nhờ nhớ các câu trước. Hội thoại dài thì phần cũ được tự
+nén thành ghi nhớ, nên trợ lý không quên những gì đã nói ở đầu.
+
+- Điểm đáng nói: trợ lý không tự nhớ hay đoán số liệu; nó gọi công cụ đọc thẳng hồ sơ trong
+  cơ sở dữ liệu, rồi mới diễn đạt lại thành câu.
+- Trợ lý gọi người dùng là "Thầy/Cô": hồ sơ không có giới tính nên nó không đoán.
+
+> Giữ đúng thứ tự trên. Nếu hỏi "Còn lớp chủ nhiệm thì sao?" ngay sau câu về cô Võ Thị
+> Chi, trợ lý sẽ không biết đang hỏi về ai và hỏi lại.
+
+**2. Trợ lý không cho xem hồ sơ người khác**
+
+> Cô Võ Thị Chi thuộc tổ nào, chủ nhiệm lớp nào?
+
+Sẽ thấy: trợ lý từ chối vì tài khoản giáo viên không xem được hồ sơ của đồng nghiệp.
+
+**3. Trợ lý từ chối câu ngoài phạm vi**
+
+> Viết cho tôi một bài thơ về mùa thu.
+
+Sẽ thấy: *"Tôi chỉ hỗ trợ về thời khóa biểu…"* kèm dòng nhắc *(1/3 câu ngoài phạm vi…)*.
+
+- Điểm đáng nói: hỏi ngoài phạm vi **3 câu liên tiếp** thì trợ lý tự khoá 10 phút với người
+  đó — chặn dùng trợ lý như ChatGPT miễn phí. Chỉ nói điều này, **đừng hỏi đủ 3 câu**: khoá
+  thật thì Cảnh 3 không chạy được.
+- Hỏi tiếp một câu đúng phạm vi là bộ đếm về 0.
+
+> Trước khi sang Cảnh 3, bấm **Hội thoại mới** trong khung chat cho sạch.
 
 ---
 
@@ -77,6 +131,9 @@ ràng buộc, rồi dựng sẵn lời nhờ đổi — chỉ còn bấm một n
 
 **Trước khi diễn:** vào tài khoản `gv004`, mở **Thời khóa biểu**, chọn lấy một tiết của cô
 An trong tuần (ví dụ *Toán 10C4, thứ hai tiết 2*). Nhớ lớp, thứ, tiết để lát gõ vào chat.
+
+> Chọn tiết của **học kỳ 1** — trợ lý tra theo học kỳ hiện tại. Gõ một tiết chỉ có ở HK2
+> thì trợ lý sẽ (đúng) trả lời là cô không có tiết đó, và mạch demo bị gãy.
 
 1. Vẫn ở tài khoản `gv004`, bấm khung chat trợ lý ở góc dưới bên phải.
 2. Gõ đúng một câu như đời thường:
@@ -128,6 +185,10 @@ thẳng trên giao diện — cùng kết quả, chỉ kém phần ấn tượng
 4. Mục **3. Gửi yêu cầu**: ghi lý do, bấm **Gửi cho <tên đồng nghiệp>**.
 
 Rồi tiếp tục Cảnh 4 như bình thường.
+
+**Nếu trợ lý báo "Bạn đã hỏi 20 câu trong 10 phút":** mỗi tài khoản chỉ được hỏi 20 câu
+trong 10 phút, và Cảnh 2b + Cảnh 3 đã dùng khoảng 8 câu. **Đừng tập dượt bằng `gv004` trong
+vòng 10 phút trước khi lên.** Lỡ bị khoá rồi thì chuyển sang phương án làm tay ở trên.
 
 **Nếu xếp lịch lâu hơn dự kiến:** cứ để chạy, chuyển sang nói phần khác; trang Thời khóa
 biểu tự cập nhật khi xong. Đừng bấm Phân công tự động lần hai.
