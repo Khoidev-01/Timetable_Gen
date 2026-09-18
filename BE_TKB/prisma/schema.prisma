@@ -8,6 +8,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Tracks one-time data migrations that must not run again after a restart.
+model AppDataMigration {
+  id         String   @id
+  applied_at DateTime @default(now())
+
+  @@map("_app_data_migrations")
+}
+
 // ==========================================
 // GROUP 1: SYSTEM & CONFIG
 // ==========================================
