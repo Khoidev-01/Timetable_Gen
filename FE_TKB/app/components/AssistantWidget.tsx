@@ -63,6 +63,13 @@ const ADMIN_SUGGESTIONS = [
   'Định mức tiết dạy của giáo viên THPT là bao nhiêu?',
 ];
 
+const THINKING_MESSAGES = [
+  'Đang suy luận…',
+  'Đang tìm kiếm dữ liệu phù hợp…',
+  'Đang kiểm tra thông tin…',
+  'Đang tổng hợp câu trả lời…',
+];
+
 /**
  * The assistant, inside the app.
  *
@@ -108,6 +115,7 @@ export default function AssistantWidget() {
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
   const [isAsking, setIsAsking] = useState(false);
+  const [thinkingMessageIndex, setThinkingMessageIndex] = useState(0);
   // Only an answer received while this panel is open may use the typing effect.
   // The last history item is still the last item after reopening, so its index alone
   // cannot distinguish a new answer from an old one.
@@ -172,6 +180,16 @@ export default function AssistantWidget() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [turns, isAsking]);
+
+  useEffect(() => {
+    if (!isAsking) return;
+
+    const timer = window.setInterval(() => {
+      setThinkingMessageIndex((current) => (current + 1) % THINKING_MESSAGES.length);
+    }, 1800);
+
+    return () => window.clearInterval(timer);
+  }, [isAsking]);
 
   const openAssistant = () => {
     openRef.current = true;
@@ -240,6 +258,7 @@ export default function AssistantWidget() {
       const turnIndex = turnsRef.current.length;
 
       setQuestion('');
+      setThinkingMessageIndex(0);
       setIsAsking(true);
       setTurns((prev) => [...prev, { question: asked, steps: [] }]);
 
@@ -516,8 +535,13 @@ export default function AssistantWidget() {
         {isAsking && (
           <div className="flex items-center gap-2">
             <Image src="/images/assistant/miki-assistant-3d.png" alt="" width={28} height={28} className="h-7 w-7 shrink-0 rounded-full bg-white object-contain ring-1 ring-[var(--border-default)]" />
-            <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-              <Loader2 size={15} className="animate-spin" /> Đang suy nghĩ…
+            <p
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-2 text-sm text-[var(--text-muted)]"
+            >
+              <Loader2 size={15} className="animate-spin" />
+              {THINKING_MESSAGES[thinkingMessageIndex]}
             </p>
           </div>
         )}
