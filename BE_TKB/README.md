@@ -59,6 +59,13 @@ $ npm run test:cov
 
 ## Deployment
 
+> [!CAUTION]
+> The first deployment containing data migration `20260918_reset_all_data_keep_admin`
+> deletes all application data and accounts except the canonical `admin` account.
+> If that account does not exist, startup creates it immediately after the reset.
+> A persistent database marker makes this migration run only once, so later
+> restarts and redeployments do not delete newly entered data.
+
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
 If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
