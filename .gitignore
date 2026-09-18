@@ -55,3 +55,6 @@ tai-khoan-giao-vien*.csv
 # Bao cao do phu test, sinh ra moi lan chay jest --coverage
 coverage/
 reports/
+
+# Local deployment notes may reference production configuration
+docs/coolify-environment-variables.md
