@@ -1,0 +1,1809 @@
+{
+  "academicYear": {
+    "name": "2026-2027",
+    "startDate": "2026-09-05T00:00:00.000Z",
+    "endDate": "2027-05-31T00:00:00.000Z",
+    "weeks": 35
+  },
+  "subjects": [
+    {
+      "code": "TOAN",
+      "name": "Toán",
+      "color": "#4F46E5",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "VAN",
+      "name": "Ngữ văn",
+      "color": "#DB2777",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "ANH",
+      "name": "Tiếng Anh",
+      "color": "#059669",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "LS",
+      "name": "Lịch sử",
+      "color": "#D97706",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "GDTC",
+      "name": "Giáo dục thể chất",
+      "color": "#7C3AED",
+      "isSpecial": false,
+      "isPractice": true
+    },
+    {
+      "code": "GDQP",
+      "name": "Giáo dục quốc phòng và an ninh",
+      "color": "#0891B2",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "HDTN",
+      "name": "Hoạt động trải nghiệm hướng nghiệp",
+      "color": "#DC2626",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "GDDP",
+      "name": "Giáo dục địa phương",
+      "color": "#65A30D",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "LY",
+      "name": "Vật lý",
+      "color": "#2563EB",
+      "isSpecial": false,
+      "isPractice": true
+    },
+    {
+      "code": "HOA",
+      "name": "Hóa học",
+      "color": "#C026D3",
+      "isSpecial": false,
+      "isPractice": true
+    },
+    {
+      "code": "SINH",
+      "name": "Sinh học",
+      "color": "#0D9488",
+      "isSpecial": false,
+      "isPractice": true
+    },
+    {
+      "code": "TIN",
+      "name": "Tin học",
+      "color": "#EA580C",
+      "isSpecial": false,
+      "isPractice": true
+    },
+    {
+      "code": "DIA",
+      "name": "Địa lý",
+      "color": "#9333EA",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "GDKT",
+      "name": "Giáo dục kinh tế và pháp luật",
+      "color": "#0284C7",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "CNCN",
+      "name": "Công nghệ Công nghiệp",
+      "color": "#E11D48",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "CNNN",
+      "name": "Công nghệ Nông nghiệp",
+      "color": "#16A34A",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "MT",
+      "name": "Mỹ thuật",
+      "color": "#CA8A04",
+      "isSpecial": false,
+      "isPractice": false
+    },
+    {
+      "code": "CHAO_CO",
+      "name": "Chào cờ",
+      "color": "#475569",
+      "isSpecial": true,
+      "isPractice": false
+    },
+    {
+      "code": "SH_CUOI_TUAN",
+      "name": "Sinh hoạt cuối tuần",
+      "color": "#78716C",
+      "isSpecial": true,
+      "isPractice": false
+    }
+  ],
+  "teachers": [
+    {
+      "code": "GV001",
+      "fullName": "Võ Minh Chi",
+      "shortName": "Minh Chi",
+      "phone": "0912345678",
+      "department": "Tổ Toán",
+      "position": "GV",
+      "majorSubject": "TOAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 10C1 (giảm 4)"
+    },
+    {
+      "code": "GV002",
+      "fullName": "Nguyễn Kim Khánh",
+      "shortName": "Kim Khánh",
+      "phone": "0912353597",
+      "department": "Tổ Toán",
+      "position": "GV",
+      "majorSubject": "TOAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A1 (giảm 4)"
+    },
+    {
+      "code": "GV003",
+      "fullName": "Nguyễn Thị Uyên",
+      "shortName": "Thị Uyên",
+      "phone": "0912361516",
+      "department": "Tổ Toán",
+      "position": "GV",
+      "majorSubject": "TOAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A11 (giảm 4)"
+    },
+    {
+      "code": "GV004",
+      "fullName": "Võ Ngọc An",
+      "shortName": "Ngọc An",
+      "phone": "0912369435",
+      "department": "Tổ Toán",
+      "position": "TT",
+      "majorSubject": "TOAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Tổ trưởng Tổ Toán (giảm 3)"
+    },
+    {
+      "code": "GV005",
+      "fullName": "Nguyễn Ngọc Phong",
+      "shortName": "Ngọc Phong",
+      "phone": "0912377354",
+      "department": "Tổ Toán",
+      "position": "TP",
+      "majorSubject": "TOAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 1,
+      "notes": "Tổ phó Tổ Toán (giảm 1)"
+    },
+    {
+      "code": "GV006",
+      "fullName": "Nguyễn Thị Hiền",
+      "shortName": "Thị Hiền",
+      "phone": "0912385273",
+      "department": "Tổ Toán",
+      "position": "GV",
+      "majorSubject": "TOAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV007",
+      "fullName": "Nguyễn Đức Chi",
+      "shortName": "Đức Chi",
+      "phone": "0912393192",
+      "department": "Tổ Toán",
+      "position": "GV",
+      "majorSubject": "TOAN",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 11B1 (giảm 4)"
+    },
+    {
+      "code": "GV008",
+      "fullName": "Nguyễn Ngọc Giang",
+      "shortName": "Ngọc Giang",
+      "phone": "0912401111",
+      "department": "Tổ Toán",
+      "position": "GV",
+      "majorSubject": "TOAN",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV009",
+      "fullName": "Nguyễn Xuân Uyên",
+      "shortName": "Xuân Uyên",
+      "phone": "0912409030",
+      "department": "Tổ Toán",
+      "position": "GV",
+      "majorSubject": "TOAN",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV010",
+      "fullName": "Nguyễn Minh Linh",
+      "shortName": "Minh Linh",
+      "phone": "0912416949",
+      "department": "Tổ Ngữ văn",
+      "position": "GV",
+      "majorSubject": "VAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 10C2 (giảm 4)"
+    },
+    {
+      "code": "GV011",
+      "fullName": "Nguyễn Quốc Trung",
+      "shortName": "Quốc Trung",
+      "phone": "0912424868",
+      "department": "Tổ Ngữ văn",
+      "position": "GV",
+      "majorSubject": "VAN",
+      "teachableGrades": [12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A2 (giảm 4)"
+    },
+    {
+      "code": "GV012",
+      "fullName": "Nguyễn Kim Thắng",
+      "shortName": "Kim Thắng",
+      "phone": "0912432787",
+      "department": "Tổ Ngữ văn",
+      "position": "TT",
+      "majorSubject": "VAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Tổ trưởng Tổ Ngữ văn (giảm 3)"
+    },
+    {
+      "code": "GV013",
+      "fullName": "Nguyễn Minh Mai",
+      "shortName": "Minh Mai",
+      "phone": "0912440706",
+      "department": "Tổ Ngữ văn",
+      "position": "TP",
+      "majorSubject": "VAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 1,
+      "notes": "Tổ phó Tổ Ngữ văn (giảm 1)"
+    },
+    {
+      "code": "GV014",
+      "fullName": "Nguyễn Ngọc Hải",
+      "shortName": "Ngọc Hải",
+      "phone": "0912448625",
+      "department": "Tổ Ngữ văn",
+      "position": "GV",
+      "majorSubject": "VAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV015",
+      "fullName": "Nguyễn Thị Chi",
+      "shortName": "Thị Chi",
+      "phone": "0912456544",
+      "department": "Tổ Ngữ văn",
+      "position": "GV",
+      "majorSubject": "VAN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV016",
+      "fullName": "Nguyễn Quốc Quỳnh",
+      "shortName": "Quốc Quỳnh",
+      "phone": "0912464463",
+      "department": "Tổ Ngữ văn",
+      "position": "GV",
+      "majorSubject": "VAN",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 11B2 (giảm 4)"
+    },
+    {
+      "code": "GV017",
+      "fullName": "Nguyễn Kim An",
+      "shortName": "Kim An",
+      "phone": "0912472382",
+      "department": "Tổ Ngữ văn",
+      "position": "GV",
+      "majorSubject": "VAN",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV018",
+      "fullName": "Nguyễn Thị Tâm",
+      "shortName": "Thị Tâm",
+      "phone": "0912480301",
+      "department": "Tổ Ngữ văn",
+      "position": "GV",
+      "majorSubject": "VAN",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV019",
+      "fullName": "Nguyễn Ngọc Mai",
+      "shortName": "Ngọc Mai",
+      "phone": "0912488220",
+      "department": "Tổ Ngoại ngữ",
+      "position": "GV",
+      "majorSubject": "ANH",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 10C3 (giảm 4)"
+    },
+    {
+      "code": "GV020",
+      "fullName": "Nguyễn Xuân Thắng",
+      "shortName": "Xuân Thắng",
+      "phone": "0912496139",
+      "department": "Tổ Ngoại ngữ",
+      "position": "GV",
+      "majorSubject": "ANH",
+      "teachableGrades": [12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A3 (giảm 4)"
+    },
+    {
+      "code": "GV021",
+      "fullName": "Nguyễn Xuân Hùng",
+      "shortName": "Xuân Hùng",
+      "phone": "0912504058",
+      "department": "Tổ Ngoại ngữ",
+      "position": "TT",
+      "majorSubject": "ANH",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Tổ trưởng Tổ Ngoại ngữ (giảm 3)"
+    },
+    {
+      "code": "GV022",
+      "fullName": "Nguyễn Đức Linh",
+      "shortName": "Đức Linh",
+      "phone": "0912511977",
+      "department": "Tổ Ngoại ngữ",
+      "position": "TP",
+      "majorSubject": "ANH",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 1,
+      "notes": "Tổ phó Tổ Ngoại ngữ (giảm 1)"
+    },
+    {
+      "code": "GV023",
+      "fullName": "Võ Xuân Chi",
+      "shortName": "Xuân Chi",
+      "phone": "0912519896",
+      "department": "Tổ Ngoại ngữ",
+      "position": "GV",
+      "majorSubject": "ANH",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV024",
+      "fullName": "Nguyễn Quốc Linh",
+      "shortName": "Quốc Linh",
+      "phone": "0912527815",
+      "department": "Tổ Ngoại ngữ",
+      "position": "GV",
+      "majorSubject": "ANH",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV025",
+      "fullName": "Nguyễn Thị Phương",
+      "shortName": "Thị Phương",
+      "phone": "0912535734",
+      "department": "Tổ Ngoại ngữ",
+      "position": "GV",
+      "majorSubject": "ANH",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 11B3 (giảm 4)"
+    },
+    {
+      "code": "GV026",
+      "fullName": "Nguyễn Đức Giang",
+      "shortName": "Đức Giang",
+      "phone": "0912543653",
+      "department": "Tổ Ngoại ngữ",
+      "position": "GV",
+      "majorSubject": "ANH",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV027",
+      "fullName": "Nguyễn Minh Phương",
+      "shortName": "Minh Phương",
+      "phone": "0912551572",
+      "department": "Tổ Ngoại ngữ",
+      "position": "GV",
+      "majorSubject": "ANH",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV028",
+      "fullName": "Nguyễn Minh Thắng",
+      "shortName": "Minh Thắng",
+      "phone": "0912559491",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "GV",
+      "majorSubject": "LY",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 10C4 (giảm 4)"
+    },
+    {
+      "code": "GV029",
+      "fullName": "Nguyễn Ngọc An",
+      "shortName": "Ngọc An",
+      "phone": "0912567410",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "GV",
+      "majorSubject": "LY",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A4 (giảm 4)"
+    },
+    {
+      "code": "GV030",
+      "fullName": "Nguyễn Quốc Giang",
+      "shortName": "Quốc Giang",
+      "phone": "0912575329",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "TT",
+      "majorSubject": "LY",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Tổ trưởng Tổ Vật lý - Tin học (giảm 3)"
+    },
+    {
+      "code": "GV031",
+      "fullName": "Nguyễn Quốc Nam",
+      "shortName": "Quốc Nam",
+      "phone": "0912583248",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "TP",
+      "majorSubject": "LY",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 1,
+      "notes": "Tổ phó Tổ Vật lý - Tin học (giảm 1)"
+    },
+    {
+      "code": "GV032",
+      "fullName": "Nguyễn Thị An",
+      "shortName": "Thị An",
+      "phone": "0912591167",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "GV",
+      "majorSubject": "LY",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 11B4 (giảm 4)"
+    },
+    {
+      "code": "GV033",
+      "fullName": "Nguyễn Quốc Hùng",
+      "shortName": "Quốc Hùng",
+      "phone": "0912599086",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "GV",
+      "majorSubject": "LY",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Phụ trách phòng thí nghiệm Vật lý (giảm 3)"
+    },
+    {
+      "code": "GV034",
+      "fullName": "Nguyễn Ngọc Việt",
+      "shortName": "Ngọc Việt",
+      "phone": "0912607005",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "GV",
+      "majorSubject": "TIN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 10C5 (giảm 4)"
+    },
+    {
+      "code": "GV035",
+      "fullName": "Nguyễn Minh Ngân",
+      "shortName": "Minh Ngân",
+      "phone": "0912614924",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "GV",
+      "majorSubject": "TIN",
+      "teachableGrades": [12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A5 (giảm 4)"
+    },
+    {
+      "code": "GV036",
+      "fullName": "Nguyễn Đức Hiền",
+      "shortName": "Đức Hiền",
+      "phone": "0912622843",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "GV",
+      "majorSubject": "TIN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Phụ trách công nghệ thông tin (giảm 3)"
+    },
+    {
+      "code": "GV037",
+      "fullName": "Nguyễn Kim Quỳnh",
+      "shortName": "Kim Quỳnh",
+      "phone": "0912630762",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "GV",
+      "majorSubject": "TIN",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV038",
+      "fullName": "Nguyễn Kim Nam",
+      "shortName": "Kim Nam",
+      "phone": "0912638681",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "GV",
+      "majorSubject": "TIN",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 11B5 (giảm 4)"
+    },
+    {
+      "code": "GV039",
+      "fullName": "Nguyễn Thị Hùng",
+      "shortName": "Thị Hùng",
+      "phone": "0912646600",
+      "department": "Tổ Vật lý - Tin học",
+      "position": "GV",
+      "majorSubject": "TIN",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV040",
+      "fullName": "Nguyễn Xuân Quỳnh",
+      "shortName": "Xuân Quỳnh",
+      "phone": "0912654519",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "GV",
+      "majorSubject": "HOA",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 10C6 (giảm 4)"
+    },
+    {
+      "code": "GV041",
+      "fullName": "Nguyễn Đức Trung",
+      "shortName": "Đức Trung",
+      "phone": "0912662438",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "GV",
+      "majorSubject": "HOA",
+      "teachableGrades": [12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A6 (giảm 4)"
+    },
+    {
+      "code": "GV042",
+      "fullName": "Võ Thị Chi",
+      "shortName": "Thị Chi",
+      "phone": "0912670357",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "TT",
+      "majorSubject": "HOA",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Tổ trưởng Tổ Hóa học - Sinh học (giảm 3)"
+    },
+    {
+      "code": "GV043",
+      "fullName": "Nguyễn Minh Nam",
+      "shortName": "Minh Nam",
+      "phone": "0912678276",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "TP",
+      "majorSubject": "HOA",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 1,
+      "notes": "Tổ phó Tổ Hóa học - Sinh học (giảm 1)"
+    },
+    {
+      "code": "GV044",
+      "fullName": "Nguyễn Quốc Hiền",
+      "shortName": "Quốc Hiền",
+      "phone": "0912686195",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "GV",
+      "majorSubject": "HOA",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 11B6 (giảm 4)"
+    },
+    {
+      "code": "GV045",
+      "fullName": "Nguyễn Đức Nam",
+      "shortName": "Đức Nam",
+      "phone": "0912694114",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "GV",
+      "majorSubject": "HOA",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Phụ trách phòng thí nghiệm Hóa học (giảm 3)"
+    },
+    {
+      "code": "GV046",
+      "fullName": "Nguyễn Đức Ngân",
+      "shortName": "Đức Ngân",
+      "phone": "0912702033",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "GV",
+      "majorSubject": "SINH",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 10C7 (giảm 4)"
+    },
+    {
+      "code": "GV047",
+      "fullName": "Nguyễn Quốc Phong",
+      "shortName": "Quốc Phong",
+      "phone": "0912709952",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "GV",
+      "majorSubject": "SINH",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A7 (giảm 4)"
+    },
+    {
+      "code": "GV048",
+      "fullName": "Nguyễn Đức Tâm",
+      "shortName": "Đức Tâm",
+      "phone": "0912717871",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "GV",
+      "majorSubject": "SINH",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Phụ trách phòng thí nghiệm Sinh học (giảm 3)"
+    },
+    {
+      "code": "GV049",
+      "fullName": "Nguyễn Xuân Chi",
+      "shortName": "Xuân Chi",
+      "phone": "0912725790",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "GV",
+      "majorSubject": "SINH",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV050",
+      "fullName": "Nguyễn Xuân Ngân",
+      "shortName": "Xuân Ngân",
+      "phone": "0912733709",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "GV",
+      "majorSubject": "SINH",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 11B7 (giảm 4)"
+    },
+    {
+      "code": "GV051",
+      "fullName": "Nguyễn Kim Hải",
+      "shortName": "Kim Hải",
+      "phone": "0912741628",
+      "department": "Tổ Hóa học - Sinh học",
+      "position": "GV",
+      "majorSubject": "SINH",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV052",
+      "fullName": "Nguyễn Ngọc Quỳnh",
+      "shortName": "Ngọc Quỳnh",
+      "phone": "0912749547",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "LS",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 10C8 (giảm 4)"
+    },
+    {
+      "code": "GV053",
+      "fullName": "Nguyễn Quốc Uyên",
+      "shortName": "Quốc Uyên",
+      "phone": "0912757466",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "LS",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A8 (giảm 4)"
+    },
+    {
+      "code": "GV054",
+      "fullName": "Nguyễn Xuân Linh",
+      "shortName": "Xuân Linh",
+      "phone": "0912765385",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "TT",
+      "majorSubject": "LS",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Tổ trưởng Tổ Lịch sử - Địa lý - GDKT&PL (giảm 3)"
+    },
+    {
+      "code": "GV055",
+      "fullName": "Nguyễn Đức Hùng",
+      "shortName": "Đức Hùng",
+      "phone": "0912773304",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "TP",
+      "majorSubject": "LS",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 1,
+      "notes": "Tổ phó Tổ Lịch sử - Địa lý - GDKT&PL (giảm 1)"
+    },
+    {
+      "code": "GV056",
+      "fullName": "Nguyễn Minh Khánh",
+      "shortName": "Minh Khánh",
+      "phone": "0912781223",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "LS",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV057",
+      "fullName": "Nguyễn Kim Giang",
+      "shortName": "Kim Giang",
+      "phone": "0912789142",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "LS",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 11B8 (giảm 4)"
+    },
+    {
+      "code": "GV058",
+      "fullName": "Nguyễn Quốc Thắng",
+      "shortName": "Quốc Thắng",
+      "phone": "0912797061",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "LS",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV059",
+      "fullName": "Nguyễn Đức Phương",
+      "shortName": "Đức Phương",
+      "phone": "0912804980",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "DIA",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 10C9 (giảm 4)"
+    },
+    {
+      "code": "GV060",
+      "fullName": "Nguyễn Minh An",
+      "shortName": "Minh An",
+      "phone": "0912812899",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "DIA",
+      "teachableGrades": [12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A9 (giảm 4)"
+    },
+    {
+      "code": "GV061",
+      "fullName": "Nguyễn Quốc Khánh",
+      "shortName": "Quốc Khánh",
+      "phone": "0912820818",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "DIA",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV062",
+      "fullName": "Nguyễn Ngọc Linh",
+      "shortName": "Ngọc Linh",
+      "phone": "0912828737",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "DIA",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 11B9 (giảm 4)"
+    },
+    {
+      "code": "GV063",
+      "fullName": "Nguyễn Thị Phong",
+      "shortName": "Thị Phong",
+      "phone": "0912836656",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "DIA",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV064",
+      "fullName": "Nguyễn Quốc Việt",
+      "shortName": "Quốc Việt",
+      "phone": "0912844575",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "GDKT",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 10C10 (giảm 4)"
+    },
+    {
+      "code": "GV065",
+      "fullName": "Nguyễn Minh Chi",
+      "shortName": "Minh Chi",
+      "phone": "0912852494",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "GDKT",
+      "teachableGrades": [12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 4,
+      "notes": "Chủ nhiệm lớp 12A10 (giảm 4)"
+    },
+    {
+      "code": "GV066",
+      "fullName": "Nguyễn Quốc Mai",
+      "shortName": "Quốc Mai",
+      "phone": "0912860413",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "GDKT",
+      "teachableGrades": [10, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV067",
+      "fullName": "Nguyễn Thị Hải",
+      "shortName": "Thị Hải",
+      "phone": "0912868332",
+      "department": "Tổ Lịch sử - Địa lý - GDKT&PL",
+      "position": "GV",
+      "majorSubject": "GDKT",
+      "teachableGrades": [11],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV068",
+      "fullName": "Nguyễn Ngọc Trung",
+      "shortName": "Ngọc Trung",
+      "phone": "0912876251",
+      "department": "Tổ Thể chất - Quốc phòng",
+      "position": "TT",
+      "majorSubject": "GDTC",
+      "teachableGrades": [10, 11, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 3,
+      "notes": "Tổ trưởng Tổ Thể chất - Quốc phòng (giảm 3)"
+    },
+    {
+      "code": "GV069",
+      "fullName": "Nguyễn Đức Uyên",
+      "shortName": "Đức Uyên",
+      "phone": "0912884170",
+      "department": "Tổ Thể chất - Quốc phòng",
+      "position": "TP",
+      "majorSubject": "GDTC",
+      "teachableGrades": [10, 11, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 1,
+      "notes": "Tổ phó Tổ Thể chất - Quốc phòng (giảm 1)"
+    },
+    {
+      "code": "GV070",
+      "fullName": "Nguyễn Đức Khánh",
+      "shortName": "Đức Khánh",
+      "phone": "0912892089",
+      "department": "Tổ Thể chất - Quốc phòng",
+      "position": "GV",
+      "majorSubject": "GDTC",
+      "teachableGrades": [10, 11, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV071",
+      "fullName": "Nguyễn Xuân Tâm",
+      "shortName": "Xuân Tâm",
+      "phone": "0912900008",
+      "department": "Tổ Thể chất - Quốc phòng",
+      "position": "GV",
+      "majorSubject": "GDTC",
+      "teachableGrades": [10, 11, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV072",
+      "fullName": "Nguyễn Quốc Ngân",
+      "shortName": "Quốc Ngân",
+      "phone": "0912907927",
+      "department": "Tổ Thể chất - Quốc phòng",
+      "position": "GV",
+      "majorSubject": "GDQP",
+      "teachableGrades": [10, 11, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    },
+    {
+      "code": "GV073",
+      "fullName": "Nguyễn Thị Trung",
+      "shortName": "Thị Trung",
+      "phone": "0912915846",
+      "department": "Tổ Thể chất - Quốc phòng",
+      "position": "GV",
+      "majorSubject": "GDQP",
+      "teachableGrades": [10, 11, 12],
+      "status": "Dang_day",
+      "maxPeriodsPerWeek": 17,
+      "workloadReduction": 0,
+      "notes": null
+    }
+  ],
+  "rooms": [
+    {
+      "name": "101",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "102",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "103",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "104",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "105",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "106",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "107",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "108",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "109",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "110",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "111",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "112",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "113",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "114",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "115",
+      "type": "CLASSROOM",
+      "floor": 1,
+      "capacity": 45
+    },
+    {
+      "name": "201",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "202",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "203",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "204",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "205",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "206",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "207",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "208",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "209",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "210",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "211",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "212",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "213",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "214",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "215",
+      "type": "CLASSROOM",
+      "floor": 2,
+      "capacity": 45
+    },
+    {
+      "name": "301",
+      "type": "LAB_PHYSICS",
+      "floor": 3,
+      "capacity": 45
+    },
+    {
+      "name": "302",
+      "type": "LAB_PHYSICS",
+      "floor": 3,
+      "capacity": 45
+    },
+    {
+      "name": "303",
+      "type": "LAB_CHEM",
+      "floor": 3,
+      "capacity": 45
+    },
+    {
+      "name": "304",
+      "type": "LAB_CHEM",
+      "floor": 3,
+      "capacity": 45
+    },
+    {
+      "name": "305",
+      "type": "LAB_BIO",
+      "floor": 3,
+      "capacity": 45
+    },
+    {
+      "name": "306",
+      "type": "LAB_BIO",
+      "floor": 3,
+      "capacity": 45
+    },
+    {
+      "name": "307",
+      "type": "LAB_IT",
+      "floor": 3,
+      "capacity": 45
+    },
+    {
+      "name": "308",
+      "type": "LAB_IT",
+      "floor": 3,
+      "capacity": 45
+    },
+    {
+      "name": "309",
+      "type": "LAB_IT",
+      "floor": 3,
+      "capacity": 45
+    },
+    {
+      "name": "310",
+      "type": "MULTI_PURPOSE",
+      "floor": 3,
+      "capacity": 45
+    },
+    {
+      "name": "SAN_1",
+      "type": "YARD",
+      "floor": 0,
+      "capacity": 200
+    },
+    {
+      "name": "SAN_2",
+      "type": "YARD",
+      "floor": 0,
+      "capacity": 200
+    },
+    {
+      "name": "SAN_3",
+      "type": "YARD",
+      "floor": 0,
+      "capacity": 200
+    },
+    {
+      "name": "SAN_4",
+      "type": "YARD",
+      "floor": 0,
+      "capacity": 200
+    }
+  ],
+  "classes": [
+    {
+      "name": "10C1",
+      "gradeLevel": 10,
+      "studentCount": 41,
+      "mainSession": 0,
+      "combinationCode": "TN1",
+      "roomName": "201",
+      "homeroomTeacherCode": "GV001",
+      "notes": "Phòng 201 (buổi sáng)"
+    },
+    {
+      "name": "10C2",
+      "gradeLevel": 10,
+      "studentCount": 41,
+      "mainSession": 0,
+      "combinationCode": "TN1",
+      "roomName": "202",
+      "homeroomTeacherCode": "GV010",
+      "notes": "Phòng 202 (buổi sáng)"
+    },
+    {
+      "name": "10C3",
+      "gradeLevel": 10,
+      "studentCount": 41,
+      "mainSession": 0,
+      "combinationCode": "TN1",
+      "roomName": "203",
+      "homeroomTeacherCode": "GV019",
+      "notes": "Phòng 203 (buổi sáng)"
+    },
+    {
+      "name": "10C4",
+      "gradeLevel": 10,
+      "studentCount": 41,
+      "mainSession": 0,
+      "combinationCode": "TN2",
+      "roomName": "204",
+      "homeroomTeacherCode": "GV028",
+      "notes": "Phòng 204 (buổi sáng)"
+    },
+    {
+      "name": "10C5",
+      "gradeLevel": 10,
+      "studentCount": 41,
+      "mainSession": 0,
+      "combinationCode": "TN2",
+      "roomName": "205",
+      "homeroomTeacherCode": "GV034",
+      "notes": "Phòng 205 (buổi sáng)"
+    },
+    {
+      "name": "10C6",
+      "gradeLevel": 10,
+      "studentCount": 41,
+      "mainSession": 0,
+      "combinationCode": "TN2",
+      "roomName": "206",
+      "homeroomTeacherCode": "GV040",
+      "notes": "Phòng 206 (buổi sáng)"
+    },
+    {
+      "name": "10C7",
+      "gradeLevel": 10,
+      "studentCount": 41,
+      "mainSession": 0,
+      "combinationCode": "XH1",
+      "roomName": "207",
+      "homeroomTeacherCode": "GV046",
+      "notes": "Phòng 207 (buổi sáng)"
+    },
+    {
+      "name": "10C8",
+      "gradeLevel": 10,
+      "studentCount": 41,
+      "mainSession": 0,
+      "combinationCode": "XH1",
+      "roomName": "208",
+      "homeroomTeacherCode": "GV052",
+      "notes": "Phòng 208 (buổi sáng)"
+    },
+    {
+      "name": "10C9",
+      "gradeLevel": 10,
+      "studentCount": 41,
+      "mainSession": 0,
+      "combinationCode": "XH2",
+      "roomName": "209",
+      "homeroomTeacherCode": "GV059",
+      "notes": "Phòng 209 (buổi sáng)"
+    },
+    {
+      "name": "10C10",
+      "gradeLevel": 10,
+      "studentCount": 41,
+      "mainSession": 0,
+      "combinationCode": "XH2",
+      "roomName": "210",
+      "homeroomTeacherCode": "GV064",
+      "notes": "Phòng 210 (buổi sáng)"
+    },
+    {
+      "name": "11B1",
+      "gradeLevel": 11,
+      "studentCount": 42,
+      "mainSession": 1,
+      "combinationCode": "TN1",
+      "roomName": "101",
+      "homeroomTeacherCode": "GV007",
+      "notes": "Phòng 101 (buổi chiều)"
+    },
+    {
+      "name": "11B2",
+      "gradeLevel": 11,
+      "studentCount": 42,
+      "mainSession": 1,
+      "combinationCode": "TN1",
+      "roomName": "102",
+      "homeroomTeacherCode": "GV016",
+      "notes": "Phòng 102 (buổi chiều)"
+    },
+    {
+      "name": "11B3",
+      "gradeLevel": 11,
+      "studentCount": 42,
+      "mainSession": 1,
+      "combinationCode": "TN1",
+      "roomName": "103",
+      "homeroomTeacherCode": "GV025",
+      "notes": "Phòng 103 (buổi chiều)"
+    },
+    {
+      "name": "11B4",
+      "gradeLevel": 11,
+      "studentCount": 42,
+      "mainSession": 1,
+      "combinationCode": "TN2",
+      "roomName": "104",
+      "homeroomTeacherCode": "GV032",
+      "notes": "Phòng 104 (buổi chiều)"
+    },
+    {
+      "name": "11B5",
+      "gradeLevel": 11,
+      "studentCount": 42,
+      "mainSession": 1,
+      "combinationCode": "TN2",
+      "roomName": "105",
+      "homeroomTeacherCode": "GV038",
+      "notes": "Phòng 105 (buổi chiều)"
+    },
+    {
+      "name": "11B6",
+      "gradeLevel": 11,
+      "studentCount": 42,
+      "mainSession": 1,
+      "combinationCode": "XH1",
+      "roomName": "106",
+      "homeroomTeacherCode": "GV044",
+      "notes": "Phòng 106 (buổi chiều)"
+    },
+    {
+      "name": "11B7",
+      "gradeLevel": 11,
+      "studentCount": 42,
+      "mainSession": 1,
+      "combinationCode": "XH1",
+      "roomName": "107",
+      "homeroomTeacherCode": "GV050",
+      "notes": "Phòng 107 (buổi chiều)"
+    },
+    {
+      "name": "11B8",
+      "gradeLevel": 11,
+      "studentCount": 42,
+      "mainSession": 1,
+      "combinationCode": "XH2",
+      "roomName": "108",
+      "homeroomTeacherCode": "GV057",
+      "notes": "Phòng 108 (buổi chiều)"
+    },
+    {
+      "name": "11B9",
+      "gradeLevel": 11,
+      "studentCount": 42,
+      "mainSession": 1,
+      "combinationCode": "XH2",
+      "roomName": "109",
+      "homeroomTeacherCode": "GV062",
+      "notes": "Phòng 109 (buổi chiều)"
+    },
+    {
+      "name": "12A1",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "TN1",
+      "roomName": "101",
+      "homeroomTeacherCode": "GV002",
+      "notes": "Phòng 101 (buổi sáng)"
+    },
+    {
+      "name": "12A2",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "TN1",
+      "roomName": "102",
+      "homeroomTeacherCode": "GV011",
+      "notes": "Phòng 102 (buổi sáng)"
+    },
+    {
+      "name": "12A3",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "TN1",
+      "roomName": "103",
+      "homeroomTeacherCode": "GV020",
+      "notes": "Phòng 103 (buổi sáng)"
+    },
+    {
+      "name": "12A4",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "TN2",
+      "roomName": "104",
+      "homeroomTeacherCode": "GV029",
+      "notes": "Phòng 104 (buổi sáng)"
+    },
+    {
+      "name": "12A5",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "TN2",
+      "roomName": "105",
+      "homeroomTeacherCode": "GV035",
+      "notes": "Phòng 105 (buổi sáng)"
+    },
+    {
+      "name": "12A6",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "TN2",
+      "roomName": "106",
+      "homeroomTeacherCode": "GV041",
+      "notes": "Phòng 106 (buổi sáng)"
+    },
+    {
+      "name": "12A7",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "XH1",
+      "roomName": "107",
+      "homeroomTeacherCode": "GV047",
+      "notes": "Phòng 107 (buổi sáng)"
+    },
+    {
+      "name": "12A8",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "XH1",
+      "roomName": "108",
+      "homeroomTeacherCode": "GV053",
+      "notes": "Phòng 108 (buổi sáng)"
+    },
+    {
+      "name": "12A9",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "XH1",
+      "roomName": "109",
+      "homeroomTeacherCode": "GV060",
+      "notes": "Phòng 109 (buổi sáng)"
+    },
+    {
+      "name": "12A10",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "XH2",
+      "roomName": "110",
+      "homeroomTeacherCode": "GV065",
+      "notes": "Phòng 110 (buổi sáng)"
+    },
+    {
+      "name": "12A11",
+      "gradeLevel": 12,
+      "studentCount": 43,
+      "mainSession": 0,
+      "combinationCode": "XH2",
+      "roomName": "111",
+      "homeroomTeacherCode": "GV003",
+      "notes": "Phòng 111 (buổi sáng)"
+    }
+  ],
+  "combinations": [
+    {
+      "code": "TN1",
+      "gradeLevel": 10,
+      "electiveSubjects": ["LY", "HOA", "SINH", "CNNN"],
+      "notes": "Tự nhiên - Lý, Hóa, Sinh"
+    },
+    {
+      "code": "TN2",
+      "gradeLevel": 10,
+      "electiveSubjects": ["LY", "HOA", "TIN", "CNCN"],
+      "notes": "Tự nhiên - Lý, Hóa, Tin"
+    },
+    {
+      "code": "XH1",
+      "gradeLevel": 10,
+      "electiveSubjects": ["DIA", "GDKT", "TIN", "CNCN"],
+      "notes": "Xã hội - Địa, KTPL, Tin"
+    },
+    {
+      "code": "XH2",
+      "gradeLevel": 10,
+      "electiveSubjects": ["DIA", "GDKT", "SINH", "CNNN"],
+      "notes": "Xã hội - Địa, KTPL, Sinh"
+    },
+    {
+      "code": "TN1",
+      "gradeLevel": 11,
+      "electiveSubjects": ["LY", "HOA", "SINH", "CNNN"],
+      "notes": "Tự nhiên - Lý, Hóa, Sinh"
+    },
+    {
+      "code": "TN2",
+      "gradeLevel": 11,
+      "electiveSubjects": ["LY", "HOA", "TIN", "CNCN"],
+      "notes": "Tự nhiên - Lý, Hóa, Tin"
+    },
+    {
+      "code": "XH1",
+      "gradeLevel": 11,
+      "electiveSubjects": ["DIA", "GDKT", "TIN", "CNCN"],
+      "notes": "Xã hội - Địa, KTPL, Tin"
+    },
+    {
+      "code": "XH2",
+      "gradeLevel": 11,
+      "electiveSubjects": ["DIA", "GDKT", "SINH", "CNNN"],
+      "notes": "Xã hội - Địa, KTPL, Sinh"
+    },
+    {
+      "code": "TN1",
+      "gradeLevel": 12,
+      "electiveSubjects": ["LY", "HOA", "SINH", "CNNN"],
+      "notes": "Tự nhiên - Lý, Hóa, Sinh"
+    },
+    {
+      "code": "TN2",
+      "gradeLevel": 12,
+      "electiveSubjects": ["LY", "HOA", "TIN", "CNCN"],
+      "notes": "Tự nhiên - Lý, Hóa, Tin"
+    },
+    {
+      "code": "XH1",
+      "gradeLevel": 12,
+      "electiveSubjects": ["DIA", "GDKT", "TIN", "CNCN"],
+      "notes": "Xã hội - Địa, KTPL, Tin"
+    },
+    {
+      "code": "XH2",
+      "gradeLevel": 12,
+      "electiveSubjects": ["DIA", "GDKT", "SINH", "CNNN"],
+      "notes": "Xã hội - Địa, KTPL, Sinh"
+    }
+  ]
+}
