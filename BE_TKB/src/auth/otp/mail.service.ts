@@ -26,13 +26,18 @@ export class MailService {
 
   async sendOtp(to: string, otp: string) {
     const from = process.env.SMTP_FROM || 'MiKiTimetable <no-reply@mikitimetable.local>';
-    await this.transporter().sendMail({
+    const info = await this.transporter().sendMail({
       from,
       to,
       subject: `${otp} là mã đăng nhập MiKiTimetable`,
       text: `Mã đăng nhập của bạn: ${otp}\n\nMã có hiệu lực 5 phút. Nếu bạn không đăng nhập, hãy bỏ qua email này.`,
       html: `<p>Mã đăng nhập của bạn:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${otp}</p><p>Mã có hiệu lực 5 phút. Nếu bạn không đăng nhập, hãy bỏ qua email này.</p>`,
     });
-    this.logger.log(`Đã gửi mã OTP tới ${to.replace(/^(.{2}).*(@.*)$/, '$1***$2')}`);
+    if (!info.accepted?.length) {
+      throw new Error(`SMTP không chấp nhận người nhận: ${info.response || 'không có phản hồi'}`);
+    }
+    this.logger.log(
+      `SMTP đã chấp nhận OTP tới ${to.replace(/^(.{2}).*(@.*)$/, '$1***$2')} (messageId: ${info.messageId})`,
+    );
   }
 }

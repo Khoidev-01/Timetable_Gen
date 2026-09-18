@@ -155,7 +155,11 @@ export class OtpService implements OnModuleDestroy {
   private async send(email: string) {
     await this.guardSpam(email);
     try {
-      await this.auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } });
+      // sendVerificationOTP catches errors from its email callback internally, which can make
+      // the UI claim that a code was sent even when SMTP failed. Generate/store the hashed OTP
+      // through Better Auth, then await SMTP ourselves so delivery failures reach the client.
+      const otp = await this.auth.api.createVerificationOTP({ body: { email, type: 'sign-in' } });
+      await this.mail.sendOtp(email, otp);
     } catch (error) {
       this.logger.error(`Không gửi được OTP tới ${maskEmail(email)}: ${error}`);
       throw new BadRequestException('Không gửi được email mã đăng nhập. Thử lại sau hoặc liên hệ quản trị.');
