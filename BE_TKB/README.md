@@ -65,6 +65,13 @@ $ npm run test:cov
 > If that account does not exist, startup creates it immediately after the reset.
 > A persistent database marker makes this migration run only once, so later
 > restarts and redeployments do not delete newly entered data.
+>
+> The following one-time migration `20260918_seed_happy_case_resources` seeds
+> 30 classes, 73 complete teacher profiles and linked accounts, 44 rooms, 19
+> subjects, the 2026-2027 academic year, semesters, combinations, and fixed
+> period rules. It intentionally leaves assignments and timetables empty so the
+> department consolidation flow produces them. Teacher usernames are
+> `gv001`..`gv073`; their initial password comes from `TEACHER_INITIAL_PASSWORD`.
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
