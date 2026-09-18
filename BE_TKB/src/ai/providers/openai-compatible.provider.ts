@@ -1,6 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import {
   LlmMessage,
+  LlmCompletionOptions,
   LlmProvider,
   LlmReply,
   LlmToolSpec,
@@ -15,12 +16,9 @@ const RETRY_BASE_MS = 1_200;
 /**
  * Talks to anything that speaks the `/chat/completions` shape.
  *
- * That is OpenAI, OpenRouter, Groq, Together, and Ollama running on the user's own machine.
- * Three environment variables decide which:
+ * The production endpoint is MiKiTech AI Router. Three environment variables configure it:
  *
  *   LLM_BASE_URL=https://airouter.mikitech.io/api/v1   LLM_MODEL=cxgptsol
- *   LLM_BASE_URL=https://api.openai.com/v1             LLM_MODEL=gpt-4.1-mini
- *   LLM_BASE_URL=http://localhost:11434/v1             LLM_MODEL=qwen2.5:7b
  *
  * Kept behind an interface so the orchestrator can be tested against a scripted model. A
  * real model is too non-deterministic to assert against, and the parts worth testing - the
@@ -35,15 +33,15 @@ export class OpenAiCompatibleProvider implements LlmProvider {
   }
 
   private get baseUrl(): string {
-    return (process.env.LLM_BASE_URL ?? process.env.OPENROUTER_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
+    return (process.env.LLM_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
   }
 
   private get model(): string {
-    return process.env.LLM_MODEL ?? process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL;
+    return process.env.LLM_MODEL ?? DEFAULT_MODEL;
   }
 
   private get apiKey(): string | undefined {
-    return process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY;
+    return process.env.LLM_API_KEY;
   }
 
   isReady(): boolean {
@@ -52,7 +50,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     return Boolean(this.apiKey);
   }
 
-  async complete(messages: LlmMessage[], tools: LlmToolSpec[]): Promise<LlmReply> {
+  async complete(messages: LlmMessage[], tools: LlmToolSpec[], options?: LlmCompletionOptions): Promise<LlmReply> {
     if (!this.isReady()) {
       throw new ServiceUnavailableException(
         'Chưa cấu hình LLM_API_KEY trên máy chủ nên trợ lý chưa hoạt động. ' +
@@ -67,7 +65,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     let lastError: any;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        return await this.callOnce(messages, tools);
+        return await this.callOnce(messages, tools, options);
       } catch (error: any) {
         lastError = error;
         if (!error?.retryable || attempt === MAX_ATTEMPTS) break;
@@ -80,7 +78,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     throw lastError;
   }
 
-  private async callOnce(messages: LlmMessage[], tools: LlmToolSpec[]): Promise<LlmReply> {
+  private async callOnce(messages: LlmMessage[], tools: LlmToolSpec[], options?: LlmCompletionOptions): Promise<LlmReply> {
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -92,7 +90,6 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         headers: {
           'Content-Type': 'application/json',
           ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-          // OpenRouter asks for these; harmless everywhere else
           'HTTP-Referer': process.env.PUBLIC_WEB_URL ?? 'http://localhost:3000',
           'X-Title': 'MiKiTimetable',
         },
@@ -109,7 +106,9 @@ export class OpenAiCompatibleProvider implements LlmProvider {
                     parameters: tool.parameters,
                   },
                 })),
-                tool_choice: 'auto',
+                tool_choice: options?.requiredToolName
+                  ? { type: 'function', function: { name: options.requiredToolName } }
+                  : 'auto',
               }
             : {}),
           temperature: 0.2,

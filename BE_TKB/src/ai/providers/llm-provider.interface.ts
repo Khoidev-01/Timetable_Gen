@@ -1,9 +1,9 @@
 /**
  * One message in a conversation, in the shape every provider agreed on.
  *
- * OpenAI published `/chat/completions`, and OpenRouter, Together, Groq and Ollama all
- * copied it. That accident of history is why one implementation reaches all of them and
- * why swapping provider is a `.env` change rather than a rewrite.
+ * MiKiTech AI Router exposes the OpenAI-compatible `/chat/completions` contract.
+ * Keeping that wire format behind this interface makes application services independent
+ * from transport details and keeps all AI traffic on the shared provider.
  */
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -35,11 +35,16 @@ export interface LlmReply {
   usage?: { promptTokens?: number; completionTokens?: number };
 }
 
+export interface LlmCompletionOptions {
+  /** Force one provided tool when the workflow requires structured output. */
+  requiredToolName?: string;
+}
+
 export interface LlmProvider {
   readonly label: string;
   /** True when the provider is configured well enough to be called at all. */
   isReady(): boolean;
-  complete(messages: LlmMessage[], tools: LlmToolSpec[]): Promise<LlmReply>;
+  complete(messages: LlmMessage[], tools: LlmToolSpec[], options?: LlmCompletionOptions): Promise<LlmReply>;
 }
 
 export const LLM_PROVIDER = Symbol('LLM_PROVIDER');
