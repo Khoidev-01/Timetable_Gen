@@ -191,7 +191,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
           {step === 'EMAIL_REQUIRED' && (
             <form onSubmit={handleEmail} className="space-y-5" data-step="email">
-              <p className="text-sm text-[var(--text-secondary)]">
+              <p className="whitespace-nowrap text-[13px] text-[var(--text-secondary)] sm:text-sm">
                 Tài khoản chưa có email. Hãy khai email của bạn: hệ thống gửi mã 6 số tới đó để xác nhận, và từ lần sau
                 mã đăng nhập sẽ gửi về email này.
               </p>
