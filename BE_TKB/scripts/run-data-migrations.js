@@ -6,7 +6,53 @@ const prisma = new PrismaClient();
 
 const RESET_MIGRATION_ID = '20260918_reset_all_data_keep_admin';
 const SEED_MIGRATION_ID = '20260918_seed_happy_case_resources';
+const SESSION_CONFIGURATION_MIGRATION_ID =
+  '20260918_sync_happy_case_session_configuration';
 const DATA_MIGRATION_LOCK_ID = 20260918;
+const SCHOOL_DAYS = [2, 3, 4, 5, 6, 7];
+
+const HAPPY_CASE_REST_RULES = [
+  ...SCHOOL_DAYS.flatMap((day) =>
+    [6, 7].map((period) => ({
+      name: 'Nghỉ - không học',
+      subject_code: 'NGHI',
+      day_of_week: day,
+      period,
+      main_session: 0,
+      teacher_rule: 'ASSIGNED',
+      is_locked: true,
+    })),
+  ),
+  ...[4, 5].map((period) => ({
+    name: 'Nghỉ - không học',
+    subject_code: 'NGHI',
+    day_of_week: 5,
+    period,
+    main_session: 0,
+    teacher_rule: 'ASSIGNED',
+    is_locked: true,
+  })),
+  ...SCHOOL_DAYS.flatMap((day) =>
+    [4, 5].map((period) => ({
+      name: 'Nghỉ - không học',
+      subject_code: 'NGHI',
+      day_of_week: day,
+      period,
+      main_session: 1,
+      teacher_rule: 'ASSIGNED',
+      is_locked: true,
+    })),
+  ),
+  ...[9, 10].map((period) => ({
+    name: 'Nghỉ - không học',
+    subject_code: 'NGHI',
+    day_of_week: 5,
+    period,
+    main_session: 1,
+    teacher_rule: 'ASSIGNED',
+    is_locked: true,
+  })),
+].map((rule, index) => ({ ...rule, sort_order: index + 7 }));
 
 async function resetAllDataKeepAdmin(tx) {
   // The administrator may have been linked to a teacher profile in old data.
@@ -212,6 +258,7 @@ async function seedHappyCaseResources(tx) {
         is_locked: true,
         sort_order: 6,
       },
+      ...HAPPY_CASE_REST_RULES,
     ],
   });
 
@@ -219,6 +266,36 @@ async function seedHappyCaseResources(tx) {
     `[data-migration] Seeded ${year.name}: ${happyCaseData.classes.length} classes, ` +
       `${happyCaseData.teachers.length} teachers/accounts, ${happyCaseData.rooms.length} rooms, ` +
       `${happyCaseData.subjects.length} subjects`,
+  );
+}
+
+async function syncHappyCaseSessionConfiguration(tx) {
+  for (const teacher of happyCaseData.teachers) {
+    await tx.teacher.updateMany({
+      where: { code: teacher.code },
+      data: {
+        max_periods_per_week: teacher.maxPeriodsPerWeek,
+        workload_reduction: teacher.workloadReduction,
+      },
+    });
+  }
+
+  await tx.fixedPeriodRule.deleteMany({
+    where: {
+      subject_code: 'NGHI',
+      OR: [
+        { main_session: 0, period: { in: [6, 7] } },
+        { main_session: 0, day_of_week: 5, period: { in: [4, 5] } },
+        { main_session: 1, period: { in: [4, 5] } },
+        { main_session: 1, day_of_week: 5, period: { in: [9, 10] } },
+      ],
+    },
+  });
+  await tx.fixedPeriodRule.createMany({ data: HAPPY_CASE_REST_RULES });
+
+  console.log(
+    `[data-migration] Synced ${happyCaseData.teachers.length} effective teacher loads and ` +
+      `${HAPPY_CASE_REST_RULES.length} morning/afternoon rest cells`,
   );
 }
 
@@ -270,6 +347,11 @@ async function main() {
     SEED_MIGRATION_ID,
     'seeding complete happy-case school resources',
     seedHappyCaseResources,
+  );
+  await runDataMigration(
+    SESSION_CONFIGURATION_MIGRATION_ID,
+    'syncing happy-case session rules and effective teacher loads',
+    syncHappyCaseSessionConfiguration,
   );
 }
 

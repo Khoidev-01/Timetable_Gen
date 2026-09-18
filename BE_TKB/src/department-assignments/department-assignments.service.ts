@@ -30,6 +30,15 @@ const TEACHER_SHEET = 'GV_to';
 
 const subjectName = (code: string) => SUBJECT_CATALOG.find((s) => s.code === code)?.name ?? code;
 const sortVi = (a: string, b: string) => a.localeCompare(b, 'vi', { numeric: true });
+const parseTeachableGrades = (value: string | null): number[] => {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((grade): grade is number => Number.isInteger(grade)) : [];
+  } catch {
+    return [];
+  }
+};
 
 @Injectable()
 export class DepartmentAssignmentsService {
@@ -66,6 +75,7 @@ export class DepartmentAssignmentsService {
       major: t.major_subject,
       department: t.department,
       position: t.position,
+      teachableGrades: parseTeachableGrades(t.teachable_grades),
       capacity: t.max_periods_per_week,
     }));
     const planClasses: PlanClass[] = classes.map((c) => ({

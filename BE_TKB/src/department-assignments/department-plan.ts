@@ -42,6 +42,8 @@ export interface PlanTeacher {
   major: string | null;
   department: string | null;
   position: string;
+  /** Khối lớp giáo viên được phân công giảng dạy; rỗng = không giới hạn. */
+  teachableGrades?: number[];
   /** Định mức hiệu lực (tiết/tuần) */
   capacity: number;
 }
@@ -64,6 +66,10 @@ export interface Demand {
 }
 
 export const periodsOf = (d: Pick<Demand, 'theory' | 'practice'>) => d.theory + d.practice;
+
+const canTeachDemand = (teacher: PlanTeacher, demand: Demand) =>
+  eligibleMajorsOf(demand.subjectCode).includes(teacher.major ?? '') &&
+  (!teacher.teachableGrades?.length || teacher.teachableGrades.includes(demand.grade));
 
 export function buildDemands(classes: PlanClass[], combinations: PlanCombination[]): Demand[] {
   const comboOf = new Map(combinations.map((c) => [`${c.code}:${c.grade}`, c]));
@@ -165,6 +171,10 @@ export function checkSubmission(
         issues.push({ level: 'ERROR', message: `${teacher.name} (${code}) không có chuyên môn dạy ${row.subjectCode} (lớp ${row.className})`, className: row.className, subjectCode: row.subjectCode, teacherCode: code });
         return;
       }
+      if (teacher.teachableGrades?.length && !teacher.teachableGrades.includes(demand.grade)) {
+        issues.push({ level: 'ERROR', message: `${teacher.name} (${code}) không được phân công dạy khối ${demand.grade} (lớp ${row.className})`, className: row.className, subjectCode: row.subjectCode, teacherCode: code });
+        return;
+      }
       load[term].set(code, (load[term].get(code) ?? 0) + periodsOf(demand));
     });
     if (!row.hk1TeacherCode && !row.hk2TeacherCode) {
@@ -238,9 +248,9 @@ export function completeAssignments(input: {
       if (owned.has(row.subjectCode)) submitted.set(`${row.className}:${row.subjectCode}`, row);
     }
   }
-  const valid = (code: string, subjectCode: string) => {
+  const valid = (code: string, demand: Demand) => {
     const t = code ? byCode.get(code) : undefined;
-    return t && eligibleMajorsOf(subjectCode).includes(t.major ?? '') ? t : undefined;
+    return t && canTeachDemand(t, demand) ? t : undefined;
   };
 
   const result: FinalAssignment[] = [];
@@ -263,9 +273,9 @@ export function completeAssignments(input: {
       continue;
     }
     const row = submitted.get(`${d.className}:${d.subjectCode}`);
-    const t1 = row ? valid(row.hk1TeacherCode, d.subjectCode) : undefined;
+    const t1 = row ? valid(row.hk1TeacherCode, d) : undefined;
     // HK2 bỏ trống nghĩa là giữ người của HK1
-    const t2 = row ? valid(row.hk2TeacherCode || row.hk1TeacherCode, d.subjectCode) : undefined;
+    const t2 = row ? valid(row.hk2TeacherCode || row.hk1TeacherCode, d) : undefined;
     if (t1 && t2) {
       result.push({ ...d, hk1TeacherCode: t1.code, hk2TeacherCode: t2.code, source: 'DEPARTMENT' });
       addLoad(t1.code, 0, d);
@@ -277,7 +287,7 @@ export function completeAssignments(input: {
   }
 
   // Điền phần thiếu: việc khó trước (ít người nhận được nhất)
-  const candidatesFor = (d: Demand) => teachers.filter((t) => eligibleMajorsOf(d.subjectCode).includes(t.major ?? ''));
+  const candidatesFor = (d: Demand) => teachers.filter((t) => canTeachDemand(t, d));
   pending.sort((a, b) => candidatesFor(a).length - candidatesFor(b).length || periodsOf(b) - periodsOf(a));
 
   // Mức tải "công bằng" của một giáo viên: tổng tiết cả nhóm môn chia đều cho số người dạy được.
@@ -285,7 +295,7 @@ export function completeAssignments(input: {
   const fairLoad = new Map<string, number>();
   for (const t of teachers) {
     const share = demands
-      .filter((d) => !(CEREMONY_CODES as readonly string[]).includes(d.subjectCode) && eligibleMajorsOf(d.subjectCode).includes(t.major ?? ''))
+      .filter((d) => !(CEREMONY_CODES as readonly string[]).includes(d.subjectCode) && canTeachDemand(t, d))
       .reduce((n, d) => n + periodsOf(d), 0);
     const peers = teachers.filter((o) => o.major === t.major).length || 1;
     fairLoad.set(t.code, share / peers);

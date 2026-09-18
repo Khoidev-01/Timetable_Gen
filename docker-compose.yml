@@ -64,6 +64,8 @@ services:
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM}
       TEACHER_INITIAL_PASSWORD: ${TEACHER_INITIAL_PASSWORD:-123456}
+      # 2.4 triệu nước đi là mức đã hiệu chỉnh để happy case đạt hạng Xuất sắc.
+      TKB_SEARCH_MAIN: ${TKB_SEARCH_MAIN:-2400000}
       PORT: 4000
     ports:
       - "4000:4000"

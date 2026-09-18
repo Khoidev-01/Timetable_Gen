@@ -9,7 +9,7 @@ import {
 } from './department-plan';
 
 const teacher = (code: string, major: string, department: string, capacity = 17, position = 'GV'): PlanTeacher => ({
-  code, name: code, major, department, position, capacity,
+  code, name: code, major, department, position, capacity, teachableGrades: [10, 11, 12],
 });
 
 const TEACHERS: PlanTeacher[] = [
@@ -117,5 +117,20 @@ describe('department-plan', () => {
     // GVCN T1 van nhan HDTN 3 tiet vuot dinh muc 2 -> loi dinh muc; Toan khong ai nhan -> loi
     expect(result.issues.some((i) => i.level === 'ERROR' && i.subjectCode === 'TOAN')).toBe(true);
     expect(result.issues.some((i) => i.level === 'ERROR' && i.teacherCode === 'T1')).toBe(true);
+  });
+
+  it('không nhận giáo viên ngoài khối được phép dạy', () => {
+    const grade10 = { ...teacher('A10', 'ANH', 'Tổ Anh'), teachableGrades: [10] };
+    const grade11 = { ...teacher('A11', 'ANH', 'Tổ Anh'), teachableGrades: [11] };
+    const staff = [...TEACHERS.filter((t) => t.major !== 'ANH'), grade10, grade11];
+    const demands = buildDemands(CLASSES, COMBOS);
+
+    const submitted = checkSubmission('Tổ Anh', [
+      { className: '10A1', subjectCode: 'ANH', hk1TeacherCode: 'A11', hk2TeacherCode: '' },
+    ], demands, staff);
+    expect(submitted.some((issue) => issue.level === 'ERROR' && issue.teacherCode === 'A11')).toBe(true);
+
+    const result = completeAssignments({ classes: CLASSES, teachers: staff, demands, submissions: [] });
+    expect(result.assignments.find((assignment) => assignment.subjectCode === 'ANH')?.hk1TeacherCode).toBe('A10');
   });
 });

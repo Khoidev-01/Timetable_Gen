@@ -151,7 +151,7 @@
       "majorSubject": "TOAN",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 10C1 (giảm 4)"
     },
@@ -165,7 +165,7 @@
       "majorSubject": "TOAN",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A1 (giảm 4)"
     },
@@ -179,7 +179,7 @@
       "majorSubject": "TOAN",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A11 (giảm 4)"
     },
@@ -193,7 +193,7 @@
       "majorSubject": "TOAN",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Tổ trưởng Tổ Toán (giảm 3)"
     },
@@ -207,7 +207,7 @@
       "majorSubject": "TOAN",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 16,
       "workloadReduction": 1,
       "notes": "Tổ phó Tổ Toán (giảm 1)"
     },
@@ -235,7 +235,7 @@
       "majorSubject": "TOAN",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 11B1 (giảm 4)"
     },
@@ -277,7 +277,7 @@
       "majorSubject": "VAN",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 10C2 (giảm 4)"
     },
@@ -291,7 +291,7 @@
       "majorSubject": "VAN",
       "teachableGrades": [12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A2 (giảm 4)"
     },
@@ -305,7 +305,7 @@
       "majorSubject": "VAN",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Tổ trưởng Tổ Ngữ văn (giảm 3)"
     },
@@ -319,7 +319,7 @@
       "majorSubject": "VAN",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 16,
       "workloadReduction": 1,
       "notes": "Tổ phó Tổ Ngữ văn (giảm 1)"
     },
@@ -361,7 +361,7 @@
       "majorSubject": "VAN",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 11B2 (giảm 4)"
     },
@@ -403,7 +403,7 @@
       "majorSubject": "ANH",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 10C3 (giảm 4)"
     },
@@ -417,7 +417,7 @@
       "majorSubject": "ANH",
       "teachableGrades": [12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A3 (giảm 4)"
     },
@@ -431,7 +431,7 @@
       "majorSubject": "ANH",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Tổ trưởng Tổ Ngoại ngữ (giảm 3)"
     },
@@ -445,7 +445,7 @@
       "majorSubject": "ANH",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 16,
       "workloadReduction": 1,
       "notes": "Tổ phó Tổ Ngoại ngữ (giảm 1)"
     },
@@ -487,7 +487,7 @@
       "majorSubject": "ANH",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 11B3 (giảm 4)"
     },
@@ -529,7 +529,7 @@
       "majorSubject": "LY",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 10C4 (giảm 4)"
     },
@@ -543,7 +543,7 @@
       "majorSubject": "LY",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A4 (giảm 4)"
     },
@@ -557,7 +557,7 @@
       "majorSubject": "LY",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Tổ trưởng Tổ Vật lý - Tin học (giảm 3)"
     },
@@ -571,7 +571,7 @@
       "majorSubject": "LY",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 16,
       "workloadReduction": 1,
       "notes": "Tổ phó Tổ Vật lý - Tin học (giảm 1)"
     },
@@ -585,7 +585,7 @@
       "majorSubject": "LY",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 11B4 (giảm 4)"
     },
@@ -599,7 +599,7 @@
       "majorSubject": "LY",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Phụ trách phòng thí nghiệm Vật lý (giảm 3)"
     },
@@ -613,7 +613,7 @@
       "majorSubject": "TIN",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 10C5 (giảm 4)"
     },
@@ -627,7 +627,7 @@
       "majorSubject": "TIN",
       "teachableGrades": [12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A5 (giảm 4)"
     },
@@ -641,7 +641,7 @@
       "majorSubject": "TIN",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Phụ trách công nghệ thông tin (giảm 3)"
     },
@@ -669,7 +669,7 @@
       "majorSubject": "TIN",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 11B5 (giảm 4)"
     },
@@ -697,7 +697,7 @@
       "majorSubject": "HOA",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 10C6 (giảm 4)"
     },
@@ -711,7 +711,7 @@
       "majorSubject": "HOA",
       "teachableGrades": [12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A6 (giảm 4)"
     },
@@ -725,7 +725,7 @@
       "majorSubject": "HOA",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Tổ trưởng Tổ Hóa học - Sinh học (giảm 3)"
     },
@@ -739,7 +739,7 @@
       "majorSubject": "HOA",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 16,
       "workloadReduction": 1,
       "notes": "Tổ phó Tổ Hóa học - Sinh học (giảm 1)"
     },
@@ -753,7 +753,7 @@
       "majorSubject": "HOA",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 11B6 (giảm 4)"
     },
@@ -767,7 +767,7 @@
       "majorSubject": "HOA",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Phụ trách phòng thí nghiệm Hóa học (giảm 3)"
     },
@@ -781,7 +781,7 @@
       "majorSubject": "SINH",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 10C7 (giảm 4)"
     },
@@ -795,7 +795,7 @@
       "majorSubject": "SINH",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A7 (giảm 4)"
     },
@@ -809,7 +809,7 @@
       "majorSubject": "SINH",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Phụ trách phòng thí nghiệm Sinh học (giảm 3)"
     },
@@ -837,7 +837,7 @@
       "majorSubject": "SINH",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 11B7 (giảm 4)"
     },
@@ -865,7 +865,7 @@
       "majorSubject": "LS",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 10C8 (giảm 4)"
     },
@@ -879,7 +879,7 @@
       "majorSubject": "LS",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A8 (giảm 4)"
     },
@@ -893,7 +893,7 @@
       "majorSubject": "LS",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Tổ trưởng Tổ Lịch sử - Địa lý - GDKT&PL (giảm 3)"
     },
@@ -907,7 +907,7 @@
       "majorSubject": "LS",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 16,
       "workloadReduction": 1,
       "notes": "Tổ phó Tổ Lịch sử - Địa lý - GDKT&PL (giảm 1)"
     },
@@ -935,7 +935,7 @@
       "majorSubject": "LS",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 11B8 (giảm 4)"
     },
@@ -963,7 +963,7 @@
       "majorSubject": "DIA",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 10C9 (giảm 4)"
     },
@@ -977,7 +977,7 @@
       "majorSubject": "DIA",
       "teachableGrades": [12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A9 (giảm 4)"
     },
@@ -1005,7 +1005,7 @@
       "majorSubject": "DIA",
       "teachableGrades": [11],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 11B9 (giảm 4)"
     },
@@ -1033,7 +1033,7 @@
       "majorSubject": "GDKT",
       "teachableGrades": [10, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 10C10 (giảm 4)"
     },
@@ -1047,7 +1047,7 @@
       "majorSubject": "GDKT",
       "teachableGrades": [12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 13,
       "workloadReduction": 4,
       "notes": "Chủ nhiệm lớp 12A10 (giảm 4)"
     },
@@ -1089,7 +1089,7 @@
       "majorSubject": "GDTC",
       "teachableGrades": [10, 11, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 14,
       "workloadReduction": 3,
       "notes": "Tổ trưởng Tổ Thể chất - Quốc phòng (giảm 3)"
     },
@@ -1103,7 +1103,7 @@
       "majorSubject": "GDTC",
       "teachableGrades": [10, 11, 12],
       "status": "Dang_day",
-      "maxPeriodsPerWeek": 17,
+      "maxPeriodsPerWeek": 16,
       "workloadReduction": 1,
       "notes": "Tổ phó Tổ Thể chất - Quốc phòng (giảm 1)"
     },
