@@ -9,9 +9,9 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'MiKiTimetable - Xếp thời khóa biểu THPT thông minh',
+    name: 'MiKiTimetable - Xếp thời khóa biểu tự động',
     short_name: 'MiKiTimetable',
-    description: 'Xếp lịch tự động, giảm xung đột và tra cứu thời khóa biểu mọi lúc',
+    description: 'Tạo thời khóa biểu THPT nhanh, hạn chế trùng lịch và dễ dàng tra cứu',
     // Teachers install this for their own schedule, so that is where it should open
     start_url: '/teacher/schedule',
     scope: '/',

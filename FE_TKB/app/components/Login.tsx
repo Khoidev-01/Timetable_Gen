@@ -167,7 +167,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       </div>
       <div className="grain-overlay" aria-hidden />
 
-      <div className="relative w-full max-w-md animate-rise">
+      <div
+        className={`relative w-full animate-rise transition-[max-width] ${
+          step === 'OTP_REQUIRED' ? 'max-w-xl' : 'max-w-md'
+        }`}
+      >
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <Image src="/favicon.svg?v=2" alt="MiKiTimetable" width={72} height={72} className="mb-4 rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)]" />
@@ -178,7 +182,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         </div>
 
         {/* Card */}
-        <div className="bg-[var(--bg-surface)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--border-default)] p-8 transition-colors">
+        <div className="bg-[var(--bg-surface)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--border-default)] p-5 transition-colors sm:p-8">
           <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6 text-center">
             {step === 'PASSWORD' ? 'Đăng nhập' : step === 'EMAIL_REQUIRED' ? 'Khai email nhận mã' : 'Nhập mã đăng nhập'}
           </h2>
@@ -191,7 +195,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
           {step === 'EMAIL_REQUIRED' && (
             <form onSubmit={handleEmail} className="space-y-5" data-step="email">
-              <p className="whitespace-nowrap text-[13px] text-[var(--text-secondary)] sm:text-sm">
+              <p className="text-sm text-[var(--text-secondary)]">
                 Tài khoản chưa có email. Hãy khai email của bạn: hệ thống gửi mã 6 số tới đó để xác nhận, và từ lần sau
                 mã đăng nhập sẽ gửi về email này.
               </p>
@@ -220,7 +224,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
           {step === 'OTP_REQUIRED' && (
             <form onSubmit={handleOtp} className="space-y-5" data-step="otp">
-              <p className="text-sm text-[var(--text-secondary)]">
+              <p className="whitespace-nowrap text-center text-[clamp(8px,2.45vw,13px)] text-[var(--text-secondary)]">
                 Mã 6 số đã được gửi tới <strong className="text-[var(--text-primary)]">{emailHint}</strong>. Mã có hiệu lực 5 phút.
               </p>
               <div>
