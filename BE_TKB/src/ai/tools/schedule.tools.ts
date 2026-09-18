@@ -11,6 +11,10 @@ const DAY_LABEL: Record<number, string> = {
   2: 'Thứ hai', 3: 'Thứ ba', 4: 'Thứ tư', 5: 'Thứ năm', 6: 'Thứ sáu', 7: 'Thứ bảy',
 };
 
+const POSITION_LABEL: Record<string, string> = {
+  GV: 'Giáo viên', TT: 'Tổ trưởng chuyên môn', TP: 'Tổ phó chuyên môn', HT: 'Hiệu trưởng', PHT: 'Phó hiệu trưởng',
+};
+
 /**
  * What the assistant is allowed to do, as ordinary functions.
  *
@@ -37,6 +41,7 @@ export class ScheduleTools {
       this.getMySchedule(),
       this.getClassSchedule(),
       this.getTeacherWorkload(),
+      this.getMyProfile(),
       this.findFreeTeachers(),
       this.findSwapCandidates(),
       this.checkSwapFeasibility(),
@@ -125,6 +130,64 @@ export class ScheduleTools {
           ...(context.actor.role === 'ADMIN'
             ? { schoolMedian: report.summary.median, schoolWorst: report.summary.worst }
             : {}),
+        });
+      },
+    };
+  }
+
+  /**
+   * Hồ sơ của người đang hỏi: tổ, môn, chủ nhiệm lớp nào, định mức.
+   *
+   * Trợ lý từng trả lời "tôi thuộc tổ nào" bằng câu "không có công cụ để tra", dù thông tin
+   * nằm ngay trong hồ sơ. Công cụ này đọc hồ sơ chứ không đọc thời khóa biểu, nên trả lời
+   * được cả trước khi trường xếp lịch.
+   */
+  private getMyProfile(): ToolDefinition {
+    return {
+      name: 'get_my_profile',
+      description:
+        'Hồ sơ giáo viên: thuộc tổ chuyên môn nào, là tổ trưởng hay giáo viên, dạy môn gì, ' +
+        'dạy được khối nào, chủ nhiệm lớp nào, định mức tiết mỗi tuần và được giảm bao nhiêu. ' +
+        'Dùng cho câu hỏi "tôi là ai trong trường", không phải câu hỏi về lịch dạy.',
+      parameters: {
+        type: 'object',
+        properties: {
+          teacherId: { type: 'string', description: 'Chỉ quản trị viên mới dùng được. Bỏ trống để xem hồ sơ của chính mình.' },
+        },
+      },
+      run: async (args, context) => {
+        const scope = resolveTeacherScope(context.actor, args.teacherId);
+        if (!scope.allowed) return denied(scope.reason);
+
+        const teacher = await this.prisma.teacher.findUnique({
+          where: { id: scope.teacherId },
+          include: { homeroom_classes: { select: { name: true } } },
+        });
+        if (!teacher) return denied('Không tìm thấy hồ sơ giáo viên này.');
+
+        const major = teacher.major_subject
+          ? await this.prisma.subject.findFirst({ where: { code: teacher.major_subject }, select: { name: true } })
+          : null;
+        let grades: number[] = [];
+        try {
+          const parsed = JSON.parse(teacher.teachable_grades ?? '[]');
+          if (Array.isArray(parsed)) grades = parsed.filter((g) => Number.isInteger(g));
+        } catch {
+          // Hồ sơ cũ có thể ghi khối sai định dạng; thiếu khối vẫn trả lời được phần còn lại
+        }
+
+        return answer({
+          name: teacher.full_name,
+          department: teacher.department ?? 'Chưa gán tổ',
+          role: POSITION_LABEL[teacher.position] ?? teacher.position,
+          majorSubject: major?.name ?? teacher.major_subject ?? 'Chưa rõ môn',
+          teachableGrades: grades,
+          homeroomClasses: teacher.homeroom_classes.map((c) => c.name),
+          // max_periods_per_week đã trừ phần giảm; cộng lại để người hỏi thấy cả hai con số
+          baseQuota: teacher.max_periods_per_week + teacher.workload_reduction,
+          reduction: teacher.workload_reduction,
+          effectiveQuota: teacher.max_periods_per_week,
+          notes: teacher.notes ?? undefined,
         });
       },
     };

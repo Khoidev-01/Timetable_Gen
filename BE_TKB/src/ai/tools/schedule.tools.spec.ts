@@ -58,7 +58,14 @@ describe('ScheduleTools', () => {
         ],
       },
       teacher: {
-        findUnique: async () => ({ id: 'T1', max_periods_per_week: 17 }),
+        findUnique: async ({ where, include }: any) =>
+          include
+            ? {
+                id: where.id, full_name: where.id === 'T1' ? 'Cô Lan' : 'Thầy Minh', department: 'Tổ Toán', position: 'TT',
+                major_subject: 'TOAN', teachable_grades: '[10,11]', max_periods_per_week: 10, workload_reduction: 7,
+                notes: null, homeroom_classes: where.id === 'T1' ? [{ name: '10A1' }] : [],
+              }
+            : { id: 'T1', max_periods_per_week: 17 },
         // `major_subject` is null here on purpose: it is null for every teacher in the real
         // database, and a fixture that fills it in would hide exactly the bug this checks
         findMany: async ({ where }: any) => {
@@ -81,7 +88,7 @@ describe('ScheduleTools', () => {
       subject: {
         findMany: async () => [{ id: 1, name: 'Toán' }, { id: 2, name: 'Ngữ văn' }],
         findFirst: async ({ where }: any) => {
-          const wanted = String(where.OR[0].code.equals).toLowerCase();
+          const wanted = String(where.OR ? where.OR[0].code.equals : where.code).toLowerCase();
           const all = [
             { id: 1, code: 'TOAN', name: 'Toán' },
             { id: 2, code: 'VAN', name: 'Ngữ văn' },
@@ -150,10 +157,10 @@ describe('ScheduleTools', () => {
     tools = module.get(ScheduleTools);
   });
 
-  it('có đúng 10 công cụ, tên không trùng', () => {
+  it('có đúng 11 công cụ, tên không trùng', () => {
     const names = tools.all().map((t) => t.name);
-    expect(names).toHaveLength(10);
-    expect(new Set(names).size).toBe(10);
+    expect(names).toHaveLength(11);
+    expect(new Set(names).size).toBe(11);
   });
 
   it('mọi công cụ đều khai báo tham số theo JSON Schema', () => {
@@ -319,6 +326,27 @@ describe('ScheduleTools', () => {
     const noReason = await call('create_busy_registration', { weekNumber: 3, day: 4, period: 2, reason: '' }, TEACHER);
     expect(noReason.ok).toBe(false);
     expect(noReason.message).toContain('lý do');
+  });
+
+  it('hồ sơ trả về tổ, chức vụ, lớp chủ nhiệm và định mức', async () => {
+    const result = await call('get_my_profile', {}, TEACHER);
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({
+      name: 'Cô Lan',
+      department: 'Tổ Toán',
+      role: 'Tổ trưởng chuyên môn',
+      majorSubject: 'Toán',
+      teachableGrades: [10, 11],
+      homeroomClasses: ['10A1'],
+      baseQuota: 17,
+      reduction: 7,
+      effectiveQuota: 10,
+    });
+  });
+
+  it('giáo viên không xem được hồ sơ của đồng nghiệp', async () => {
+    const result = await call('get_my_profile', { teacherId: 'T2' }, TEACHER);
+    expect(result.ok).toBe(false);
   });
 
   it('nhờ đổi tiết chỉ dựng thẻ xác nhận, chưa gửi đi', async () => {
