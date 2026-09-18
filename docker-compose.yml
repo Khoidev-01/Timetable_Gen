@@ -76,7 +76,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      # startup.sh chạy prisma db push, các data migration (lần đầu có cả seed
+      # trường học) rồi mới bật app. Trên máy chủ, riêng phần đó đã quá 60 giây,
+      # nên deploy từng hỏng vì hết giờ chờ trong khi app vẫn đang khởi động.
+      start_period: 240s
 
   # ---- Frontend (Next.js) ----
   frontend:
