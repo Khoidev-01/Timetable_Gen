@@ -1,11 +1,14 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { toast } from '@/lib/toast';
 import AccountModal from '../../components/admin/AccountModal';
 import { API_URL } from '@/lib/api';
 import { TableSkeleton, EmptyState } from '../../components/ui/States';
 import { Users } from 'lucide-react';
+import { FilterChips, Pager, usePaged } from '../../components/ui/Paging';
+
+type RoleFilter = 'ALL' | 'ADMIN' | 'TEACHER';
 
 interface User {
     id: string;
@@ -19,6 +22,24 @@ export default function AccountsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedAccount, setSelectedAccount] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
+
+    const filtered = useMemo(
+        () => (roleFilter === 'ALL' ? accounts : accounts.filter((a) => a.role === roleFilter)),
+        [accounts, roleFilter],
+    );
+    const paged = usePaged(filtered);
+
+    const roleOptions = [
+        { value: 'ALL' as RoleFilter, label: 'Tất cả', count: accounts.length },
+        { value: 'ADMIN' as RoleFilter, label: 'Quản trị viên', count: accounts.filter((a) => a.role === 'ADMIN').length },
+        { value: 'TEACHER' as RoleFilter, label: 'Giáo viên', count: accounts.filter((a) => a.role === 'TEACHER').length },
+    ];
+
+    const chooseRole = (value: RoleFilter) => {
+        setRoleFilter(value);
+        paged.setPage(1);
+    };
 
     const fetchAccounts = async () => {
         try {
@@ -111,14 +132,22 @@ export default function AccountsPage() {
                 </div>
             </div>
 
+            <FilterChips options={roleOptions} value={roleFilter} onChange={chooseRole} label="Lọc theo vai trò" />
+
             <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] shadow-sm border border-[var(--border-default)] overflow-hidden">
-                <table className="w-full text-left border-collapse">
+                <table className="data-table w-full text-left border-collapse">
+                  <colgroup>
+                    <col style={{ width: '25%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '35%' }} />
+                    <col style={{ width: '20%' }} />
+                  </colgroup>
                     <thead className="bg-[var(--bg-surface-hover)] border-b">
                         <tr>
-                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase">Tên đăng nhập</th>
-                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase">Vai trò</th>
-                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase">Giáo viên liên kết</th>
-                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase text-right">Thao tác</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase text-center">Tên đăng nhập</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase text-center">Vai trò</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase text-center">Giáo viên liên kết</th>
+                            <th className="p-4 text-xs font-semibold text-[var(--text-muted)] uppercase text-center">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border-light)]">
@@ -128,28 +157,30 @@ export default function AccountsPage() {
                             <tr><td colSpan={4}>
                                 <EmptyState icon={<Users size={22} strokeWidth={1.8} />} title="Chưa có tài khoản nào" hint="Tạo tài khoản đăng nhập cho quản trị viên và giáo viên." />
                             </td></tr>
+                        ) : filtered.length === 0 ? (
+                            <tr><td colSpan={4}>
+                                <EmptyState icon={<Users size={22} strokeWidth={1.8} />} title="Không có tài khoản nào với vai trò này" hint="Chọn vai trò khác hoặc bấm Tất cả." />
+                            </td></tr>
                         ) : (
-                            accounts.map((acc, idx) => (
+                            paged.visible.map((acc, idx) => (
                                 <tr key={acc.id} style={{ animationDelay: `${idx * 30}ms` }} className="animate-rise hover:bg-[var(--bg-surface-hover)] transition-colors">
                                     <td className="p-4 font-medium text-[var(--text-primary)]">{acc.username}</td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${acc.role === 'ADMIN' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'bg-[var(--accent-soft)] text-[var(--accent)]'}`}>
-                                            {acc.role}
-                                        </span>
+                                    <td className="p-4 text-[var(--text-secondary)]">
+                                        {acc.role === 'ADMIN' ? 'Quản trị viên' : 'Giáo viên'}
                                     </td>
                                     <td className="p-4 text-[var(--text-secondary)]">
                                         {acc.teacher_profile ? `${acc.teacher_profile.full_name} (${acc.teacher_profile.code})` : '-'}
                                     </td>
-                                    <td className="p-4 text-right space-x-2">
-                                        <button
+                                    <td className="p-4 text-right">
+                                        <button type="button"
                                             onClick={() => { setSelectedAccount(acc); setIsModalOpen(true); }}
-                                            className="text-[var(--text-muted)] hover:text-[var(--accent-hover)] font-medium text-sm"
+                                            className="row-action"
                                         >
                                             Sửa
                                         </button>
-                                        <button
+                                        <button type="button"
                                             onClick={() => handleDelete(acc.id)}
-                                            className="text-[var(--text-muted)] hover:text-red-600 font-medium text-sm"
+                                            className="row-action row-action--danger"
                                         >
                                             Xóa
                                         </button>
@@ -159,6 +190,7 @@ export default function AccountsPage() {
                         )}
                     </tbody>
                 </table>
+                {!isLoading && <Pager paged={paged} noun="tài khoản" label="Phân trang tài khoản" />}
             </div>
 
             <AccountModal

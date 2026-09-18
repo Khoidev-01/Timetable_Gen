@@ -47,6 +47,17 @@ export class ScheduleController {
     return this.effective.byPublicToken(token, day, { className, teacherName });
   }
 
+  /** Thời khóa biểu cả tuần cho liên kết QR (lọc theo tên lớp hoặc tên giáo viên). */
+  @Public()
+  @Get('public/:token/week')
+  async publicWeek(
+    @Param('token') token: string,
+    @Query('class') className?: string,
+    @Query('teacher') teacherName?: string,
+  ) {
+    return this.effective.weekByPublicToken(token, { className, teacherName });
+  }
+
   /**
    * Calendar feed. Subscribing to this in Google Calendar or Outlook puts the timetable
    * on the teacher's phone, and a covered absence shows up there too.

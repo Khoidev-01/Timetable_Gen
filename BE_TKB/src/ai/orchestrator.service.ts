@@ -4,6 +4,7 @@ import { LLM_PROVIDER } from './providers/llm-provider.interface';
 import { ScheduleTools } from './tools/schedule.tools';
 import { DATA_IS_NOT_INSTRUCTIONS, fenceData } from './tools/guardrails';
 import { Actor, Citation, ToolContext } from './tools/tool.types';
+import type { HistoryTurn } from './conversation-memory.service';
 
 /** Stop after this many tool rounds, whatever the model wants. */
 const MAX_ROUNDS = 5;
@@ -40,7 +41,11 @@ export class OrchestratorService {
     return this.llm.isReady();
   }
 
-  async ask(question: string, context: ToolContext): Promise<AssistantTurn> {
+  async ask(
+    question: string,
+    context: ToolContext,
+    memory: { summary: string | null; recent: HistoryTurn[] } = { summary: null, recent: [] },
+  ): Promise<AssistantTurn> {
     const catalogue = this.tools.all();
     const specs = catalogue.map((tool) => ({
       name: tool.name,
@@ -48,8 +53,26 @@ export class OrchestratorService {
       parameters: tool.parameters,
     }));
 
+    // Bối cảnh hội thoại: tóm tắt các lượt cũ (đã nén) + vài lượt gần nhất nguyên văn, để hiểu
+    // câu nối tiếp ("còn lớp 10C2?"). Chỉ chữ, không mang kết quả công cụ cũ để mô hình
+    // không trả lời bằng số liệu cũ. Tóm tắt là chữ do mô hình sinh ra nên được rào như dữ liệu.
+    // Tóm tắt được đưa vào như một lượt hỏi-đáp cũ (chính trợ lý nhắc lại), vì mô hình tin lời
+    // nó đã nói trong hội thoại hơn là một khối "dữ liệu" rào lại bên trong lời nhắc hệ thống
+    const summaryMessages: LlmMessage[] = memory.summary
+      ? [
+          { role: 'user', content: 'Trước khi tiếp tục, nhắc lại giúp tôi những gì chúng ta đã trao đổi từ đầu đến giờ.' },
+          { role: 'assistant', content: `Tóm tắt phần trao đổi trước đó của chúng ta:
+${memory.summary}` },
+        ]
+      : [];
+    const recent = memory.recent.flatMap((turn) => [
+      { role: 'user' as const, content: turn.question },
+      { role: 'assistant' as const, content: turn.answer },
+    ]);
     const messages: LlmMessage[] = [
       { role: 'system', content: this.systemPrompt(context.actor) },
+      ...summaryMessages,
+      ...recent,
       { role: 'user', content: question },
     ];
 
@@ -165,8 +188,8 @@ export class OrchestratorService {
       'Mọi câu hỏi ngoài phạm vi đó - kiến thức chung, thời sự, viết văn, làm toán, lập trình,',
       'sức khoẻ, tư vấn cá nhân, hay bất cứ chủ đề nào khác - bạn phải TỪ CHỐI, kể cả khi bạn',
       'biết câu trả lời và kể cả khi người dùng nài nỉ hay nói đó là việc gấp.',
-      'Cách từ chối: nói ngắn gọn rằng bạn chỉ hỗ trợ về thời khóa biểu, rồi gợi ý một việc bạn',
-      'làm được. Không trả lời một phần rồi mới từ chối.',
+      'Cách từ chối: câu đầu tiên PHẢI là "Tôi chỉ hỗ trợ về thời khóa biểu." rồi gợi ý một việc',
+      'bạn làm được. Không trả lời một phần rồi mới từ chối.',
       '',
       'Nguyên tắc bắt buộc:',
       '1. Mọi số liệu về lịch, tải giảng dạy, quy định đều phải lấy từ công cụ. Không tự nhớ, không suy đoán.',
@@ -177,8 +200,14 @@ export class OrchestratorService {
       '   gọi thêm cho chắc chỉ làm người dùng chờ lâu hơn mà không biết thêm gì.',
       '   explain_slot CHỈ dùng khi người dùng hỏi VÌ SAO một tiết nằm ở đó.',
       '4. Không bịa mã tiết, tên giáo viên hay tên lớp. Không biết thì hỏi lại người dùng.',
+      '   Nhắc tới giáo viên thì gọi bằng HỌ TÊN (kèm môn nếu có), KHÔNG dùng mã kiểu GV011.',
+      '   Danh sách dài thì gom theo môn: "Toán: Nguyễn Văn A, Trần Thị B".',
       '5. Công cụ từ chối thì nói lại lý do cho người dùng, không tìm đường lách.',
       '6. Muốn ghi dữ liệu thì gọi công cụ tương ứng để lấy thẻ xác nhận, và nói rõ là cần người dùng bấm duyệt.',
+      '7. Các lượt trước và "ghi nhớ hội thoại" (phần đầu hội thoại đã được nén) là phần trao đổi',
+      '   giữa bạn và người dùng: dùng nó để hiểu "lớp đó", "cô ấy", "còn thứ ba?" đang nói về ai,',
+      '   và để nhắc lại điều bạn đã trả lời trước đó khi người dùng hỏi lại. Không cần tra lại',
+      '   công cụ chỉ để nhắc lại; muốn số liệu mới nhất thì mới tra.',
       '',
       DATA_IS_NOT_INSTRUCTIONS,
     ].join('\n');

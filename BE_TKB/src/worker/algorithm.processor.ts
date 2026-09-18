@@ -5,7 +5,20 @@ import { Job } from 'bullmq';
 import { AlgorithmService } from '../algorithm/algorithm.service';
 import { AlgorithmGateway } from '../algorithm/algorithm.gateway';
 
-@Processor('optimization')
+/**
+ * Mỗi lần chỉ xếp một học kỳ, và không bao giờ tự chạy lại một lần đang dở.
+ *
+ * Bộ xếp lịch chiếm trọn luồng xử lý vài phút, nên với khóa mặc định 30 giây BullMQ không kịp
+ * gia hạn, coi job là treo và giao lại cho lần chạy thứ hai - chạy song song với lần đầu. Hai lần
+ * dùng chung ConstraintService, lần sau nạp dữ liệu học kỳ khác ngay giữa lúc lần trước đang tìm
+ * kiếm: đã gặp thật khi xếp HK1 và HK2 liền nhau, HK1 ra 929/930 tiết và không hợp lệ.
+ */
+@Processor('optimization', {
+    concurrency: 1,
+    lockDuration: 30 * 60_000,
+    stalledInterval: 30 * 60_000,
+    maxStalledCount: 0,
+})
 export class AlgorithmProcessor extends WorkerHost {
     private readonly logger = new Logger(AlgorithmProcessor.name);
 

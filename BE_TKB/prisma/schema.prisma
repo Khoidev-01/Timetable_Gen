@@ -21,6 +21,8 @@ model AcademicYear {
   status      YearStatus @default(ACTIVE)
 
   semesters   Semester[]
+  department_submissions   DepartmentSubmission[]
+  assignment_consolidations AssignmentConsolidation[]
 
   @@map("academic_years")
 }
@@ -104,6 +106,8 @@ model User {
   
   teacher_profile_id String? @unique
   teacher_profile    Teacher? @relation(fields: [teacher_profile_id], references: [id])
+  /// Ảnh đại diện dạng data URL (ảnh đã thu nhỏ ở trình duyệt, tối đa vài chục KB)
+  avatar_url        String?
   
   created_at        DateTime @default(now())
 
@@ -133,6 +137,8 @@ model Teacher {
   /// raise it for older teachers or anyone with a mobility difficulty.
   mobility_weight     Int      @default(10)
   notes               String?
+  date_of_birth       DateTime? @db.Date
+  address             String?
 
   user                User?
 
@@ -526,4 +532,106 @@ enum SwapStatus {
   APPROVED         // da duyet va da ap dung
   REJECTED         // quan tri vien tu choi
   CANCELLED        // nguoi gui rut lai
+}
+
+/// Bảng phân công một tổ chuyên môn nộp lên: tổ trưởng tải mẫu, điền giáo viên, nộp.
+/// Nộp lại thì bản cũ bị đánh dấu không còn mới nhất (giữ lại để xem lịch sử).
+model DepartmentSubmission {
+  id              String   @id @default(uuid())
+  year_id         String
+  department      String
+  submitted_by    String   // user id của tổ trưởng
+  head_teacher_id String
+  file_name       String
+  /// [{ className, subjectCode, hk1TeacherCode, hk2TeacherCode }]
+  rows            Json
+  /// Cảnh báo lúc nộp: dòng bỏ trống, mã giáo viên sai, vượt định mức...
+  issues          Json
+  is_latest       Boolean  @default(true)
+  submitted_at    DateTime @default(now())
+
+  academic_year   AcademicYear @relation(fields: [year_id], references: [id], onDelete: Cascade)
+
+  @@index([year_id, department, is_latest])
+  @@map("department_submissions")
+}
+
+/// Một lần admin bấm "Phân công tự động": bảng hoàn chỉnh đã nhập vào hệ thống.
+model AssignmentConsolidation {
+  id          String   @id @default(uuid())
+  year_id     String
+  created_by  String
+  /// File Excel hoàn chỉnh (đúng mẫu nhập) - tải lại được
+  workbook    Bytes
+  report      Json
+  created_at  DateTime @default(now())
+
+  academic_year AcademicYear @relation(fields: [year_id], references: [id], onDelete: Cascade)
+
+  @@index([year_id, created_at])
+  @@map("assignment_consolidations")
+}
+
+// ---- Bảng của better-auth (chỉ dùng cho OTP qua email). Tách riêng khỏi bảng users. ----
+model AuthUser {
+  id            String        @id
+  name          String
+  email         String
+  emailVerified Boolean       @default(false)
+  image         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  authsessions  AuthSession[]
+  authaccounts  AuthAccount[]
+
+  @@unique([email])
+  @@map("auth_users")
+}
+
+model AuthSession {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  authuser  AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+model AuthAccount {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  authuser              AuthUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model AuthVerification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("auth_verifications")
 }

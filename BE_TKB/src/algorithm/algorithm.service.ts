@@ -197,7 +197,16 @@ export class AlgorithmService {
                  * 26 ô, kéo giáo viên tới trường thêm buổi, và làm điểm tệ đi 409 điểm ở
                  * mỗi lần xếp — không hiện ở đâu cả.
                  */
-                const pinned = this.carriedOverPins(prevTimetable.slots, data.subjects);
+                const ruleCells = new Set<string>();
+                for (const cls of data.classes) {
+                    for (const rule of this.constraintService.getFixedRulesFor(cls.grade_level, cls.main_session)) {
+                        ruleCells.add(`${cls.id}:${rule.day_of_week}:${rule.period}`);
+                    }
+                }
+                const pinned = this.carriedOverPins(prevTimetable.slots, data.subjects, {
+                    assignments: data.assignments,
+                    isRuleCell: (classId, day, period) => ruleCells.has(`${classId}:${day}:${period}`),
+                });
                 const rebuilt = prevTimetable.slots.length - pinned.length;
 
                 log(`[INFO] Lần xếp trước để lại ${prevTimetable.slots.length} tiết khoá: giữ ${pinned.length} tiết đã ghim, ${rebuilt} tiết lễ để phase 1 dựng lại từ quy tắc.`);
@@ -226,9 +235,13 @@ export class AlgorithmService {
             // vong lap mua duoc khoang 600 diem, con dung cung ngan sach do de dung lai tu
             // dau roi lay ban tot nhat thi gan nhu khong mua duoc gi. Nen chi dung lai du
             // so phuong an can cho nguoi dung chon, va do het thoi gian vao viec tim kiem.
+            //
+            // Nay chi LUU ban tot nhat. He thong da chot mot thuat toan, man hinh so sanh
+            // phuong an da bo, va ba ban luu cung luc thi ban moi nhat trong CSDL lai la ban
+            // kem nhat trong ba — thu ma trang xep lich hien ra khi chua co ban chinh thuc.
             const MAX_ATTEMPTS = 6;
             const MIN_ATTEMPTS = 3;
-            const VARIANTS_TO_KEEP = 3;
+            const VARIANTS_TO_KEEP = 1;
             const lockedSlots = [...solution.slots];
             const candidates: Array<{ slots: TimeSlot[]; hard: number; score: number }> = [];
 
@@ -326,17 +339,34 @@ export class AlgorithmService {
      * Trong số những tiết khoá lần xếp trước để lại, tiết nào còn phải giữ?
      *
      * Chỉ giữ tiết quản trị viên đã ghim. Tiết do quy tắc cố định sinh ra — chào cờ, sinh
-     * hoạt cuối tuần — thì bỏ, vì phase 1 dựng lại chúng từ quy tắc ở mỗi lần xếp; giữ
-     * thêm một bản nữa là thêm hẳn một tiết lễ cho lớp đó.
+     * hoạt cuối tuần, "môn của GVCN" — thì bỏ, vì phase 1 dựng lại chúng từ quy tắc ở mỗi lần
+     * xếp; giữ thêm một bản nữa là thêm hẳn một tiết cho lớp đó.
+     *
+     * Tiết ghim mà phân công hiện tại không còn (lớp đó, môn đó đã đổi giáo viên) cũng bỏ: giữ
+     * lại là lớp dư một tiết của người cũ và thiếu chỗ cho tiết của người mới. Đã gặp thật sau
+     * khi "Phân công tự động" đổi giáo viên Toán 10C1: HK1 ra 929/930 tiết, hai lần liền.
      */
-    public carriedOverPins<T extends { subject_id: number }>(
+    public carriedOverPins<T extends { subject_id: number; class_id?: string; teacher_id?: string; day?: number; period?: number }>(
         locked: T[],
         subjects: Array<{ id: number; code: string }>,
+        context?: {
+            assignments?: Array<{ class_id: string; subject_id: number; teacher_id: string }>;
+            isRuleCell?: (classId: string, day: number, period: number) => boolean;
+        },
     ): T[] {
         const ruleSubjects = this.constraintService.fixedRuleSubjectCodes();
         const codeOf = new Map(subjects.map(subject => [subject.id, subject.code]));
+        const assigned = context?.assignments
+            ? new Set(context.assignments.map(a => `${a.class_id}:${a.subject_id}:${a.teacher_id}`))
+            : null;
 
-        return locked.filter(slot => !ruleSubjects.has(codeOf.get(slot.subject_id) ?? ''));
+        return locked.filter(slot => {
+            if (ruleSubjects.has(codeOf.get(slot.subject_id) ?? '')) return false;
+            if (context?.isRuleCell && slot.class_id && slot.day !== undefined && slot.period !== undefined
+                && context.isRuleCell(slot.class_id, slot.day, slot.period)) return false;
+            if (assigned && !assigned.has(`${slot.class_id}:${slot.subject_id}:${slot.teacher_id}`)) return false;
+            return true;
+        });
     }
 
     /**
@@ -483,7 +513,7 @@ export class AlgorithmService {
                 for (let day = 2; day <= 7; day++) {
                     for (let period = start; period <= end; period++) {
                         if (this.isSlotOccupied(slots, cls.id, day, period)) continue;
-                        if (!this.isCellAllowed(day, period)) continue;
+                        if (!this.isCellAllowed(day, period, cls.id)) continue;
 
                         // Only a hole if the class still has lessons later that day
                         const hasLater = slots.some(s =>
@@ -786,7 +816,7 @@ export class AlgorithmService {
                         // Check if ALL periods are free/valid
                         const canPlace = periodsToCheck.every(p => {
                             // Blocked Rules
-                            if (!this.isCellAllowed(day, p)) return false;
+                            if (!this.isCellAllowed(day, p, cls.id)) return false;
 
                             // Occupied?
                             if (this.isSlotOccupied(solution.slots, cls.id, day, p)) return false;
@@ -840,10 +870,23 @@ export class AlgorithmService {
                     if (this.isSlotOccupied(solution.slots, cls.id, day, period)) continue;
 
                     // RULES BLOCK
-                    if (!this.isCellAllowed(day, period)) continue;
+                    if (!this.isCellAllowed(day, period, cls.id)) continue;
 
                     // Try to assign
-                    for (let i = 0; i < candidates.length; i++) {
+                    const candidateIndexes = candidates.map((_: any, index: number) => index);
+                    candidateIndexes.sort((a: number, b: number) => {
+                        const codeA = data.subjects.find((s: any) => s.id === candidates[a].subject_id)?.code;
+                        const codeB = data.subjects.find((s: any) => s.id === candidates[b].subject_id)?.code;
+                        const activityA = codeA === 'HDTN' || codeA === 'GDDP';
+                        const activityB = codeB === 'HDTN' || codeB === 'GDDP';
+                        if (day !== 5) return Number(activityA) - Number(activityB);
+                        if (activityA !== activityB) return Number(activityB) - Number(activityA);
+                        // GDDP trước, rồi hai tiết HĐTN-HN: tận dụng đủ ba ô thứ Năm mà
+                        // không tạo chuỗi ba tiết cùng môn.
+                        return Number(codeB === 'GDDP') - Number(codeA === 'GDDP');
+                    });
+
+                    for (const i of candidateIndexes) {
                         const assign = candidates[i];
 
                         // For General Opposite (fallback), we verify strict separation again
@@ -934,7 +977,7 @@ export class AlgorithmService {
         for (const mayDisplaceClassmate of [false, true]) {
             for (let day = 2; day <= 7; day++) {
                 for (let period = minP; period <= maxP; period++) {
-                    if (!this.isCellAllowed(day, period)) continue;
+                    if (!this.isCellAllowed(day, period, cls.id)) continue;
                     if (this.constraintService.isTeacherBusy(assign.teacher_id, day, period)) continue;
                     if (this.constraintService.isRoomTypeFull(assign.subject_id, day, period, solution.slots)) continue;
 
@@ -981,7 +1024,7 @@ export class AlgorithmService {
         for (let day = 2; day <= 7; day++) {
             for (let period = minP; period <= maxP; period++) {
                 if (day === slot.day && period === slot.period) continue;
-                if (!this.isCellAllowed(day, period)) continue;
+                if (!this.isCellAllowed(day, period, slot.classId)) continue;
                 if (this.isSlotOccupied(solution.slots, slot.classId, day, period)) continue;
                 if (this.constraintService.isTeacherBusy(slot.teacherId, day, period)) continue;
                 if (this.constraintService.checkTeacherConflict(
@@ -1061,7 +1104,7 @@ export class AlgorithmService {
 
             for (const period of [anchor.period - 1, anchor.period + 1]) {
                 if (!this.sameSession(anchor.period, period)) continue;
-                if (!this.isCellAllowed(anchor.day, period)) continue;
+                if (!this.isCellAllowed(anchor.day, period, lone.classId)) continue;
 
                 const target = slots.find(s =>
                     s.classId === lone.classId && s.day === anchor.day && s.period === period);
@@ -1081,7 +1124,7 @@ export class AlgorithmService {
     private canSwapPositions(slots: TimeSlot[], a: TimeSlot, b: TimeSlot): boolean {
         if (a.isLocked || b.isLocked) return false;
         if (!this.sameSession(a.period, b.period)) return false;
-        if (!this.isCellAllowed(a.day, a.period) || !this.isCellAllowed(b.day, b.period)) return false;
+        if (!this.isCellAllowed(b.day, b.period, a.classId) || !this.isCellAllowed(a.day, a.period, b.classId)) return false;
 
         const legal = (slot: TimeSlot, day: number, period: number) => {
             if (this.constraintService.isTeacherBusy(slot.teacherId, day, period)) return false;
@@ -1164,9 +1207,17 @@ export class AlgorithmService {
         shortThursdayPeriods: [1, 2, 6, 7],
     };
 
-    private isCellAllowed(day: number, period: number): boolean {
+    /**
+     * Ô này có được đặt tiết không. Có `classId` thì kiểm thêm ô nghỉ của lớp đó — ô quản trị
+     * viên đã ghim "Nghỉ - không học" ở trang Tiết cố định.
+     *
+     * Chặn ở đây chỉ để thuật toán khỏi phí công thử. Chỗ bắt buộc là lỗi cứng `restCells`:
+     * một đường xếp nào quên truyền lớp vẫn bị bộ chấm bắt lại.
+     */
+    private isCellAllowed(day: number, period: number, classId?: string): boolean {
         // Monday period 1 belongs to the whole-school assembly
         if (day === 2 && period === 1) return false;
+        if (classId && this.constraintService.isRestCell(classId, day, period)) return false;
 
         if (this.gridPolicy.shortThursday && day === 5) {
             return this.gridPolicy.shortThursdayPeriods.includes(period);
@@ -1532,6 +1583,7 @@ export class AlgorithmService {
         // tiết trong chuỗi nghĩa là có tiết khoá chắn đường.
         for (const lesson of chain) {
             const target = other(lesson);
+            if (this.constraintService.isRestCell(lesson.classId, target.day, target.period)) return null;
             if (this.constraintService.isTeacherBusy(lesson.teacherId, target.day, target.period)) return null;
 
             let sameTeacher = 0;
@@ -1606,7 +1658,7 @@ export class AlgorithmService {
             for (const period of [anchor.period - 1, anchor.period + 1]) {
                 if (period < 1 || period > 10) continue;
                 if (!this.sameSession(anchor.period, period)) continue;
-                if (!this.isCellAllowed(anchor.day, period)) continue;
+                if (!this.isCellAllowed(anchor.day, period, lone.classId)) continue;
                 if (anchor.day === lone.day && period === lone.period) continue;
 
                 const occupant = classmates.find(
@@ -1624,7 +1676,7 @@ export class AlgorithmService {
 
                 if (occupant.isLocked || occupant === anchor) continue;
                 if (!this.sameSession(lone.period, occupant.period)) continue;
-                if (!this.isCellAllowed(lone.day, lone.period)) continue;
+                if (!this.isCellAllowed(lone.day, lone.period, occupant.classId)) continue;
                 if (!this.indexedSwapLegal(lone, occupant, index)) continue;
                 if (!this.indexedSwapLegal(occupant, lone, index)) continue;
 
@@ -1664,7 +1716,7 @@ export class AlgorithmService {
         if (a === b) return null;
         if (a.day === b.day && a.period === b.period) return null;
         if (!this.sameSession(a.period, b.period)) return null;
-        if (!this.isCellAllowed(a.day, a.period) || !this.isCellAllowed(b.day, b.period)) return null;
+        if (!this.isCellAllowed(b.day, b.period, a.classId) || !this.isCellAllowed(a.day, a.period, b.classId)) return null;
 
         if (!this.indexedSwapLegal(a, b, index)) return null;
         if (!this.indexedSwapLegal(b, a, index)) return null;
@@ -1710,7 +1762,7 @@ export class AlgorithmService {
         const period = minP + ((Math.random() * (maxP - minP + 1)) | 0);
 
         if (day === slot.day && period === slot.period) return null;
-        if (!this.isCellAllowed(day, period)) return null;
+        if (!this.isCellAllowed(day, period, slot.classId)) return null;
         if (this.constraintService.isTeacherBusy(slot.teacherId, day, period)) return null;
         if (index.teacherBusy(slot.teacherId, day, period, slot)) return null;
         if (index.classBusy(slot.classId, day, period, slot)) return null;
@@ -1769,7 +1821,7 @@ export class AlgorithmService {
 
             const [minP, maxP] = host.period <= 5 ? [1, 5] : [6, 10];
             for (let period = minP; period <= maxP; period++) {
-                if (!this.isCellAllowed(host.day, period)) continue;
+                if (!this.isCellAllowed(host.day, period, victim.classId)) continue;
                 if (index.classBusy(victim.classId, host.day, period, victim)) continue;
                 if (index.teacherBusy(victim.teacherId, host.day, period, victim)) continue;
                 if (this.constraintService.isTeacherBusy(victim.teacherId, host.day, period)) continue;
@@ -1993,7 +2045,7 @@ export class AlgorithmService {
             if (!this.sameSession(victim.period, host.period)) continue;
 
             for (let period = minP; period <= maxP; period++) {
-                if (!this.isCellAllowed(host.day, period)) continue;
+                if (!this.isCellAllowed(host.day, period, victim.classId)) continue;
                 if (this.isSlotOccupied(slots, victim.classId, host.day, period)) continue;
                 if (this.constraintService.isTeacherBusy(victim.teacherId, host.day, period)) continue;
 
@@ -2025,7 +2077,7 @@ export class AlgorithmService {
         const period = minP + Math.floor(Math.random() * (maxP - minP + 1));
 
         if (day === slot.day && period === slot.period) return null;
-        if (!this.isCellAllowed(day, period)) return null;
+        if (!this.isCellAllowed(day, period, slot.classId)) return null;
         if (this.constraintService.isTeacherBusy(slot.teacherId, day, period)) return null;
         if (this.constraintService.isRoomTypeFull(slot.subjectId, day, period, slots)) return null;
 

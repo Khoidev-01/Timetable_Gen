@@ -36,6 +36,7 @@ const PERIODS = Array.from({ length: 10 }, (_, i) => i + 1);
 export default function AdminDashboard() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [semesterName, setSemesterName] = useState('');
+  const [yearName, setYearName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [warningsExpanded, setWarningsExpanded] = useState(false);
 
@@ -51,7 +52,9 @@ export default function AdminDashboard() {
       const years = await yearRes.json();
       const semester = years[0]?.semesters?.[0];
       if (!semester) return;
-      setSemesterName(`${years[0].name} - ${semester.name}`);
+      // "HK1" -> "Học Kỳ 1"; tên khác kiểu đó thì giữ nguyên
+      setSemesterName(semester.name.replace(/^HK\s*(\d+)$/i, 'Học Kỳ $1'));
+      setYearName(years[0].name);
 
       const res = await fetch(`${API_URL}/algorithm/dashboard/${semester.id}`, { headers: authHeaders() });
       if (res.ok) setData(await res.json());
@@ -133,13 +136,14 @@ export default function AdminDashboard() {
             <p className="mt-2 max-w-2xl text-sm text-blue-100 md:text-base">
               Hệ thống xếp thời khóa biểu tự động cho trường THPT
             </p>
+            {semesterName && (
+              <div data-current-semester className="mt-4 w-fit rounded-xl border border-white/20 bg-black/10 px-4 py-2.5 text-sm backdrop-blur-sm">
+                <p className="text-xs text-blue-100">Học kỳ hiện tại</p>
+                <p className="mt-0.5 font-semibold">{semesterName}</p>
+                <p className="text-blue-100">Năm học: {yearName}</p>
+              </div>
+            )}
           </div>
-          {semesterName && (
-            <div className="w-fit rounded-xl border border-white/20 bg-black/10 px-4 py-2.5 text-sm backdrop-blur-sm">
-              <p className="text-xs text-blue-100">Học kỳ đang theo dõi</p>
-              <p className="mt-0.5 font-semibold">{semesterName}</p>
-            </div>
-          )}
         </div>
       </div>
 
@@ -251,7 +255,7 @@ export default function AdminDashboard() {
                 <div className="flex justify-between gap-4">
                   <dt className="text-[var(--text-muted)]">Lỗi cứng</dt>
                   <dd className={`font-bold ${data.timetable.hardViolations === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {data.timetable.hardViolations === 0 ? 'không có' : data.timetable.hardViolations}
+                    {data.timetable.hardViolations === 0 ? 'Không có' : data.timetable.hardViolations}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">

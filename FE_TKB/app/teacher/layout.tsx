@@ -3,13 +3,15 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { LayoutDashboard, CalendarDays, Clock, KeyRound, LogOut, PanelLeftClose, PanelLeft, Bell, Check , CalendarOff, ArrowLeftRight } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Clock, KeyRound, LogOut, PanelLeftClose, PanelLeft, Bell, Check , CalendarOff, ArrowLeftRight, FileSpreadsheet } from 'lucide-react';
 import AppLogo from '../components/AppLogo';
 import { API_URL } from '@/lib/api';
 import { useLiveNotifications } from '@/lib/useLiveNotifications';
 import { Toaster } from '@/lib/toast';
 import AssistantWidget from '../components/AssistantWidget';
+import OverlayScrollArea from '../components/ui/OverlayScrollArea';
 import { formatDisplayName } from '@/lib/format-display-name';
+import UserMenu from '../components/account/UserMenu';
 
 const teacherMenuItems = [
   { name: 'Tổng quan', href: '/teacher', icon: LayoutDashboard },
@@ -19,6 +21,9 @@ const teacherMenuItems = [
   { name: 'Đổi tiết', href: '/teacher/swaps', icon: ArrowLeftRight },
   { name: 'Đổi mật khẩu', href: '/teacher/profile', icon: KeyRound },
 ];
+
+/** Chỉ tổ trưởng chuyên môn mới thấy mục nộp bảng phân công của tổ. */
+const departmentHeadItem = { name: 'Phân công tổ', href: '/teacher/department-assignments', icon: FileSpreadsheet };
 
 interface Notification {
   id: string;
@@ -38,7 +43,7 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)} ngày trước`;
 }
 
-function TeacherSidebar({ onLogout }: { onLogout: () => void }) {
+function TeacherSidebar({ onLogout, isDepartmentHead = false }: { onLogout: () => void; isDepartmentHead?: boolean }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -47,7 +52,7 @@ function TeacherSidebar({ onLogout }: { onLogout: () => void }) {
       <div className={`fixed inset-0 bg-black/50 z-30 md:hidden ${collapsed ? 'hidden' : 'block'}`}
         onClick={() => setCollapsed(true)} />
 
-      <div className={`${collapsed ? 'w-[68px]' : 'w-64'} h-full bg-[var(--bg-sidebar)] text-white flex flex-col shadow-xl transition-all duration-200 z-40
+      <div data-app-sidebar className={`${collapsed ? 'w-[68px]' : 'w-64'} h-full bg-[var(--bg-sidebar)] text-white flex flex-col shadow-xl transition-all duration-200 z-40
         fixed md:relative`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'} p-4 border-b border-white/10`}>
           {!collapsed && <AppLogo size="sm" />}
@@ -57,8 +62,8 @@ function TeacherSidebar({ onLogout }: { onLogout: () => void }) {
           </button>
         </div>
 
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {teacherMenuItems.map((item) => {
+        <nav className="scrollbar-hidden flex-1 p-2 space-y-1 overflow-y-auto">
+          {(isDepartmentHead ? [...teacherMenuItems.slice(0, -1), departmentHeadItem, teacherMenuItems[teacherMenuItems.length - 1]] : teacherMenuItems).map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
             return (
@@ -105,6 +110,17 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
     const userData = JSON.parse(savedUser);
     if (userData.role !== 'TEACHER') { router.push('/'); return; }
     setUser(userData);
+
+    // Chức vụ (tổ trưởng) có thể đổi sau lần đăng nhập: đọc lại hồ sơ để menu hiện đúng
+    fetch(`${API_URL}/auth/profile`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((profile) => {
+        if (!profile?.teacher_profile) return;
+        const next = { ...userData, teacher_profile: { ...userData.teacher_profile, ...profile.teacher_profile } };
+        localStorage.setItem('user', JSON.stringify(next));
+        setUser(next);
+      })
+      .catch(() => undefined);
   }, [router]);
 
   // Nhan day tu may chu thay vi hoi lai moi 30 giay
@@ -137,7 +153,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
     <div className="flex h-[100dvh] w-screen bg-[var(--bg-base)] overflow-hidden transition-colors">
       <div className="grain-overlay" aria-hidden />
       <Toaster />
-      <TeacherSidebar onLogout={handleLogout} />
+      <TeacherSidebar onLogout={handleLogout} isDepartmentHead={user.teacher_profile?.position === 'TT'} />
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <header className="h-14 bg-[var(--bg-surface)] border-b border-[var(--border-default)]
           flex items-center justify-between px-4 md:px-6 z-20 transition-colors">
@@ -205,15 +221,21 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
               )}
             </div>
 
-            <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-emerald-600
-              flex items-center justify-center text-white text-sm font-semibold shadow-[var(--shadow-sm)]">
-              {user.username[0].toUpperCase()}
-            </div>
+            <UserMenu
+              user={user}
+              onLogout={handleLogout}
+              onProfileChange={(account) => {
+                if (!account.profile.full_name) return;
+                const next = { ...user, full_name: account.profile.full_name };
+                setUser(next);
+                localStorage.setItem('user', JSON.stringify(next));
+              }}
+            />
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-4 md:p-6">
+        <OverlayScrollArea className="p-4 md:p-6">
           {children}
-        </main>
+        </OverlayScrollArea>
         <AssistantWidget />
       </div>
     </div>

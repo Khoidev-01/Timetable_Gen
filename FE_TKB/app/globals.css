@@ -95,6 +95,96 @@ html {
   background: var(--text-muted);
 }
 
+/* ---- Bảng danh sách ----
+  Một kiểu cho mọi bảng danh sách: tiêu đề chữ thường, đậm, căn giữa; đường kẻ chia cột; bố cục
+  cố định — mỗi bảng khai báo độ rộng cột bằng <colgroup>, nên một giá trị dài xuống dòng trong
+  ô chứ không kéo giãn cả cột. Toàn bảng MỘT cỡ chữ: nhấn mạnh bằng độ đậm và màu, không bằng cỡ.
+
+  Cố ý đặt NGOÀI mọi @layer. Tailwind 4 để utility trong layer, nên quy tắc không thuộc layer nào
+  thắng các class rải rác trên từng ô (text-xs, uppercase, px-6...) mà không cần sửa từng ô. */
+.data-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--text-secondary);
+}
+.data-table th,
+.data-table td {
+  /* Đặt thẳng, không kế thừa: thead/tr của vài bảng còn gắn text-xs */
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+  border-right: 1px solid var(--border-default);
+}
+.data-table th:last-child,
+.data-table td:last-child,
+.data-table td[colspan] {
+  border-right: 0;
+}
+.data-table thead th {
+  text-align: center;
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  border-bottom: 1px solid var(--border-default);
+}
+.data-table tbody tr + tr td {
+  border-top: 1px solid var(--border-default);
+}
+/* Mọi chữ trong ô cùng một cỡ; ô gộp (trạng thái trống) giữ kiểu riêng của nó */
+.data-table th *,
+.data-table td:not([colspan]) * {
+  font-size: inherit;
+  line-height: inherit;
+}
+.data-table--compact th,
+.data-table--compact td {
+  padding: 0.5rem 0.75rem;
+}
+
+/* Nút thao tác trên từng dòng (Sửa, Xóa): có viền, cùng kích thước, không tô nền */
+.row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color 150ms;
+}
+.row-action:hover {
+  background: var(--accent-soft);
+}
+.row-action--danger {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+.row-action--danger:hover {
+  background: rgb(220 38 38 / 0.08);
+}
+.row-action + .row-action {
+  margin-left: 0.5rem;
+}
+/* Ô chứa nút thao tác: các nút nằm trên một dòng, căn giữa ô */
+.data-table td:has(> .row-action) {
+  text-align: center;
+  white-space: nowrap;
+}
+
 /* ---- Utilities ---- */
 .writing-vertical {
   writing-mode: vertical-rl;
@@ -131,7 +221,7 @@ html {
 }
 @keyframes assistant-breathe {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.025); }
+  50% { transform: scale(0.86); }
 }
 
 @keyframes dropdown-enter {

@@ -171,7 +171,14 @@ export default function SubjectsPage() {
             </div>
 
             <div className="bg-[var(--bg-surface)] rounded-[var(--radius-md)] shadow-sm border border-[var(--border-default)] overflow-hidden relative">
-                <table className="w-full text-left border-collapse">
+                <table className="data-table w-full text-left border-collapse">
+                  <colgroup>
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '30%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '15%' }} />
+                  </colgroup>
                     <thead className="bg-[var(--bg-surface-hover)] text-[var(--text-primary)] font-semibold border-b border-[var(--border-default)]">
                         <tr>
                             <th className="px-6 py-4">Mã MH</th>
@@ -202,11 +209,11 @@ export default function SubjectsPage() {
                                             <span className="text-xs text-gray-400 font-mono">{sub.color}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-right space-x-2">
-                                        <button className="text-[var(--accent)] hover:text-[var(--accent-hover)] text-sm font-medium"
+                                    <td className="px-6 py-4 text-right">
+                                        <button type="button" className="row-action"
                                             onClick={() => { setEditingSubject(sub); setIsModalOpen(true); }}
                                         >Sửa</button>
-                                        <button className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                        <button type="button" className="row-action row-action--danger"
                                             onClick={() => handleLocalDelete(sub.id)}
                                         >Xóa</button>
                                     </td>

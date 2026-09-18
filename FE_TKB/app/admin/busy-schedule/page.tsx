@@ -196,7 +196,16 @@ export default function BusySchedulePage() {
               {requests.length === 0 ? (
                 <div className="py-16 text-center text-[var(--text-muted)]">Không có yêu cầu nào</div>
               ) : (
-                <table className="min-w-full text-sm">
+                <table className="data-table min-w-full text-sm">
+                  <colgroup>
+                    <col style={{ width: '22%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: tab === 'pending' ? '22%' : '38%' }} />
+                    <col style={{ width: '14%' }} />
+                    {tab === 'pending' && <col style={{ width: '16%' }} />}
+                  </colgroup>
                   <thead className="bg-[var(--bg-surface-hover)] text-xs font-bold text-[var(--text-secondary)] uppercase">
                     <tr>
                       <th className="px-4 py-3 text-left">Giáo viên</th>

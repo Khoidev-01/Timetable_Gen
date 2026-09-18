@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { REST_SUBJECT_CODE } from './constraint.service';
 
 export type IssueLevel = 'BLOCK' | 'RISK' | 'NOTE';
 
@@ -390,6 +391,9 @@ export class FeasibilityService {
     }
 
     for (const rule of fixedRules) {
+      // Ô nghỉ không có giáo viên nào đứng lớp, nên không thể trùng giáo viên
+      if (rule.subject_code === REST_SUBJECT_CODE) continue;
+
       const affected = classes.filter(
         (c) =>
           (rule.grade_level === null || rule.grade_level === c.grade_level) &&

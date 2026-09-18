@@ -21,6 +21,7 @@ interface Period {
   className: string;
   subjectName: string;
   roomName?: string;
+  roomLabel?: string;
   candidates: Candidate[];
 }
 
@@ -272,9 +273,9 @@ export default function AbsencePage() {
               <div key={period.slotId} className="rounded-lg border border-[var(--border-default)] p-3">
                 <p className="mb-2 font-semibold text-[var(--text-primary)]">
                   Tiết {period.period} · {period.className} · {period.subjectName}
-                  {period.roomName && (
+                  {(period.roomLabel || period.roomName) && (
                     <span className="ml-2 text-sm font-normal text-[var(--text-muted)]">
-                      phòng {period.roomName}
+                      {period.roomLabel ?? `Phòng ${period.roomName}`}
                     </span>
                   )}
                 </p>

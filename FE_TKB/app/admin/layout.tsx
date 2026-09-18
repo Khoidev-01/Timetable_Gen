@@ -3,12 +3,14 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import AdminSidebar from '../components/admin/Sidebar';
-import { Bell, LogOut, User, Settings, Check, FileSpreadsheet, Calendar, MessageSquare, Clock, Monitor } from 'lucide-react';
+import { Bell, Check, FileSpreadsheet, Calendar, MessageSquare, Clock, Monitor } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 import { useLiveNotifications } from '@/lib/useLiveNotifications';
 import { Toaster } from '@/lib/toast';
 import AssistantWidget from '../components/AssistantWidget';
+import OverlayScrollArea from '../components/ui/OverlayScrollArea';
 import { formatDisplayName } from '@/lib/format-display-name';
+import UserMenu from '../components/account/UserMenu';
 
 interface Notification {
   id: string;
@@ -42,10 +44,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -69,7 +69,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotifications(false);
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setShowProfileMenu(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -117,7 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Notification Bell */}
             <div className="relative" ref={notifRef}>
               <button
-                onClick={() => { setShowNotifications(!showNotifications); setShowProfileMenu(false); if (!showNotifications) fetchNotifications(); }}
+                onClick={() => { setShowNotifications(!showNotifications); if (!showNotifications) fetchNotifications(); }}
                 className="relative w-9 h-9 rounded-lg flex items-center justify-center
                   bg-[var(--bg-surface-hover)] hover:bg-[var(--border-default)] text-[var(--text-secondary)] transition-colors"
               >
@@ -208,61 +207,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               )}
             </div>
 
-            {/* Profile Avatar */}
-            <div className="relative" ref={profileRef}>
-              <button
-                onClick={() => { setShowProfileMenu(!showProfileMenu); setShowNotifications(false); }}
-                className="tactile w-8 h-8 rounded-[var(--radius-sm)] bg-[var(--accent)]
-                  flex items-center justify-center text-[var(--accent-contrast)] text-sm font-semibold shadow-[var(--shadow-sm)]
-                  hover:bg-[var(--accent-hover)] cursor-pointer"
-              >
-                {user.username[0].toUpperCase()}
-              </button>
-
-              {showProfileMenu && (
-                <div className="dropdown-enter dropdown-stagger absolute right-0 top-full mt-2 w-56 origin-top-right rounded-[var(--radius-md)] border border-[var(--border-default)]
-                  bg-[var(--bg-surface)] shadow-xl z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[var(--border-default)]">
-                    <p className="font-bold text-sm text-[var(--text-primary)]">{user.username}</p>
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{user.role === 'ADMIN' ? 'Quản trị viên' : 'Giáo viên'}</p>
-                  </div>
-                  <div className="py-1">
-                    <button
-                      onClick={() => { setShowProfileMenu(false); router.push('/admin/accounts'); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)]
-                        hover:bg-[var(--bg-surface-hover)] transition-colors text-left"
-                    >
-                      <User size={16} />
-                      Quản lý tài khoản
-                    </button>
-                    <button
-                      onClick={() => { setShowProfileMenu(false); router.push('/admin/configuration'); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)]
-                        hover:bg-[var(--bg-surface-hover)] transition-colors text-left"
-                    >
-                      <Settings size={16} />
-                      Cấu hình hệ thống
-                    </button>
-                  </div>
-                  <div className="border-t border-[var(--border-default)] py-1">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500
-                        hover:bg-red-500/10 transition-colors text-left"
-                    >
-                      <LogOut size={16} />
-                      Đăng xuất
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <UserMenu
+              user={user}
+              onLogout={handleLogout}
+              onOpenSettings={() => router.push('/admin/configuration')}
+              onProfileChange={(account) => account.profile.full_name && setUser({ ...user, full_name: account.profile.full_name })}
+            />
           </div>
         </header>
 
-        <main data-app-content className="flex-1 overflow-auto p-4 md:p-6">
+        <OverlayScrollArea data-app-content className="p-4 md:p-6">
           {children}
-        </main>
+        </OverlayScrollArea>
         <AssistantWidget />
       </div>
     </div>

@@ -236,7 +236,14 @@ export default function TeacherFeedbackPage() {
           <div className="px-4 py-3 border-b border-[var(--border-default)]">
             <h3 className="font-bold text-sm text-[var(--text-primary)]">Yêu cầu đã gửi · Tuần {selectedWeek}</h3>
           </div>
-          <table className="min-w-full text-sm">
+          <table className="data-table min-w-full text-sm">
+            <colgroup>
+              <col style={{ width: '15%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '45%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '12%' }} />
+            </colgroup>
             <thead className="bg-[var(--bg-surface-hover)] text-xs font-bold text-[var(--text-secondary)] uppercase">
               <tr>
                 <th className="px-4 py-2 text-center">Thứ</th>

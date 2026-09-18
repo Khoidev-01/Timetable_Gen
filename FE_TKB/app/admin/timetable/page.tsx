@@ -6,7 +6,7 @@ import TimetableGrid from '../../components/admin/TimetableGrid';
 import QualityBreakdown from '../../components/admin/QualityBreakdown';
 import SolverMonitor, { SolveProgress } from '../../components/admin/SolverMonitor';
 import { QUALITY_SCALE } from '../../components/admin/QualityGrade';
-import VariantComparison from '../../components/admin/VariantComparison';
+import PublishPanel from '../../components/admin/PublishPanel';
 import CascadeSwapDialog from '../../components/admin/CascadeSwapDialog';
 import ChangeHistory from '../../components/admin/ChangeHistory';
 import { API_URL } from '@/lib/api';
@@ -627,15 +627,15 @@ export default function TimetablePage() {
         </>
       )}
 
-      <section className="space-y-4" aria-label="Nhật ký và phương án thời khóa biểu">
+      <section className="space-y-4" aria-label="Nhật ký và công bố thời khóa biểu">
         <ChangeHistory
           timetableId={result?.timetableId ?? null}
           onReverted={() => checkExistingResult(selectedSemesterId)}
         />
 
         {selectedSemesterId && !isGenerating && (
-          <VariantComparison
-            key={`${selectedSemesterId}-${result?.fitness_score ?? 'none'}`}
+          <PublishPanel
+            key={`${selectedSemesterId}-${result?.timetableId ?? 'none'}-${result?.fitness_score ?? 'none'}`}
             semesterId={selectedSemesterId}
             onPublished={() => checkExistingResult(selectedSemesterId)}
           />

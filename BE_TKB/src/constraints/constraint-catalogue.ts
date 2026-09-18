@@ -19,7 +19,7 @@ export interface CatalogueEntry {
   name: string;
   description: string;
   defaultWeight: number;
-  /** False for the three clashes that are physically impossible, never a preference. */
+  /** False for physical impossibilities and school-mandated rules. */
   canDisable: boolean;
 }
 
@@ -131,6 +131,43 @@ export const CONSTRAINT_CATALOGUE: CatalogueEntry[] = [
       'Lớp học sáng thì học sáng, học chiều thì học chiều. Thể dục, GDQP, HĐTN và GDĐP được miễn vì trường vẫn xếp chúng vào buổi trống.',
     defaultWeight: 0,
     canDisable: true,
+  },
+  {
+    key: 'restCells',
+    kind: 'HARD',
+    code: 'HC_10',
+    name: 'Không xếp tiết vào ô nghỉ',
+    description:
+      'Ô được ghim "Nghỉ - không học" ở trang Tiết cố định thì các lớp thuộc khối và buổi chính đã chọn không được có tiết.',
+    defaultWeight: 0,
+    canDisable: true,
+  },
+  {
+    key: 'requiredOppositeSession',
+    kind: 'HARD',
+    code: 'HC_11',
+    name: 'GDTC và GDQP học trái buổi',
+    description: 'Giáo dục thể chất và Giáo dục quốc phòng - an ninh phải học ở buổi đối diện buổi học chính của lớp.',
+    defaultWeight: 0,
+    canDisable: false,
+  },
+  {
+    key: 'physicalDefenceDifferentDays',
+    kind: 'HARD',
+    code: 'HC_12',
+    name: 'GDTC và GDQP không trùng ngày',
+    description: 'Một lớp không học Giáo dục thể chất và Giáo dục quốc phòng - an ninh trong cùng một ngày.',
+    defaultWeight: 0,
+    canDisable: false,
+  },
+  {
+    key: 'subjectMaxTwoConsecutive',
+    kind: 'HARD',
+    code: 'HC_13',
+    name: 'Một môn tối đa 2 tiết liên tiếp',
+    description: 'Trong cùng một buổi, một lớp không học cùng một môn quá hai tiết liên tiếp.',
+    defaultWeight: 0,
+    canDisable: false,
   },
 
   // --- Soft constraints: violating one costs points, the schedule stays usable ---
@@ -297,6 +334,15 @@ export const CONSTRAINT_CATALOGUE: CatalogueEntry[] = [
     description:
       'Khoản duy nhất cộng điểm thay vì trừ: mỗi tiết xếp đúng khung giờ giáo viên đã đánh dấu "mong muốn" được thưởng.',
     defaultWeight: 6,
+    canDisable: true,
+  },
+  {
+    key: 'thursdayActivities',
+    kind: 'SOFT',
+    code: 'SC_19',
+    name: 'Ưu tiên HĐTN-HN và GDĐP vào thứ Năm',
+    description: 'Hoạt động trải nghiệm hướng nghiệp và Giáo dục địa phương được ưu tiên xếp vào thứ Năm khi còn ô hợp lệ.',
+    defaultWeight: 18,
     canDisable: true,
   },
 ];

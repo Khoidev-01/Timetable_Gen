@@ -162,6 +162,17 @@ describe('FairnessService', () => {
     expect(report.lorenz.at(-1)).toEqual({ population: 1, quality: 1 });
   });
 
+  it('lists every teacher below the Khá level, not just the first five', () => {
+    const teacher = (id: string, quality: number) => ({ teacherId: id, code: id, name: id, quality, periods: 10, preferencesMet: null, burdens: [] });
+    const pick = (qualities: number[]) =>
+      (service as any).pickWorstOff(qualities.map((q, i) => teacher(`t${i}`, q))).map((t: any) => t.quality);
+
+    // Bảy người dưới 70: cả bảy đều có mặt, người 70 điểm thì không
+    expect(pick([55, 58, 61, 63, 65, 67, 69, 70, 85])).toEqual([55, 58, 61, 63, 65, 67, 69]);
+    // Trường lịch tốt: vẫn nêu năm người kém nhất
+    expect(pick([72, 75, 78, 80, 82, 90])).toEqual([72, 75, 78, 80, 82]);
+  });
+
   it('names the biggest burden and what to do about it', async () => {
     slots = [slot('a1', 't-tidy', 2, 1), slot('a2', 't-tidy', 2, 5)];
 

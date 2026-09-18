@@ -1,5 +1,5 @@
 
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { ForbiddenException, Injectable, OnModuleDestroy } from '@nestjs/common';
 import * as svgCaptcha from 'svg-captcha';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -90,6 +90,8 @@ export class AuthService implements OnModuleDestroy {
                 id: user.teacher_profile.id,
                 code: user.teacher_profile.code,
                 full_name: user.teacher_profile.full_name,
+                position: user.teacher_profile.position,
+                department: user.teacher_profile.department,
             } : undefined
         };
     }
@@ -117,14 +119,77 @@ export class AuthService implements OnModuleDestroy {
             username: user.username,
             role: user.role,
             full_name: user.teacher_profile?.full_name || user.username,
+            avatar_url: user.avatar_url ?? null,
             teacherId: user.teacher_profile?.id || undefined,
             teacher_profile: user.teacher_profile ? {
                 id: user.teacher_profile.id,
                 code: user.teacher_profile.code,
                 full_name: user.teacher_profile.full_name,
+                position: user.teacher_profile.position,
+                department: user.teacher_profile.department,
                 homeroom_classes: user.teacher_profile.homeroom_classes,
             } : undefined
         };
+    }
+
+    /**
+     * Trang "Tài khoản của tôi". Admin không có hồ sơ cá nhân: chỉ có ảnh đại diện, các ô
+     * thông tin trả về rỗng và không sửa được.
+     */
+    async getMyAccount(userId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: { teacher_profile: true },
+        });
+        if (!user) return null;
+        const teacher = user.teacher_profile;
+        return {
+            username: user.username,
+            role: user.role,
+            avatar_url: user.avatar_url ?? null,
+            editable: Boolean(teacher),
+            profile: {
+                code: teacher?.code ?? '',
+                full_name: teacher?.full_name ?? '',
+                email: teacher?.email ?? '',
+                phone: teacher?.phone ?? '',
+                date_of_birth: teacher?.date_of_birth ? teacher.date_of_birth.toISOString().slice(0, 10) : '',
+                address: teacher?.address ?? '',
+                department: teacher?.department ?? '',
+            },
+        };
+    }
+
+    async updateMyProfile(
+        userId: string,
+        body: { full_name?: string; email?: string; phone?: string; date_of_birth?: string; address?: string },
+    ) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new Error('Không tìm thấy tài khoản');
+        if (!user.teacher_profile_id) {
+            throw new ForbiddenException('Tài khoản quản trị không có hồ sơ cá nhân để sửa');
+        }
+        const blankToNull = (v?: string) => (v === undefined ? undefined : v.trim() === '' ? null : v.trim());
+        await this.prisma.teacher.update({
+            where: { id: user.teacher_profile_id },
+            data: {
+                ...(body.full_name !== undefined ? { full_name: body.full_name.trim() } : {}),
+                email: blankToNull(body.email),
+                phone: blankToNull(body.phone),
+                address: blankToNull(body.address),
+                date_of_birth:
+                    body.date_of_birth === undefined ? undefined : body.date_of_birth === '' ? null : new Date(`${body.date_of_birth.slice(0, 10)}T00:00:00Z`),
+            },
+        });
+        return this.getMyAccount(userId);
+    }
+
+    async updateMyAvatar(userId: string, avatar: string) {
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { avatar_url: avatar === '' ? null : avatar },
+        });
+        return this.getMyAccount(userId);
     }
 
     async changePassword(userId: string, oldPassword: string, newPassword: string) {

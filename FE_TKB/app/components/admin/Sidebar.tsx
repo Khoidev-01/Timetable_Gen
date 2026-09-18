@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, School, GraduationCap, BookOpen, ClipboardList, CalendarDays, LogOut, PanelLeftClose, PanelLeft, Settings, Pin, AlertTriangle, Lightbulb, Clock, Scale, Printer, ArrowLeftRight } from 'lucide-react';
+import { LayoutDashboard, Users, School, GraduationCap, BookOpen, ClipboardList, CalendarDays, LogOut, PanelLeftClose, PanelLeft, Settings, Pin, AlertTriangle, Lightbulb, Clock, Scale, Printer, ArrowLeftRight, FolderInput } from 'lucide-react';
 import { useState } from 'react';
 import AppLogo from '../AppLogo';
 
@@ -12,6 +12,7 @@ const menuItems = [
   { name: 'Lớp học', href: '/admin/classes', icon: School },
   { name: 'Giáo viên', href: '/admin/teachers', icon: GraduationCap },
   { name: 'Môn học', href: '/admin/subjects', icon: BookOpen },
+  { name: 'Tổng hợp', href: '/admin/consolidation', icon: FolderInput },
   { name: 'Phân công', href: '/admin/assignments', icon: ClipboardList },
   { name: 'Thời khóa biểu', href: '/admin/timetable', icon: CalendarDays },
   { name: 'Tiết cố định', href: '/admin/fixed-periods', icon: Pin },
@@ -34,7 +35,7 @@ export default function AdminSidebar({ onLogout }: { onLogout: () => void }) {
       <div className={`fixed inset-0 bg-black/50 z-30 md:hidden ${collapsed ? 'hidden' : 'block'}`}
         onClick={() => setCollapsed(true)} />
 
-      <div className={`${collapsed ? 'w-[68px]' : 'w-64'} h-full bg-[var(--bg-sidebar)] text-white flex flex-col shadow-xl transition-all duration-200 z-40
+      <div data-app-sidebar className={`${collapsed ? 'w-[68px]' : 'w-64'} h-full bg-[var(--bg-sidebar)] text-white flex flex-col shadow-xl transition-all duration-200 z-40
         fixed md:relative`}>
 
         {/* Header */}
@@ -47,7 +48,7 @@ export default function AdminSidebar({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+        <nav className="scrollbar-hidden flex-1 p-2 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;

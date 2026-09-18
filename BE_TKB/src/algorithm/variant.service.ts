@@ -149,16 +149,25 @@ export class VariantService {
       select: { public_token: true, is_official: true },
     });
     if (!timetable) throw new NotFoundException('Không tìm thấy phương án này.');
-    if (!timetable.public_token) {
+    if (!timetable.is_official) {
       throw new BadRequestException('Phương án chưa được công bố nên chưa có liên kết công khai.');
     }
 
+    // Bản chính thức mà chưa có mã thì cấp ngay. Không phải mọi đường công bố đều đi qua
+    // `publish` — kịch bản publish-best từng chỉ bật cờ chính thức, và bản đó không lấy được
+    // mã QR dù giáo viên đang xem nó.
+    let token = timetable.public_token;
+    if (!token) {
+      token = crypto.randomBytes(16).toString('hex');
+      await this.prisma.generatedTimetable.update({ where: { id: timetableId }, data: { public_token: token } });
+    }
+
     const base = process.env.PUBLIC_WEB_URL ?? 'http://localhost:3000';
-    const url = `${base}/xem/${timetable.public_token}`;
+    const url = `${base}/xem/${token}`;
 
     return {
       url,
-      token: timetable.public_token,
+      token,
       qrSvg: await QRCode.toString(url, { type: 'svg', margin: 1, width: 240 }),
     };
   }

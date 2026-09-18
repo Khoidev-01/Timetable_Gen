@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { formatRoomLabel } from './room-label';
 import { OverlayType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService } from '../algorithm/constraint.service';
@@ -22,6 +23,7 @@ export interface UncoveredPeriod {
   className: string;
   subjectName: string;
   roomName?: string;
+  roomLabel?: string;
   candidates: SubstituteCandidate[];
 }
 
@@ -147,6 +149,7 @@ export class SubstituteService {
         className: slot.class.name,
         subjectName: slot.subject.name,
         roomName: slot.room?.name ?? undefined,
+        roomLabel: formatRoomLabel(slot.room, slot.subject.code),
         candidates: candidates.slice(0, 3),
       };
     });

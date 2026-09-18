@@ -46,3 +46,53 @@ describe('ExcelService — nhận dạng loại phòng', () => {
     expect(resolve('')).toBe(RoomType.CLASSROOM);
   });
 });
+
+/**
+ * File phân công giao lý thuyết cho một người và thực hành cho người khác ở cùng lớp, cùng môn,
+ * cùng học kỳ thì phải bị chặn lại: hai phần đó là việc của một giáo viên.
+ */
+describe('ExcelService — lý thuyết và thực hành cùng giáo viên', () => {
+  let service: ExcelService;
+  const validate = (rows: any[]) => {
+    const errors: any[] = [];
+    (service as any).validatePairedTeachers(rows, errors);
+    return errors;
+  };
+  const row = (rowNumber: number, periodType: 'THEORY' | 'PRACTICE' | 'SPECIAL', hk1?: string, hk2?: string) => ({
+    rowNumber,
+    className: '10A1',
+    subjectCode: 'LY',
+    subjectName: 'Vật lý',
+    periodType,
+    hk1: hk1 ? { semesterId: 's1', teacherCode: hk1, totalPeriods: 2 } : undefined,
+    hk2: hk2 ? { semesterId: 's2', teacherCode: hk2, totalPeriods: 2 } : undefined,
+  });
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ExcelService,
+        { provide: PrismaService, useValue: {} },
+        { provide: NotificationService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(ExcelService);
+  });
+
+  it('báo lỗi đúng dòng và đúng học kỳ khi hai phần giao cho hai người', () => {
+    const errors = validate([row(5, 'THEORY', 'GV01', 'GV01'), row(6, 'PRACTICE', 'GV01', 'GV02')]);
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ row: 6, column: 'GV_HK2_Mã', code: 'theory_practice_teacher_mismatch_hk2' });
+    expect(errors[0].message).toContain('GV02');
+    expect(errors[0].message).toContain('GV01');
+  });
+
+  it('cùng một người cho cả hai phần thì không báo gì', () => {
+    expect(validate([row(5, 'THEORY', 'GV01', 'GV03'), row(6, 'PRACTICE', 'GV01', 'GV03')])).toEqual([]);
+  });
+
+  it('chuyên đề (tiết đặc biệt) không tính là cặp lý thuyết - thực hành', () => {
+    expect(validate([row(5, 'THEORY', 'GV01'), row(6, 'SPECIAL', 'GV09')])).toEqual([]);
+  });
+});

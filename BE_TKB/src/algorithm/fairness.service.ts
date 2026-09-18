@@ -35,6 +35,11 @@ export interface FairnessReport {
   };
 }
 
+/** Lịch dưới mức này (thang 0-100) là chưa đạt Khá: người đó nằm trong danh sách nên ưu tiên xem lại. */
+const NEEDS_REVIEW_BELOW = 70;
+/** Trường có lịch tốt đến đâu thì danh sách vẫn nêu tên ít nhất ngần này người kém nhất. */
+const MIN_WORST_OFF = 5;
+
 /** What each burden costs a teacher, in quality points per occurrence. */
 const BURDEN_COST = {
   gap: 6,
@@ -139,7 +144,7 @@ export class FairnessService {
       gini: this.gini(values),
       lorenz: this.lorenz(values),
       teachers: scored,
-      worstOff: scored.slice(0, 5).map((t) => this.explain(t)),
+      worstOff: this.pickWorstOff(scored).map((t) => this.explain(t)),
       summary: {
         best: values.length ? Math.max(...values) : 0,
         worst: values.length ? Math.min(...values) : 0,
@@ -147,6 +152,15 @@ export class FairnessService {
         spread: values.length ? Math.max(...values) - Math.min(...values) : 0,
       },
     };
+  }
+
+  /**
+   * Ai nên được xem lại trước: mọi giáo viên có lịch dưới mức Khá, xếp kém nhất trước. Cắt cứng
+   * năm người thì người thứ sáu cũng tệ không kém vẫn bị bỏ sót.
+   */
+  private pickWorstOff(scoredWorstFirst: TeacherQuality[]): TeacherQuality[] {
+    const below = scoredWorstFirst.filter((t) => t.quality < NEEDS_REVIEW_BELOW);
+    return below.length >= MIN_WORST_OFF ? below : scoredWorstFirst.slice(0, MIN_WORST_OFF);
   }
 
   /**

@@ -197,17 +197,22 @@ export class ScheduleTools {
 
         const teachers = await this.prisma.teacher.findMany({
           where: teachesIt ? { id: { in: [...teachesIt] } } : {},
-          select: { id: true, code: true, full_name: true, major_subject: true },
+          select: { id: true, full_name: true, major_subject: true },
         });
+        const subjectNames = new Map(
+          (await this.prisma.subject.findMany({ select: { code: true, name: true } })).map((s) => [s.code, s.name]),
+        );
 
+        // Trả tên người và tên môn, không trả mã: người dùng cần biết "cô Lan dạy Văn", không phải GV011
         const free = teachers
           .filter((t) => !busy.has(t.id))
           .filter((t) => !this.constraints.isTeacherBusy(t.id, day, period))
-          .map((t) => ({ teacherId: t.id, code: t.code, name: t.full_name, subject: t.major_subject }));
+          .map((t) => ({ name: t.full_name, subject: subjectNames.get(t.major_subject ?? '') ?? t.major_subject ?? 'Chưa rõ môn' }));
 
         return answer({
           when: `${DAY_LABEL[day]} tiết ${period}`,
           ...(wanted ? { subject: wanted, candidatesConsidered: teachers.length } : {}),
+          total: free.length,
           free,
         });
       },

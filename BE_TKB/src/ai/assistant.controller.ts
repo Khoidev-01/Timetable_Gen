@@ -7,8 +7,13 @@ import { OrchestratorService } from './orchestrator.service';
 import { AssistantEvalService } from './eval/assistant-eval.service';
 import { ScheduleTools } from './tools/schedule.tools';
 import { Actor } from './tools/tool.types';
+import { AssistantGuardService } from './assistant-guard.service';
+import { ConversationMemoryService } from './conversation-memory.service';
 
-const MAX_QUESTION_LENGTH = 500;
+const MAX_QUESTION_LENGTH = 2000;
+/** Bối cảnh trình duyệt gửi kèm không được phình vô hạn; phần cũ đã có tóm tắt. */
+const MAX_HISTORY_TURNS = 20;
+const MAX_SUMMARY_LENGTH = 4000;
 
 @ApiTags('Trợ lý AI')
 @ApiBearerAuth('access-token')
@@ -19,6 +24,8 @@ export class AssistantController {
     private readonly tools: ScheduleTools,
     private readonly prisma: PrismaService,
     private readonly evaluation: AssistantEvalService,
+    private readonly guard: AssistantGuardService,
+    private readonly memory: ConversationMemoryService,
   ) {}
 
   /**
@@ -53,7 +60,15 @@ export class AssistantController {
    */
   @Post('ask')
   async ask(
-    @Body() body: { question?: string; semesterId?: string },
+    @Body()
+    body: {
+      question?: string;
+      semesterId?: string;
+      /** Tóm tắt các lượt cũ mà máy chủ đã trả về ở lượt trước */
+      summary?: string | null;
+      /** Các lượt chưa nén, nguyên văn */
+      history?: Array<{ question?: string; answer?: string }>;
+    },
     @Req() request: Request,
     @Res() response: Response,
   ) {
@@ -66,6 +81,13 @@ export class AssistantController {
     const actor = await this.actorOf(request);
     const semesterId = body?.semesterId ?? (await this.currentSemesterId());
     if (!semesterId) throw new BadRequestException('Chưa có học kỳ nào để tra cứu.');
+    // Chặn spam theo người dùng trước khi tốn một lượt gọi mô hình
+    await this.guard.check(actor.userId);
+    const history = (Array.isArray(body?.history) ? body.history : [])
+      .filter((h) => typeof h?.question === 'string' && typeof h?.answer === 'string')
+      .slice(-MAX_HISTORY_TURNS)
+      .map((h) => ({ question: String(h.question), answer: String(h.answer) }));
+    const summary = typeof body?.summary === 'string' && body.summary.trim() ? body.summary.slice(0, MAX_SUMMARY_LENGTH) : null;
 
     response.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     response.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -80,12 +102,17 @@ export class AssistantController {
 
     try {
       send('start', { question });
+      // Nén phần hội thoại cũ trước khi hỏi, để câu hỏi dài / hội thoại lâu không bị quên
+      const folded = await this.memory.fold({ summary, history });
+      if (folded.consumed > 0) send('step', { tool: 'compress_context', args: { turns: folded.consumed }, ok: true, note: `Đã nén ${folded.consumed} lượt cũ thành ghi nhớ` });
 
-      const turn = await this.orchestrator.ask(question, { actor, semesterId });
+      const turn = await this.orchestrator.ask(question, { actor, semesterId }, folded);
       for (const step of turn.steps) send('step', step);
 
+      const warning = await this.guard.record(actor.userId, turn.answer);
       send('answer', {
-        answer: turn.answer,
+        answer: warning ? `${turn.answer}\n\n${warning}` : turn.answer,
+        memory: { summary: folded.summary, consumed: folded.consumed },
         confirmation: turn.confirmation,
         citations: turn.citations,
         rounds: turn.rounds,

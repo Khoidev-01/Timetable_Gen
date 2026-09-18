@@ -89,7 +89,15 @@ export default function ParetoCurve({ semesterId }: { semesterId: string }) {
           <Scatter points={sweep.points} />
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="data-table data-table--compact w-full min-w-[560px] text-sm">
+              <colgroup>
+                <col style={{ width: '24%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '13%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '18%' }} />
+              </colgroup>
               <thead>
                 <tr className="border-b border-[var(--border-default)] text-left text-xs text-[var(--text-muted)]">
                   <th className="py-2">Mức ưu tiên</th>

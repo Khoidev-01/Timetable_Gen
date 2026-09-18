@@ -387,6 +387,37 @@ describe('AlgorithmService', () => {
       expect(service.carriedOverPins(pinned, SUBJECTS)).toEqual(pinned);
     });
 
+    it('bỏ tiết ghim mà phân công hiện tại không còn (đã đổi giáo viên)', () => {
+      withRuleSubjects(service, ['CHAO_CO', 'SH_CUOI_TUAN']);
+      const pins = [
+        { subject_id: 1, class_id: '10C1', teacher_id: 'GV_CU', day: 3, period: 2 },
+        { subject_id: 1, class_id: '10C2', teacher_id: 'GV_B', day: 3, period: 2 },
+      ];
+
+      const kept = service.carriedOverPins(pins, SUBJECTS, {
+        assignments: [
+          { class_id: '10C1', subject_id: 1, teacher_id: 'GV_MOI' },
+          { class_id: '10C2', subject_id: 1, teacher_id: 'GV_B' },
+        ],
+      });
+
+      expect(kept).toEqual([pins[1]]);
+    });
+
+    it('bỏ tiết nằm ở ô quy tắc cố định (môn của GVCN), vì phase 1 dựng lại', () => {
+      withRuleSubjects(service, ['CHAO_CO', 'SH_CUOI_TUAN', 'GVCN_TEACHING']);
+      const pins = [
+        { subject_id: 1, class_id: '10C1', teacher_id: 'GV_A', day: 2, period: 2 },
+        { subject_id: 1, class_id: '10C1', teacher_id: 'GV_A', day: 4, period: 3 },
+      ];
+
+      const kept = service.carriedOverPins(pins, SUBJECTS, {
+        isRuleCell: (classId, day, period) => classId === '10C1' && day === 2 && period === 2,
+      });
+
+      expect(kept).toEqual([pins[1]]);
+    });
+
     it('trường không dùng quy tắc cố định nào thì giữ nguyên tất cả', () => {
       withRuleSubjects(service, []);
 

@@ -27,12 +27,12 @@
 <line x1="1080" y1="518" x2="1108" y2="562"/>
 </g>
 <text x="1080" y="590" text-anchor="middle" class="label">
-<tspan x="1080" dy="0">Giáo viên</tspan>
+<tspan x="1080" dy="0">Tổ trưởng / Giáo viên</tspan>
 </text>
 <ellipse cx="600" cy="150" rx="210" ry="38" fill="#eff6ff" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
 <text x="600" y="146" text-anchor="middle" class="label">
-<tspan x="600" dy="0">Đăng nhập và</tspan>
-<tspan x="600" dy="19">quản lý tài khoản</tspan>
+<tspan x="600" dy="0">Đăng nhập 2 bước</tspan>
+<tspan x="600" dy="19">và tài khoản của tôi</tspan>
 </text>
 <path d="M140,483 L390,150" fill="none" stroke="#64748b" stroke-width="1.8"/>
 <ellipse cx="600" cy="242" rx="210" ry="38" fill="#f0fdf4" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
@@ -43,47 +43,47 @@
 <path d="M140,483 L390,242" fill="none" stroke="#64748b" stroke-width="1.8"/>
 <ellipse cx="600" cy="334" rx="210" ry="38" fill="#eff6ff" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
 <text x="600" y="330" text-anchor="middle" class="label">
-<tspan x="600" dy="0">Import/Export và</tspan>
+<tspan x="600" dy="0">Nhập/xuất Excel và</tspan>
 <tspan x="600" dy="19">phân công chuyên môn</tspan>
 </text>
 <path d="M140,483 L390,334" fill="none" stroke="#64748b" stroke-width="1.8"/>
 <ellipse cx="600" cy="426" rx="210" ry="38" fill="#f0fdf4" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
 <text x="600" y="422" text-anchor="middle" class="label">
-<tspan x="600" dy="0">Cấu hình ràng buộc</tspan>
-<tspan x="600" dy="19">và tiết cố định</tspan>
+<tspan x="600" dy="0">Tổng hợp phân công tổ,</tspan>
+<tspan x="600" dy="19">phân công tự động</tspan>
 </text>
 <path d="M140,483 L390,426" fill="none" stroke="#64748b" stroke-width="1.8"/>
 <ellipse cx="600" cy="518" rx="210" ry="38" fill="#eff6ff" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
 <text x="600" y="514" text-anchor="middle" class="label">
-<tspan x="600" dy="0">Kiểm tra dữ liệu và</tspan>
-<tspan x="600" dy="19">chạy thuật toán xếp lịch</tspan>
+<tspan x="600" dy="0">Cấu hình ràng buộc,</tspan>
+<tspan x="600" dy="19">tiết cố định, ô nghỉ</tspan>
 </text>
 <path d="M140,483 L390,518" fill="none" stroke="#64748b" stroke-width="1.8"/>
 <ellipse cx="600" cy="610" rx="210" ry="38" fill="#f0fdf4" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
 <text x="600" y="606" text-anchor="middle" class="label">
-<tspan x="600" dy="0">So sánh phương án,</tspan>
-<tspan x="600" dy="19">kéo-thả và khóa tiết</tspan>
+<tspan x="600" dy="0">Kiểm tra dữ liệu và</tspan>
+<tspan x="600" dy="19">xếp thời khóa biểu</tspan>
 </text>
 <path d="M140,483 L390,610" fill="none" stroke="#64748b" stroke-width="1.8"/>
 <ellipse cx="600" cy="702" rx="210" ry="38" fill="#eff6ff" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
 <text x="600" y="698" text-anchor="middle" class="label">
-<tspan x="600" dy="0">Duyệt lịch bận,</tspan>
-<tspan x="600" dy="19">dạy thay và đổi tiết</tspan>
+<tspan x="600" dy="0">Kéo-thả, khóa tiết,</tspan>
+<tspan x="600" dy="19">công bố, mã QR</tspan>
 </text>
 <path d="M140,483 L390,702" fill="none" stroke="#64748b" stroke-width="1.8"/>
 <ellipse cx="600" cy="794" rx="210" ry="38" fill="#f0fdf4" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
 <text x="600" y="790" text-anchor="middle" class="label">
-<tspan x="600" dy="0">Công bố, xuất lịch</tspan>
-<tspan x="600" dy="19">và xem báo cáo</tspan>
+<tspan x="600" dy="0">Duyệt lịch bận,</tspan>
+<tspan x="600" dy="19">dạy thay và đổi tiết</tspan>
 </text>
 <path d="M140,483 L390,794" fill="none" stroke="#64748b" stroke-width="1.8"/>
 <ellipse cx="600" cy="886" rx="210" ry="38" fill="#eff6ff" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
 <text x="600" y="882" text-anchor="middle" class="label">
-<tspan x="600" dy="0">Theo dõi thông báo</tspan>
-<tspan x="600" dy="19">và nhật ký thay đổi</tspan>
+<tspan x="600" dy="0">Xem công bằng,</tspan>
+<tspan x="600" dy="19">quy luật ẩn, trợ lý AI</tspan>
 </text>
 <path d="M140,483 L390,886" fill="none" stroke="#64748b" stroke-width="1.8"/>
-<path d="M1048,483 L810,702" fill="none" stroke="#64748b" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/>
+<path d="M1048,483 L810,518" fill="none" stroke="#64748b" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/>
 <path d="M1048,483 L810,794" fill="none" stroke="#64748b" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/>
 <path d="M1048,483 L810,886" fill="none" stroke="#64748b" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/>
 <g transform="translate(300,1000)"><line x1="0" y1="0" x2="38" y2="0" stroke="#64748b" stroke-width="2"/><text x="48" y="5" class="small muted">Tương tác trực tiếp</text><line x1="240" y1="0" x2="278" y2="0" stroke="#64748b" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/><text x="288" y="5" class="small muted">Phối hợp/duyệt</text></g>

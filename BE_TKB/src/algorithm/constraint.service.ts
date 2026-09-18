@@ -2,7 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintSettingsService } from '../constraints/constraint-settings.service';
-import { isBlock, isOutdoor, isSessionExempt } from './subject-rules';
+import { isBlock, isOutdoor, isRequiredOpposite, isSessionExempt, isThursdayActivity } from './subject-rules';
 
 /** Môn cần đầu óc tỉnh táo, nên tránh xếp vào cuối buổi. */
 const PRIORITY_SUBJECTS = ['TOAN', 'VAN', 'NGU_VAN', 'ANH', 'TIENG_ANH'];
@@ -39,6 +39,14 @@ export const QUALITY_SCALE: Array<{ upTo: number; grade: string; label: string; 
     { upTo: 8.4, grade: 'WEAK', label: 'Yếu', meaning: 'Gần như chưa được tối ưu. Nên xếp lại.' },
     { upTo: Infinity, grade: 'POOR', label: 'Tệ', meaning: 'Chưa được tối ưu.' },
 ];
+
+/**
+ * Mã "môn" của quy tắc tiết cố định nghĩa là ô đó NGHỈ, không lớp nào học.
+ *
+ * Không phải môn thật và không có trong bảng môn học: quy tắc tiết cố định lưu mã môn dạng
+ * chuỗi, nên một mã riêng là đủ, không cần đổi cấu trúc CSDL.
+ */
+export const REST_SUBJECT_CODE = 'NGHI';
 
 export interface TimeSlot {
     id?: string;
@@ -93,6 +101,8 @@ export class ConstraintService {
     private roomsByType: Map<string, number[]> = new Map();
     // Periods the school pins before solving, loaded from fixed_period_rules
     private fixedRules: any[] = [];
+    /** Lớp -> các ô nghỉ của lớp đó, mã ô = thứ * 16 + tiết. */
+    private restCells = new Map<string, Set<number>>();
     // Map<classId, floor of its home room> and Map<RoomType, floor of that room type>
     private classFloor: Map<string, number> = new Map();
     /** Which session a class normally studies in: 0 morning, 1 afternoon. */
@@ -131,6 +141,7 @@ export class ConstraintService {
         // Taken from the main branch when the two lines of work were merged
         outdoorTiming: 10,
         blockRules: 12,
+        thursdayActivities: 18,
         // Three-level teacher requests
         teacherAvoid: 14,
         teacherPrefer: 6,
@@ -226,6 +237,20 @@ export class ConstraintService {
             orderBy: [{ sort_order: 'asc' }, { day_of_week: 'asc' }, { period: 'asc' }],
         });
 
+        // Ô nghỉ áp cho lớp thuộc khối VÀ buổi chính đã chọn, giống quy tắc môn: quản trị viên
+        // kiểm soát trọn 10 tiết của từng nhóm lớp (lớp học sáng / lớp học chiều) trên trang
+        // Tiết cố định. Quy tắc để trống buổi (dữ liệu cũ) vẫn áp cho mọi lớp.
+        for (const rule of this.fixedRules) {
+            if (rule.subject_code !== REST_SUBJECT_CODE) continue;
+            for (const c of classes) {
+                if (rule.grade_level !== null && rule.grade_level !== undefined && rule.grade_level !== c.grade_level) continue;
+                if (rule.main_session !== null && rule.main_session !== undefined && rule.main_session !== c.main_session) continue;
+                let cells = this.restCells.get(c.id);
+                if (!cells) this.restCells.set(c.id, (cells = new Set()));
+                cells.add(rule.day_of_week * 16 + rule.period);
+            }
+        }
+
         this.logger.log(
             `Loaded ${rooms.length} rooms, ${subjects.length} subjects, ` +
             `${teachers.length} teachers, ${this.assignments.length} assignments.`
@@ -256,6 +281,7 @@ export class ConstraintService {
         this.subjects = [];
         this.assignments = [];
         this.fixedRules = [];
+        this.restCells.clear();
         this.disabledHard = new Set();
     }
 
@@ -452,6 +478,7 @@ export class ConstraintService {
      */
     public getFixedRulesFor(gradeLevel: number, mainSession: number): any[] {
         return this.fixedRules.filter(rule =>
+            rule.subject_code !== REST_SUBJECT_CODE &&
             (rule.grade_level === null || rule.grade_level === gradeLevel) &&
             (rule.main_session === null || rule.main_session === mainSession));
     }
@@ -464,6 +491,21 @@ export class ConstraintService {
      */
     public fixedRuleSubjectCodes(): Set<string> {
         return new Set(this.fixedRules.map(rule => rule.subject_code));
+    }
+
+    /** Ô này là ô nghỉ của lớp đó. */
+    public isRestCell(classId: string, day: number, period: number): boolean {
+        return this.restCells.get(classId)?.has(day * 16 + period) ?? false;
+    }
+
+    /** HC: số tiết đang nằm trong ô nghỉ của chính lớp đó. */
+    public checkRestCells(schedule: TimeSlot[]): number {
+        if (this.restCells.size === 0) return 0;
+        let violations = 0;
+        for (const slot of schedule) {
+            if (this.isRestCell(slot.classId, slot.day, slot.period)) violations++;
+        }
+        return violations;
     }
 
     public hasFixedRules(): boolean {
@@ -542,6 +584,10 @@ export class ConstraintService {
         if (!this.isHardDisabled('teacherWeeklyLimit')) violations += this.checkTeacherWeeklyLimit(schedule);
         if (!this.isHardDisabled('roomTypeCapacity')) violations += this.checkRoomTypeCapacity(schedule);
         if (!this.isHardDisabled('sessionRestriction')) violations += this.checkSessionRestriction(schedule);
+        if (!this.isHardDisabled('restCells')) violations += this.checkRestCells(schedule);
+        violations += this.checkRequiredOppositeSession(schedule);
+        violations += this.checkPhysicalDefenceDifferentDays(schedule);
+        violations += this.checkSubjectMaxTwoConsecutive(schedule);
 
         return violations;
     }
@@ -686,6 +732,65 @@ export class ConstraintService {
         return violations;
     }
 
+    /** GDTC and GDQP are not merely allowed in the other session: they must be there. */
+    public checkRequiredOppositeSession(schedule: TimeSlot[]): number {
+        let violations = 0;
+        for (const slot of schedule) {
+            if (!isRequiredOpposite(this.getSubjectCode(slot.subjectId))) continue;
+            const mainSession = this.classSessionMap.get(slot.classId);
+            if (mainSession === undefined) continue;
+            if ((slot.period <= 5 ? 0 : 1) === mainSession) violations++;
+        }
+        return violations;
+    }
+
+    /** A class must not study both physical education and defence education on one day. */
+    public checkPhysicalDefenceDifferentDays(schedule: TimeSlot[]): number {
+        const perClassDay = new Map<string, { physical: boolean; defence: boolean }>();
+        for (const slot of schedule) {
+            const code = this.getSubjectCode(slot.subjectId);
+            const physical = code === 'GDTC';
+            const defence = code === 'GDQP' || code.includes('QUOC_PHONG');
+            if (!physical && !defence) continue;
+            const key = `${slot.classId}|${slot.day}`;
+            const state = perClassDay.get(key) ?? { physical: false, defence: false };
+            state.physical ||= physical;
+            state.defence ||= defence;
+            perClassDay.set(key, state);
+        }
+        return [...perClassDay.values()].filter((state) => state.physical && state.defence).length;
+    }
+
+    /** No subject may occupy more than two consecutive periods in one class session. */
+    public checkSubjectMaxTwoConsecutive(schedule: TimeSlot[]): number {
+        const groups = new Map<string, number[]>();
+        for (const slot of schedule) {
+            const session = slot.period <= 5 ? 0 : 1;
+            const key = `${slot.classId}|${slot.day}|${session}|${slot.subjectId}`;
+            const periods = groups.get(key) ?? [];
+            periods.push(slot.period);
+            groups.set(key, periods);
+        }
+
+        let violations = 0;
+        for (const periods of groups.values()) {
+            const ordered = [...new Set(periods)].sort((a, b) => a - b);
+            let run = 1;
+            for (let i = 1; i < ordered.length; i++) {
+                run = ordered[i] === ordered[i - 1] + 1 ? run + 1 : 1;
+                if (run > 2) violations++;
+            }
+        }
+        return violations;
+    }
+
+    /** Each activity period outside Thursday costs one preference violation. */
+    public checkThursdayActivities(schedule: TimeSlot[]): number {
+        return schedule.filter((slot) =>
+            isThursdayActivity(this.getSubjectCode(slot.subjectId)) && slot.day !== 5,
+        ).length;
+    }
+
     /**
      * Physical education belongs in the cool hours: first three periods of the morning,
      * last three of the afternoon. Vietnamese schools avoid the midday sun.
@@ -806,7 +911,8 @@ export class ConstraintService {
             this.checkSubjectSpacing(one) * w.subjectSpacing +
             this.checkAfternoonLoad(one) * w.afternoonOverload +
             this.checkBlockRules(one) * w.blockRules +
-            this.checkOutdoorTiming(slots) * w.outdoorTiming
+            this.checkOutdoorTiming(slots) * w.outdoorTiming +
+            this.checkThursdayActivities(slots) * w.thursdayActivities
         );
     }
 
@@ -841,6 +947,13 @@ export class ConstraintService {
         if (!this.isHardDisabled('classGaps')) {
             violations += this.checkClassGaps(slots);
         }
+        // Ô nghỉ thuộc về lớp, nên đếm theo lớp để bộ chấm tăng dần chỉ chấm lại lớp bị động
+        if (!this.isHardDisabled('restCells')) {
+            violations += this.checkRestCells(slots);
+        }
+        violations += this.checkRequiredOppositeSession(slots);
+        violations += this.checkPhysicalDefenceDifferentDays(slots);
+        violations += this.checkSubjectMaxTwoConsecutive(slots);
         return violations;
     }
 
@@ -1533,7 +1646,15 @@ export class ConstraintService {
             { key: 'teacherWeeklyLimit', label: 'Giáo viên vượt định mức tuần', count: this.checkTeacherWeeklyLimit(schedule) },
             { key: 'roomTypeCapacity', label: 'Thiếu phòng chức năng', count: this.checkRoomTypeCapacity(schedule) },
             { key: 'sessionRestriction', label: 'Lớp học sai buổi chính', count: this.checkSessionRestriction(schedule) },
-        ].map((item) => (this.isHardDisabled(item.key) ? { ...item, count: 0 } : item));
+            { key: 'restCells', label: 'Xếp tiết vào ô nghỉ', count: this.checkRestCells(schedule) },
+            { key: 'requiredOppositeSession', label: 'GDTC/GDQP không học trái buổi', count: this.checkRequiredOppositeSession(schedule) },
+            { key: 'physicalDefenceDifferentDays', label: 'GDTC và GDQP trùng ngày', count: this.checkPhysicalDefenceDifferentDays(schedule) },
+            { key: 'subjectMaxTwoConsecutive', label: 'Một môn học quá 2 tiết liên tiếp', count: this.checkSubjectMaxTwoConsecutive(schedule) },
+        ].map((item) => (
+            ['requiredOppositeSession', 'physicalDefenceDifferentDays', 'subjectMaxTwoConsecutive'].includes(item.key)
+                ? item
+                : this.isHardDisabled(item.key) ? { ...item, count: 0 } : item
+        ));
 
         let hardViolations = 0;
         for (const item of hard) {
@@ -1564,6 +1685,7 @@ export class ConstraintService {
             { label: 'Giáo viên phải leo cầu thang', count: this.checkMobilityCost(teacherSchedule), weight: w.mobility },
             { label: 'Thể dục xếp vào giờ nắng', count: this.checkOutdoorTiming(schedule), weight: w.outdoorTiming },
             { label: 'Môn nặng dồn trong một buổi', count: this.checkBlockRules(classSchedule), weight: w.blockRules },
+            { label: 'HĐTN-HN/GDĐP chưa xếp vào thứ Năm', count: this.checkThursdayActivities(schedule), weight: w.thursdayActivities },
             { label: 'Xếp vào giờ giáo viên xin tránh', count: wishes.avoidedUsed, weight: w.teacherAvoid },
         ];
 
@@ -1779,6 +1901,14 @@ export class ConstraintService {
                     .filter(Boolean) as string[],
             },
             { key: 'classGaps', label: 'Lớp bị trống tiết giữa buổi', slotIds: this.locateClassGaps(schedule) },
+            {
+                key: 'restCells',
+                label: 'Xếp tiết vào ô nghỉ',
+                slotIds: schedule
+                    .filter(s => this.isRestCell(s.classId, s.day, s.period))
+                    .map(s => s.id)
+                    .filter(Boolean) as string[],
+            },
         ];
 
         return groups

@@ -2,11 +2,16 @@
 
 import Link from 'next/link';
 import { toast } from '@/lib/toast';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import TeacherModal from '../../components/admin/TeacherModal';
 import { API_URL } from '@/lib/api';
 import { TableSkeleton, EmptyState } from '../../components/ui/States';
 import { GraduationCap } from 'lucide-react';
+import Select, { SelectOption } from '../../components/ui/Select';
+import { Pager, usePaged } from '../../components/ui/Paging';
+
+const ALL_SUBJECTS = 'ALL';
+const UNASSIGNED = 'NONE';
 
 interface Teacher {
   id: string;
@@ -18,6 +23,8 @@ interface Teacher {
   /** Leo cầu thang nặng đến đâu với riêng người này, tính theo phần mười */
   mobility_weight?: number;
   homeroom_classes?: { id: string; name: string }[];
+  /** Các môn đang dạy, lấy từ phân công giảng dạy. */
+  teaching_subjects?: { id: number; code: string; name: string }[];
 }
 
 export default function TeachersPage() {
@@ -26,6 +33,38 @@ export default function TeachersPage() {
   const [token, setToken] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+  const [subjectFilter, setSubjectFilter] = useState<string>(ALL_SUBJECTS);
+
+  // Môn lấy từ chính phân công của giáo viên; một người dạy nhiều môn thì có mặt ở mọi môn đó
+  const subjectOptions = useMemo<SelectOption[]>(() => {
+    const counts = new Map<string, { name: string; count: number }>();
+    let unassigned = 0;
+    for (const teacher of teachers) {
+      const subjects = teacher.teaching_subjects ?? [];
+      if (subjects.length === 0) unassigned++;
+      for (const subject of subjects) {
+        const key = String(subject.id);
+        const entry = counts.get(key) ?? { name: subject.name, count: 0 };
+        entry.count++;
+        counts.set(key, entry);
+      }
+    }
+    return [
+      { value: ALL_SUBJECTS, label: `Tất cả môn (${teachers.length})` },
+      ...[...counts.entries()]
+        .sort((a, b) => a[1].name.localeCompare(b[1].name, 'vi'))
+        .map(([value, entry]) => ({ value, label: `${entry.name} (${entry.count})` })),
+      ...(unassigned > 0 ? [{ value: UNASSIGNED, label: `Chưa phân công (${unassigned})` }] : []),
+    ];
+  }, [teachers]);
+
+  const activeSubject = subjectOptions.some((option) => option.value === subjectFilter) ? subjectFilter : ALL_SUBJECTS;
+  const filteredTeachers = useMemo(() => {
+    if (activeSubject === ALL_SUBJECTS) return teachers;
+    if (activeSubject === UNASSIGNED) return teachers.filter((t) => (t.teaching_subjects ?? []).length === 0);
+    return teachers.filter((t) => (t.teaching_subjects ?? []).some((subject) => String(subject.id) === activeSubject));
+  }, [teachers, activeSubject]);
+  const paged = usePaged(filteredTeachers);
 
   const fetchTeachers = async () => {
     try {
@@ -147,24 +186,50 @@ export default function TeachersPage() {
         giáo viên, lớp, tổ hợp và phân công cho cả hai học kỳ.
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm font-medium text-[var(--text-secondary)]">Môn dạy</span>
+        <Select
+          className="w-72"
+          value={activeSubject}
+          options={subjectOptions}
+          onChange={(value) => {
+            setSubjectFilter(value);
+            paged.setPage(1);
+          }}
+          searchable
+          searchPlaceholder="Tìm môn..."
+          aria-label="Lọc giáo viên theo môn dạy"
+        />
+      </div>
+
       <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)]">
-        <table className="w-full border-collapse text-left">
+        <table className="data-table w-full border-collapse text-left">
+          <colgroup>
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '17%' }} />
+            <col style={{ width: '17%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '14%' }} />
+          </colgroup>
           <thead className="border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             <tr>
-              <th className="px-6 py-3">Mã GV</th>
-              <th className="px-6 py-3">Họ và tên</th>
-              <th className="px-6 py-3">Chủ nhiệm</th>
-              <th className="px-6 py-3">Liên hệ</th>
-              <th className="px-6 py-3">Số tiết tối đa / tuần</th>
-              <th className="px-6 py-3 text-right">Thao tác</th>
+              <th className="px-6 py-3 text-center">Mã GV</th>
+              <th className="px-6 py-3 text-center">Họ và tên</th>
+              <th className="px-6 py-3 text-center">Môn dạy</th>
+              <th className="px-6 py-3 text-center">Chủ nhiệm</th>
+              <th className="px-6 py-3 text-center">Liên hệ</th>
+              <th className="px-6 py-3 text-center">Số tiết tối đa / tuần</th>
+              <th className="px-6 py-3 text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-light)] text-[var(--text-secondary)]">
             {isLoading ? (
-              <TableSkeleton rows={6} cols={6} />
+              <TableSkeleton rows={6} cols={7} />
             ) : teachers.length === 0 ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <EmptyState
                     icon={<GraduationCap size={22} strokeWidth={1.8} />}
                     title="Chưa có giáo viên nào"
@@ -172,16 +237,31 @@ export default function TeachersPage() {
                   />
                 </td>
               </tr>
+            ) : filteredTeachers.length === 0 ? (
+              <tr>
+                <td colSpan={7}>
+                  <EmptyState
+                    icon={<GraduationCap size={22} strokeWidth={1.8} />}
+                    title="Không có giáo viên nào dạy môn này"
+                    hint="Chọn môn khác hoặc Tất cả môn."
+                  />
+                </td>
+              </tr>
             ) : (
-              teachers.map((teacher, idx) => (
+              paged.visible.map((teacher, idx) => (
                 <tr key={teacher.id} style={{ animationDelay: `${idx * 30}ms` }} className="animate-rise hover:bg-[var(--bg-surface-hover)] transition-colors">
                   <td className="px-6 py-4 font-medium text-[var(--text-primary)]">{teacher.code}</td>
                   <td className="px-6 py-4 font-medium">{teacher.full_name}</td>
                   <td className="px-6 py-4 text-sm">
+                    {teacher.teaching_subjects && teacher.teaching_subjects.length > 0 ? (
+                      teacher.teaching_subjects.map((subject) => subject.name).join(', ')
+                    ) : (
+                      <span className="text-[var(--text-muted)]">Chưa phân công</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm">
                     {teacher.homeroom_classes && teacher.homeroom_classes.length > 0 ? (
-                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
-                        {teacher.homeroom_classes.map(c => c.name).join(', ')}
-                      </span>
+                      teacher.homeroom_classes.map(c => c.name).join(', ')
                     ) : (
                       <span className="text-[var(--text-muted)]">-</span>
                     )}
@@ -190,14 +270,10 @@ export default function TeachersPage() {
                     <div className="text-[var(--text-primary)]">{teacher.phone || '--'}</div>
                     <div className="text-[var(--text-muted)]">{teacher.email || '--'}</div>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="rounded bg-[var(--accent-soft)] px-2 py-1 text-xs font-bold text-[var(--accent)]">
-                      {teacher.max_periods_per_week}
-                    </span>
-                  </td>
-                  <td className="space-x-2 px-6 py-4 text-right">
-                    <button
-                      className="text-sm font-medium text-[var(--accent)] hover:text-[var(--accent-hover)]"
+                  <td className="px-6 py-4">{teacher.max_periods_per_week}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button type="button"
+                      className="row-action"
                       onClick={() => {
                         setEditingTeacher(teacher);
                         setIsModalOpen(true);
@@ -205,8 +281,8 @@ export default function TeachersPage() {
                     >
                       Sửa
                     </button>
-                    <button
-                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    <button type="button"
+                      className="row-action row-action--danger"
                       onClick={() => handleDelete(teacher.id)}
                     >
                       Xóa
@@ -217,6 +293,7 @@ export default function TeachersPage() {
             )}
           </tbody>
         </table>
+        {!isLoading && <Pager paged={paged} noun="giáo viên" label="Phân trang giáo viên" />}
       </div>
 
       <TeacherModal

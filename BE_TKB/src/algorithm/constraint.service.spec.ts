@@ -1,4 +1,4 @@
-import { ConstraintService, QUALITY_SCALE, TimeSlot } from './constraint.service';
+import { ConstraintService, QUALITY_SCALE, REST_SUBJECT_CODE, TimeSlot } from './constraint.service';
 
 const ROOMS = [
     { id: 1, name: '101', type: 'CLASSROOM', floor: 1 },
@@ -267,7 +267,11 @@ describe('ConstraintService', () => {
          * tiết được gán nhãn đẹp rồi đem ra treo lên tường.
          */
         it('dùng được là nhị phân, và chỉ lỗi cứng quyết định', () => {
-            const clean = [1, 2, 3].map((period) => slot({ period }));
+            const clean = [
+                slot({ day: 2, period: 1 }),
+                slot({ day: 2, period: 2 }),
+                slot({ day: 3, period: 1 }),
+            ];
             expect(service.getFitnessDetails(clean).quality.usable).toBe(true);
 
             // Hai tiết cùng lớp cùng giờ: một lỗi cứng
@@ -416,7 +420,11 @@ describe('ConstraintService', () => {
         });
 
         it('blocks a teacher who already reached the weekly quota', () => {
-            const schedule = [1, 2, 3].map(period => slot({ period, teacherId: 'T1' }));
+            const schedule = [
+                slot({ day: 2, period: 1, teacherId: 'T1' }),
+                slot({ day: 2, period: 2, teacherId: 'T1' }),
+                slot({ day: 3, period: 1, teacherId: 'T1' }),
+            ];
             expect(service.isTeacherAtWeeklyLimit('T1', schedule)).toBe(true);
             expect(service.isTeacherAtWeeklyLimit('T2', schedule)).toBe(false);
         });
@@ -528,6 +536,142 @@ describe('ConstraintService', () => {
         });
     });
 
+    describe('ô nghỉ ghim ở trang Tiết cố định', () => {
+        /**
+         * Dựng lại dịch vụ với một quy tắc "Nghỉ - không học" ở thứ 3 tiết 2, áp cho mọi khối,
+         * cho lớp học buổi sáng (main_session 0) trừ khi test truyền buổi khác.
+         */
+        async function withRestRule(mainSession: number | null = 0): Promise<ConstraintService> {
+            const prisma: any = {
+                room: { findMany: jest.fn().mockResolvedValue(ROOMS) },
+                subject: { findMany: jest.fn().mockResolvedValue(SUBJECTS) },
+                teacher: { findMany: jest.fn().mockResolvedValue(TEACHERS) },
+                teachingAssignment: { findMany: jest.fn().mockResolvedValue(ASSIGNMENTS) },
+                fixedPeriodRule: {
+                    findMany: jest.fn().mockResolvedValue([
+                        { id: 'r1', name: 'Nghỉ', subject_code: REST_SUBJECT_CODE, day_of_week: 3, period: 2, grade_level: null, main_session: mainSession, teacher_rule: 'ASSIGNED', is_locked: true, is_active: true, sort_order: 1 },
+                    ]),
+                },
+                // C1, C2 học chính buổi sáng; C3 học chính buổi chiều
+                class: { findMany: jest.fn().mockResolvedValue(CLASSES.map((c, i) => ({ ...c, main_session: i === 2 ? 1 : 0 }))) },
+            };
+            const restService = new ConstraintService(prisma, defaultSettings());
+            await restService.initialize('semester-1');
+            return restService;
+        }
+
+        it('một tiết nằm trong ô nghỉ là một lỗi cứng, ô bên cạnh thì không', async () => {
+            const rest = await withRestRule();
+
+            // So chênh lệch: dữ liệu mẫu còn lỗi thiếu tiết ở cả hai trường hợp
+            const inRest = rest.checkHardConstraints([slot({ day: 3, period: 2 })]);
+            const beside = rest.checkHardConstraints([slot({ day: 3, period: 3 })]);
+            expect(inRest - beside).toBe(1);
+            expect(rest.checkRestCells([slot({ day: 3, period: 3 })])).toBe(0);
+        });
+
+        /**
+         * Vòng tìm kiếm dùng bộ chấm tăng dần, chấm lại từng lớp. Nếu ô nghỉ chỉ có trong bộ chấm
+         * đầy đủ, vòng tìm kiếm sẽ không thấy nó và vui vẻ dời tiết vào ô nghỉ.
+         */
+        it('bộ chấm theo lớp thấy đúng lỗi ấy', async () => {
+            const rest = await withRestRule();
+            const inRest = rest.classHardViolations([slot({ day: 3, period: 2 })]);
+            const beside = rest.classHardViolations([slot({ day: 3, period: 3 })]);
+
+            expect(inRest - beside).toBe(1);
+        });
+
+        it('chỉ áp cho lớp học chính buổi đã chọn; để trống buổi thì áp cho mọi lớp', async () => {
+            const morningOnly = await withRestRule(0);
+            expect(morningOnly.isRestCell('C2', 3, 2)).toBe(true);
+            expect(morningOnly.isRestCell('C3', 3, 2)).toBe(false);
+
+            const afternoonOnly = await withRestRule(1);
+            expect(afternoonOnly.isRestCell('C2', 3, 2)).toBe(false);
+            expect(afternoonOnly.isRestCell('C3', 3, 2)).toBe(true);
+
+            const everyone = await withRestRule(null);
+            expect(everyone.isRestCell('C2', 3, 2)).toBe(true);
+            expect(everyone.isRestCell('C3', 3, 2)).toBe(true);
+        });
+
+        it('quy tắc nghỉ không sinh ra tiết nào ở bước dựng tiết cố định', async () => {
+            const rest = await withRestRule();
+
+            expect(rest.getFixedRulesFor(10, 0).some((rule) => rule.subject_code === REST_SUBJECT_CODE)).toBe(false);
+        });
+    });
+
+    describe('quy tắc happy case của dữ liệu mẫu', () => {
+        let rules: ConstraintService;
+
+        beforeEach(async () => {
+            const prisma: any = {
+                room: { findMany: jest.fn().mockResolvedValue(ROOMS) },
+                subject: {
+                    findMany: jest.fn().mockResolvedValue([
+                        ...SUBJECTS,
+                        { id: 4, code: 'GDQP', name: 'Quốc phòng', is_practice: false, is_special: false },
+                        { id: 5, code: 'HDTN', name: 'Trải nghiệm', is_practice: false, is_special: false },
+                        { id: 6, code: 'GDDP', name: 'Địa phương', is_practice: false, is_special: false },
+                    ]),
+                },
+                teacher: { findMany: jest.fn().mockResolvedValue(TEACHERS) },
+                teachingAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+                fixedPeriodRule: { findMany: jest.fn().mockResolvedValue([]) },
+                class: {
+                    findMany: jest.fn().mockResolvedValue([
+                        { ...CLASSES[0], main_session: 0 },
+                        { ...CLASSES[1], main_session: 1 },
+                    ]),
+                },
+            };
+            rules = new ConstraintService(prisma, defaultSettings());
+            await rules.initialize('semester-1');
+        });
+
+        it('bắt GDTC/GDQP học trái buổi của lớp', () => {
+            expect(rules.checkRequiredOppositeSession([
+                slot({ classId: 'C1', subjectId: 3, period: 8 }),
+                slot({ classId: 'C2', subjectId: 4, period: 2 }),
+            ])).toBe(0);
+
+            expect(rules.checkRequiredOppositeSession([
+                slot({ classId: 'C1', subjectId: 3, period: 2 }),
+                slot({ classId: 'C2', subjectId: 4, period: 8 }),
+            ])).toBe(2);
+        });
+
+        it('không cho GDTC và GDQP của một lớp trùng ngày', () => {
+            const sameDay = [
+                slot({ subjectId: 3, day: 3, period: 8 }),
+                slot({ subjectId: 4, day: 3, period: 10 }),
+            ];
+            const differentDays = [sameDay[0], slot({ subjectId: 4, day: 4, period: 10 })];
+
+            expect(rules.checkPhysicalDefenceDifferentDays(sameDay)).toBe(1);
+            expect(rules.checkPhysicalDefenceDifferentDays(differentDays)).toBe(0);
+        });
+
+        it('cho phép hai nhưng cấm ba tiết cùng môn liên tiếp trong một buổi', () => {
+            expect(rules.checkSubjectMaxTwoConsecutive([1, 2].map((period) => slot({ period })))).toBe(0);
+            expect(rules.checkSubjectMaxTwoConsecutive([1, 2, 3].map((period) => slot({ period })))).toBe(1);
+            expect(rules.checkSubjectMaxTwoConsecutive([4, 5, 6].map((period) => slot({ period })))).toBe(0);
+        });
+
+        it('chỉ phạt HĐTN-HN và GDĐP khi không ở thứ Năm', () => {
+            expect(rules.checkThursdayActivities([
+                slot({ subjectId: 5, day: 5 }),
+                slot({ subjectId: 6, day: 5 }),
+            ])).toBe(0);
+            expect(rules.checkThursdayActivities([
+                slot({ subjectId: 5, day: 4 }),
+                slot({ subjectId: 6, day: 6 }),
+            ])).toBe(2);
+        });
+    });
+
     describe('locateSoftHotspots', () => {
         /**
          * Danh sách nghi phạm chỉ đáng tin khi nó dùng LẠI đúng định nghĩa của hàm chấm
@@ -625,7 +769,11 @@ describe('ConstraintService', () => {
         });
 
         it('reports a fully satisfied schedule as valid', () => {
-            const schedule = [1, 2, 3].map(period => slot({ period, teacherId: 'T1' }));
+            const schedule = [
+                slot({ day: 2, period: 1, teacherId: 'T1' }),
+                slot({ day: 2, period: 2, teacherId: 'T1' }),
+                slot({ day: 3, period: 1, teacherId: 'T1' }),
+            ];
             const result = service.getFitnessDetails(schedule);
 
             expect(result.hardViolations).toBe(0);

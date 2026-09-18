@@ -14,6 +14,7 @@ interface Slot {
   teacherId: string;
   teacherName?: string;
   roomName?: string;
+  roomLabel?: string;
   day: number;
   period: number;
 }
@@ -190,7 +191,7 @@ function WeeklySheet({ schoolName, semesterLabel, target, selectedName, weekNumb
                 {DAYS.map((day) => {
                   const slot = at(day, period);
                   const subjectName = slot?.subject?.name ?? slot?.subjectName;
-                  return <td key={day} className={slot ? 'has-slot' : ''}>{slot && <div className="weekly-cell"><strong>{subjectName === 'Giáo dục quốc phòng và an ninh' ? <>Giáo dục<br />quốc phòng và an ninh</> : subjectName}</strong><span>{target === 'CLASS' ? slot.teacherName : slot.className}</span>{slot.roomName && <small>{slot.roomName}</small>}</div>}</td>;
+                  return <td key={day} className={slot ? 'has-slot' : ''}>{slot && <div className="weekly-cell"><strong>{subjectName === 'Giáo dục quốc phòng và an ninh' ? <>Giáo dục<br />quốc phòng và an ninh</> : subjectName}</strong><span>{target === 'CLASS' ? slot.teacherName : slot.className}</span>{(slot.roomLabel || slot.roomName) && <small>{slot.roomLabel || slot.roomName}</small>}</div>}</td>;
                 })}
               </tr>
             </Fragment>

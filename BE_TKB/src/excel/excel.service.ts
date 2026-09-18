@@ -21,8 +21,22 @@ import {
   normalizeKey,
   resetBodyRowIndex,
 } from './excel.utils';
+import { isPairedPeriodType } from '../assignments/theory-practice';
 
 type PrismaTx = Prisma.TransactionClient;
+
+/** "Tổ trưởng" -> TT, "Tổ phó" -> TP, còn lại là giáo viên (GV). */
+export function parsePosition(value: string): string {
+  const key = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+  if (key === 'tt' || key.startsWith('totruong')) return 'TT';
+  if (key === 'tp' || key.startsWith('topho')) return 'TP';
+  return 'GV';
+}
 
 interface WorkbookMessage {
   sheet: string;
@@ -51,6 +65,8 @@ interface TeacherImportRow {
   reduction: number;
   effectiveLoad: number;
   homeroomClass?: string;
+  /** GV, TT (tổ trưởng), TP (tổ phó) */
+  position: string;
   phone?: string;
   email?: string;
   notes?: string;
@@ -725,6 +741,8 @@ export class ExcelService {
       });
     });
 
+    this.validatePairedTeachers(preparedAssignments, errors);
+
     if (errors.length > 0) {
       throw new BadRequestException({
         summary: null,
@@ -737,6 +755,40 @@ export class ExcelService {
       warnings,
       preparedAssignments,
     };
+  }
+
+  /**
+   * Lý thuyết và thực hành của một môn ở một lớp phải do cùng một giáo viên dạy, trong từng học kỳ.
+   */
+  private validatePairedTeachers(rows: PreparedAssignmentRow[], errors: WorkbookMessage[]) {
+    const firstSeen = new Map<string, { teacherCode: string; rowNumber: number; periodType: PeriodType }>();
+    const label = (type: PeriodType) => (type === PeriodType.PRACTICE ? 'thực hành' : 'lý thuyết');
+
+    for (const row of rows) {
+      if (!isPairedPeriodType(row.periodType)) continue;
+      const terms = [
+        ['1', row.hk1],
+        ['2', row.hk2],
+      ] as const;
+      for (const [term, part] of terms) {
+        if (!part) continue;
+        const key = `${normalizeKey(row.className)}:${row.subjectCode}:${term}`;
+        const seen = firstSeen.get(key);
+        if (!seen) {
+          firstSeen.set(key, { teacherCode: part.teacherCode, rowNumber: row.rowNumber, periodType: row.periodType });
+          continue;
+        }
+        if (seen.periodType !== row.periodType && seen.teacherCode !== part.teacherCode) {
+          errors.push({
+            sheet: WORKBOOK_SHEET_NAMES.assignments,
+            row: row.rowNumber,
+            column: `GV_HK${term}_Mã`,
+            code: `theory_practice_teacher_mismatch_hk${term}`,
+            message: `Lớp ${row.className}, môn ${row.subjectName} HK${term}: phần ${label(row.periodType)} giao cho ${part.teacherCode} nhưng phần ${label(seen.periodType)} (dòng ${seen.rowNumber}) giao cho ${seen.teacherCode}. Lý thuyết và thực hành phải cùng một giáo viên.`,
+          });
+        }
+      }
+    }
   }
 
   private async upsertTeachers(
@@ -752,6 +804,9 @@ export class ExcelService {
         code: teacher.code,
         full_name: teacher.fullName,
         department: teacher.department || null,
+        // Môn chính của giáo viên: phân công tự động và các quy tắc kiêm nhiệm dựa vào nó
+        major_subject: teacher.majorSubject || null,
+        position: teacher.position,
         status: teacher.status,
         workload_reduction: teacher.reduction,
         max_periods_per_week: teacher.effectiveLoad,
@@ -1381,6 +1436,7 @@ export class ExcelService {
         reduction,
         effectiveLoad: resolvedEffective,
         homeroomClass: this.readString(row, config.columns.homeroomClass) || undefined,
+        position: parsePosition(this.readString(row, config.columns.position)),
         phone: this.readString(row, config.columns.phone) || undefined,
         email: this.readString(row, config.columns.email) || undefined,
         notes: this.readString(row, config.columns.notes),

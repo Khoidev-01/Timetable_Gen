@@ -152,7 +152,7 @@ export default function TeacherDashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{s.subjectName}</p>
-                      <p className="text-xs text-[var(--text-muted)]">Lớp {s.className}{s.roomName ? ` · ${s.roomName}` : ''}</p>
+                      <p className="text-xs text-[var(--text-muted)]">Lớp {s.className}{s.roomLabel || s.roomName ? ` · ${s.roomLabel ?? `Phòng ${s.roomName}`}` : ''}</p>
                     </div>
                   </div>
                 ))}

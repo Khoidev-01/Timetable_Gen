@@ -7,6 +7,7 @@ import { API_URL } from '@/lib/api';
 import { TableSkeleton, EmptyState } from '../../components/ui/States';
 import { ClipboardList } from 'lucide-react';
 import Select, { type SelectOption } from '@/app/components/ui/Select';
+import { Pager, usePaged } from '@/app/components/ui/Paging';
 
 interface Semester {
   id: string;
@@ -252,6 +253,17 @@ export default function AssignmentsPage() {
     setIsDirty(true);
 
     if (editingAssignment) {
+      // Lý thuyết và thực hành cùng môn, cùng lớp do một giáo viên dạy: đổi người ở phần này thì
+      // phần kia đổi theo (máy chủ cũng giữ quy tắc này khi lưu)
+      const isPaired = (type?: string) => type === 'THEORY' || type === 'PRACTICE';
+      const pairsWithEdited = (item: Assignment) =>
+        item.id !== editingAssignment.id &&
+        isPaired(editingAssignment.period_type) &&
+        isPaired(item.period_type) &&
+        item.class_id === data.class_id &&
+        item.subject_id === data.subject_id &&
+        item.teacher_id !== data.teacher_id;
+
       setAssignments((previous) =>
         previous.map((item) =>
           item.id === editingAssignment.id
@@ -266,7 +278,14 @@ export default function AssignmentsPage() {
                 subject: data.subject ?? item.subject,
                 isModified: !item.isNew,
               }
-            : item,
+            : pairsWithEdited(item)
+              ? {
+                  ...item,
+                  teacher_id: data.teacher_id,
+                  teacher: data.teacher ?? item.teacher,
+                  isModified: !item.isNew,
+                }
+              : item,
         ),
       );
     } else {
@@ -534,6 +553,7 @@ export default function AssignmentsPage() {
       : gradeAssignments.filter((assignment) => assignment.class?.name?.trim() === effectiveSelectedClass),
     [effectiveSelectedClass, gradeAssignments],
   );
+  const paged = usePaged(visibleAssignments);
 
   return (
     <div className="space-y-6 pb-20">
@@ -578,9 +598,12 @@ export default function AssignmentsPage() {
         <div className="flex flex-col gap-1 text-sm">
           <span className="text-[var(--text-muted)]">Đang xem</span>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <strong className="font-semibold text-[var(--text-primary)]">
-              {activeYear?.name} {currentSemester ? `- ${currentSemester.name}` : ''}
-            </strong>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
+              <dt className="text-[var(--text-secondary)]">Năm học:</dt>
+              <dd className="font-semibold text-[var(--text-primary)]">{activeYear?.name || '-'}</dd>
+              <dt className="text-[var(--text-secondary)]">Học kỳ:</dt>
+              <dd className="font-semibold text-[var(--text-primary)]">{currentSemester?.name || '-'}</dd>
+            </dl>
             {isDirty && (
               <span className="font-semibold text-amber-600">(Có thay đổi chưa lưu)</span>
             )}
@@ -647,6 +670,7 @@ export default function AssignmentsPage() {
                     onClick={() => {
                       setSelectedGrade(grade);
                       setSelectedClass('ALL');
+                      paged.setPage(1);
                     }}
                     className={`min-h-11 rounded-md px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${isSelected ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]'}`}
                   >
@@ -669,7 +693,10 @@ export default function AssignmentsPage() {
                 type="button"
                 role="tab"
                 aria-selected={effectiveSelectedClass === 'ALL'}
-                onClick={() => setSelectedClass('ALL')}
+                onClick={() => {
+                  setSelectedClass('ALL');
+                  paged.setPage(1);
+                }}
                 className={`min-h-9 rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${effectiveSelectedClass === 'ALL' ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)]'}`}
               >
                 Tất cả lớp
@@ -682,7 +709,10 @@ export default function AssignmentsPage() {
                     type="button"
                     role="tab"
                     aria-selected={isSelected}
-                    onClick={() => setSelectedClass(className)}
+                    onClick={() => {
+                      setSelectedClass(className);
+                      paged.setPage(1);
+                    }}
                     className={`min-h-9 rounded-md border px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${isSelected ? 'border-[var(--accent)] bg-[var(--accent)] text-white' : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)]'}`}
                   >
                     {className}<span className="ml-1.5 text-xs opacity-75">{count}</span>
@@ -692,7 +722,20 @@ export default function AssignmentsPage() {
             </div>
           </div>
         </div>
-        <table className="w-full border-collapse text-left">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--border-light)] px-4 py-3 text-sm text-[var(--text-secondary)]" aria-label="Chú thích nhãn loại tiết">
+          <span className="font-semibold text-[var(--text-primary)]">Chú thích:</span>
+          <span><span className="mr-1.5 rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-sm font-bold text-[var(--accent)]">LT</span>Tiết lý thuyết</span>
+          <span><span className="mr-1.5 rounded bg-orange-100 px-1.5 py-0.5 text-sm font-bold text-orange-700">TH</span>Tiết thực hành</span>
+          <span><span className="mr-1.5 rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-sm font-bold text-[var(--accent)]">ĐB</span>Tiết đặc biệt: chào cờ, sinh hoạt, chuyên đề</span>
+        </div>
+        <table className="data-table w-full border-collapse text-left">
+          <colgroup>
+            <col style={{ width: '28%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '28%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '16%' }} />
+          </colgroup>
           <thead className="border-b border-[var(--border-default)] bg-[var(--bg-surface-hover)] font-semibold text-[var(--text-primary)]">
             <tr>
               <th className="px-6 py-4">Giáo viên</th>
@@ -718,7 +761,7 @@ export default function AssignmentsPage() {
                 </td>
               </tr>
             ) : (
-              visibleAssignments.map((assignment) => (
+              paged.visible.map((assignment) => (
                 <tr
                   key={assignment.id}
                   className={
@@ -745,14 +788,10 @@ export default function AssignmentsPage() {
                       <span className="ml-2 rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent)]">LT</span>
                     )}
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="rounded bg-[var(--accent-soft)] px-2 py-1 text-xs font-bold text-[var(--accent)]">
-                      {assignment.total_periods}
-                    </span>
-                  </td>
-                  <td className="space-x-2 px-6 py-4 text-right">
-                    <button
-                      className="text-sm font-medium text-[var(--accent)] hover:text-[var(--accent-hover)]"
+                  <td className="px-6 py-4 text-center">{assignment.total_periods}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button type="button"
+                      className="row-action"
                       onClick={() => {
                         setEditingAssignment(assignment);
                         setIsAddModalOpen(true);
@@ -760,8 +799,8 @@ export default function AssignmentsPage() {
                     >
                       Sửa
                     </button>
-                    <button
-                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                    <button type="button"
+                      className="row-action row-action--danger"
                       onClick={() => handleLocalDelete(assignment.id)}
                     >
                       Xóa
@@ -772,6 +811,7 @@ export default function AssignmentsPage() {
             )}
           </tbody>
         </table>
+        {!isLoading && <Pager paged={paged} noun="phân công" label="Phân trang phân công" />}
       </div>
 
       {isDirty && (
@@ -1113,7 +1153,14 @@ export default function AssignmentsPage() {
                 <div>
                   <h3 className="font-semibold text-[var(--text-primary)] mb-2">👩‍🏫 Thống kê giảng dạy GV</h3>
                   <div className="max-h-60 overflow-y-auto rounded-lg border border-[var(--border-default)]">
-                    <table className="w-full text-sm">
+                    <table className="data-table data-table--compact w-full text-sm">
+                      <colgroup>
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '40%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '15%' }} />
+                      </colgroup>
                       <thead className="sticky top-0 bg-[var(--bg-surface-hover)]">
                         <tr>
                           <th className="px-3 py-2 text-left">Mã GV</th>

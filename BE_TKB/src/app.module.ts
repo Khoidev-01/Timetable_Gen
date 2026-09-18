@@ -25,6 +25,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { NotificationModule } from './notifications/notification.module';
 import { AutoAssignModule } from './auto-assign/auto-assign.module';
 import { BusyScheduleModule } from './busy-schedule/busy-schedule.module';
+import { DepartmentAssignmentsModule } from './department-assignments/department-assignments.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { BusyScheduleModule } from './busy-schedule/busy-schedule.module';
     NotificationModule,
     AutoAssignModule,
     BusyScheduleModule,
+    DepartmentAssignmentsModule,
   ],
   controllers: [AppController],
   providers: [

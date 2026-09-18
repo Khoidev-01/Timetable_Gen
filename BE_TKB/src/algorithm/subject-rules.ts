@@ -36,6 +36,12 @@ export const OPPOSITE_ALLOWED_CODES = ['GDTC', 'GDQP', 'QUOC_PHONG', 'HDTN', 'GD
  */
 export const OUTDOOR_CODES = ['GDTC', 'GDQP', 'QUOC_PHONG'] as const;
 
+/** Subjects that must be taught in the half-day opposite the class's main session. */
+export const REQUIRED_OPPOSITE_CODES = ['GDTC', 'GDQP', 'QUOC_PHONG'] as const;
+
+/** Activities the school prefers to concentrate on Thursday. */
+export const THURSDAY_ACTIVITY_CODES = ['HDTN', 'GDDP'] as const;
+
 /**
  * Special activity subjects that bypass the session check entirely
  * (placed by Phase 1 fixed-slot logic).
@@ -50,6 +56,8 @@ export const isBlock = (code: string) => includesAny(code, BLOCK_CODES);
 export const isPriority = (code: string) => includesAny(code, PRIORITY_CODES);
 export const isOppositeAllowed = (code: string) => includesAny(code, OPPOSITE_ALLOWED_CODES);
 export const isOutdoor = (code: string) => includesAny(code, OUTDOOR_CODES);
+export const isRequiredOpposite = (code: string) => includesAny(code, REQUIRED_OPPOSITE_CODES);
+export const isThursdayActivity = (code: string) => includesAny(code, THURSDAY_ACTIVITY_CODES);
 export const isSpecialBypass = (code: string) => includesAny(code, SPECIAL_BYPASS_CODES);
 
 /**

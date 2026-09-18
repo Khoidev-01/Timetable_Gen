@@ -290,27 +290,36 @@ export class AutoAssignService {
     const teacherClasses = new Map<string, Set<string>>();
     teachers.forEach(t => teacherClasses.set(t.code, new Set()));
 
-    // Sort demands: harder to fill first (fewer eligible teachers → higher priority)
-    const demandWithEligible = demands.map(d => {
+    // Lý thuyết và thực hành cùng môn, cùng lớp là một phần việc: giao cả khối cho một giáo viên
+    const units = new Map<string, ClassDemand[]>();
+    for (const d of demands) {
+      // Skip special activities (Chào cờ, SH cuối tuần)
+      if (d.periodType === PeriodType.SPECIAL) continue;
+      const key = `${d.classId}:${d.subjectCode}`;
+      units.set(key, [...(units.get(key) ?? []), d]);
+    }
+
+    // Sort units: harder to fill first (fewer eligible teachers → higher priority)
+    const unitsWithEligible = [...units.values()].map(parts => {
+      const d = parts[0];
       const eligible = teachers.filter(t =>
         t.majorSubject === d.subjectCode &&
         t.teachableGrades.includes(d.gradeLevel) &&
         t.effectiveLoad > 0,
       );
-      return { demand: d, eligibleCount: eligible.length };
+      return { parts, periodsNeeded: parts.reduce((n, p) => n + p.periodsNeeded, 0), eligibleCount: eligible.length };
     });
-    demandWithEligible.sort((a, b) => a.eligibleCount - b.eligibleCount);
+    unitsWithEligible.sort((a, b) => a.eligibleCount - b.eligibleCount);
 
     // Assign
-    for (const { demand } of demandWithEligible) {
-      // Skip special activities (Chào cờ, SH cuối tuần)
-      if (demand.periodType === PeriodType.SPECIAL) continue;
+    for (const { parts, periodsNeeded } of unitsWithEligible) {
+      const demand = parts[0];
 
       const candidates = teachers
         .filter(t =>
           t.majorSubject === demand.subjectCode &&
           t.teachableGrades.includes(demand.gradeLevel) &&
-          (teacherLoad.get(t.code) ?? 0) + demand.periodsNeeded <= t.effectiveLoad,
+          (teacherLoad.get(t.code) ?? 0) + periodsNeeded <= t.effectiveLoad,
         )
         .map(t => {
           const currentLoad = teacherLoad.get(t.code) ?? 0;
@@ -324,7 +333,7 @@ export class AutoAssignService {
           if (classes.has(demand.className)) score += 30;
 
           // Prefer teacher with more remaining capacity
-          score += (t.effectiveLoad - currentLoad - demand.periodsNeeded);
+          score += (t.effectiveLoad - currentLoad - periodsNeeded);
 
           // Prefer fewer total classes (less fragmented)
           score -= classes.size * 2;
@@ -335,13 +344,15 @@ export class AutoAssignService {
 
       if (candidates.length > 0) {
         const best = candidates[0].teacher;
-        demand.assignedTeacherCode = best.code;
-        demand.assignedTeacherName = best.fullName;
-        teacherLoad.set(best.code, (teacherLoad.get(best.code) ?? 0) + demand.periodsNeeded);
+        for (const part of parts) {
+          part.assignedTeacherCode = best.code;
+          part.assignedTeacherName = best.fullName;
+        }
+        teacherLoad.set(best.code, (teacherLoad.get(best.code) ?? 0) + periodsNeeded);
         teacherClasses.get(best.code)?.add(demand.className);
       } else {
         warnings.push(
-          `Không tìm được GV cho: ${demand.className} - ${demand.subjectName} (${demand.periodsNeeded} tiết)`,
+          `Không tìm được GV cho: ${demand.className} - ${parts.map(p => p.subjectName).join(' + ')} (${periodsNeeded} tiết)`,
         );
       }
     }

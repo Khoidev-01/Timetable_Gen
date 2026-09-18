@@ -392,6 +392,11 @@ Hiển thị ở header của cả admin layout và teacher layout.
 - Thứ 7 / Tiết 5 → Sinh hoạt lớp
 - GDĐP, HĐTN → vị trí cố định theo cấu hình
 
+**Quy tắc theo môn:**
+- HĐTN-HN và GDĐP được ưu tiên xếp vào thứ Năm (ràng buộc mềm)
+- GDTC và GDQP phải học trái buổi chính của lớp, đồng thời không được xếp cùng ngày cho một lớp (ràng buộc cứng)
+- Trong cùng một buổi, mỗi môn của một lớp được xếp tối đa 2 tiết liên tiếp (ràng buộc cứng)
+
 ### Scoring
 
 ```

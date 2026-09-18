@@ -20,6 +20,7 @@ interface ScheduleSlot {
     roomId?: string;
     room?: { name: string };
     roomName?: string; // Backend returns this
+    roomLabel?: string; // "Phòng 101", "Phòng Lab Vật lý 301", "Sân trường"
     day: number;
     period: number;
     session: number; // 0: Morning, 1: Afternoon
@@ -78,9 +79,9 @@ const SlotContent = ({ slot, viewMode, isOverlay = false }: { slot: ScheduleSlot
             <span className="text-[11px] text-gray-700 font-semibold leading-tight text-center mt-0.5">
                 {viewMode === 'CLASS' ? (slot.teacher?.full_name || slot.teacherName || slot.teacherId) : (slot.class?.name || slot.className || slot.classId)}
             </span>
-            {(slot.room?.name || slot.roomName) && (
-                <span className="text-[10px] bg-white/60 text-black px-1.5 rounded-full border border-black/10 shadow-sm mt-0.5 font-mono">
-                    {slot.room?.name || slot.roomName}
+            {(slot.roomLabel || slot.room?.name || slot.roomName) && (
+                <span className="text-[10px] bg-white/60 text-black px-1.5 rounded-full border border-black/10 shadow-sm mt-0.5 font-medium text-center leading-tight">
+                    {slot.roomLabel || slot.room?.name || slot.roomName}
                 </span>
             )}
         </div>

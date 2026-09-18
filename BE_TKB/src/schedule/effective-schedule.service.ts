@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { formatRoomLabel } from './room-label';
 import { OverlayType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -14,6 +15,8 @@ export interface EffectivePeriod {
   teacherId: string;
   teacherName: string;
   roomName?: string;
+  /** "Phòng 101", "Phòng Lab Vật lý 301", "Sân trường" */
+  roomLabel?: string;
   /** Set when an overlay changed this period on this date. */
   change?: {
     type: OverlayType;
@@ -112,6 +115,7 @@ export class EffectiveScheduleService {
         teacherId: slot.teacher_id,
         teacherName: slot.teacher?.full_name ?? '',
         roomName: slot.room?.name,
+        roomLabel: formatRoomLabel(slot.room, slot.subject.code),
       }));
 
     // Lower priority first, so a later overlay can override an earlier decision
@@ -209,6 +213,55 @@ export class EffectiveScheduleService {
     const teacherNames = [...new Set(day.periods.map((p) => p.teacherName))].sort();
 
     return { ...day, periods, timetableName: timetable.name, classNames, teacherNames };
+  }
+
+  /**
+   * Thời khóa biểu đã xếp của cả tuần, theo mã liên kết công khai: đây là thứ giáo viên muốn
+   * thấy khi quét QR trên bảng tin. Luôn đọc bản chính thức của học kỳ, nên công bố bản mới
+   * thì liên kết cũ tự hiện bản mới.
+   */
+  async weekByPublicToken(token: string, filter?: { className?: string; teacherName?: string }) {
+    const linked = await this.prisma.generatedTimetable.findUnique({
+      where: { public_token: token },
+      select: { semester_id: true },
+    });
+    if (!linked) throw new NotFoundException('Liên kết không hợp lệ hoặc đã bị thu hồi.');
+
+    const timetable = await this.prisma.generatedTimetable.findFirst({
+      where: { semester_id: linked.semester_id, is_official: true },
+      orderBy: { created_at: 'desc' },
+      include: {
+        semester: { include: { academic_year: true } },
+        slots: { include: { class: true, subject: true, teacher: true, room: true }, orderBy: [{ day: 'asc' }, { period: 'asc' }] },
+      },
+    });
+    if (!timetable) throw new NotFoundException('Học kỳ này chưa công bố thời khóa biểu chính thức.');
+
+    const firstWeek = Math.min(...timetable.slots.map((s) => s.week ?? 1));
+    const all = timetable.slots.filter((s) => (s.week ?? 1) === firstWeek);
+    const classNames = [...new Set(all.map((s) => s.class.name))].sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }));
+    const teacherNames = [...new Set(all.map((s) => s.teacher?.full_name).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'vi'));
+
+    const slots = all
+      .filter((s) => (!filter?.className || s.class.name === filter.className) && (!filter?.teacherName || s.teacher?.full_name === filter.teacherName))
+      .map((s) => ({
+        day: s.day,
+        period: s.period,
+        className: s.class.name,
+        subjectName: s.subject.name,
+        subjectCode: s.subject.code,
+        teacherName: s.teacher?.full_name ?? '',
+        roomLabel: formatRoomLabel(s.room, s.subject.code),
+      }));
+
+    return {
+      timetableName: timetable.name,
+      semesterName: timetable.semester.name,
+      schoolYear: timetable.semester.academic_year.name,
+      classNames,
+      teacherNames,
+      slots,
+    };
   }
 
   async listOverlays(semesterId: string) {

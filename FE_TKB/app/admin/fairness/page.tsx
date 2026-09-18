@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, Scale, TriangleAlert } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { RefreshCw, Scale, Search } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 import ParetoCurve from '../../components/admin/ParetoCurve';
+import { FilterChips, Pager, usePaged } from '../../components/ui/Paging';
 
 interface TeacherQuality {
   teacherId: string;
@@ -28,18 +29,43 @@ interface FairnessReport {
   summary: { best: number; worst: number; median: number; spread: number };
 }
 
-/** What the coefficient means in the only terms a head teacher cares about. */
-function readGini(gini: number): { label: string; tone: string } {
-  if (gini < 0.1) return { label: 'Rất đồng đều', tone: 'text-emerald-600' };
-  if (gini < 0.2) return { label: 'Khá đồng đều', tone: 'text-emerald-600' };
-  if (gini < 0.3) return { label: 'Có chênh lệch đáng kể', tone: 'text-amber-600' };
-  return { label: 'Chênh lệch lớn', tone: 'text-red-600' };
+type BandKey = 'GOOD' | 'FAIR' | 'AVERAGE' | 'POOR';
+
+/**
+ * Bốn mức lịch của một giáo viên (điểm 0-100 so với khối lượng dạy của chính họ).
+ * Mức nào cũng có màu riêng để thanh phân bố đọc được ngay mà không cần nhìn số.
+ */
+const BANDS: Array<{ key: BandKey; label: string; range: string; min: number; bar: string; text: string }> = [
+  { key: 'GOOD', label: 'Tốt', range: 'từ 80 điểm', min: 80, bar: 'bg-emerald-500', text: 'text-emerald-700' },
+  { key: 'FAIR', label: 'Khá', range: '70-79 điểm', min: 70, bar: 'bg-sky-500', text: 'text-sky-700' },
+  { key: 'AVERAGE', label: 'Trung bình', range: '60-69 điểm', min: 60, bar: 'bg-amber-500', text: 'text-amber-700' },
+  { key: 'POOR', label: 'Cần xem lại', range: 'dưới 60 điểm', min: 0, bar: 'bg-red-500', text: 'text-red-700' },
+];
+
+const bandOf = (quality: number) => BANDS.find((band) => quality >= band.min)!;
+
+/** Kết luận bằng lời cho hệ số Gini - người đọc không cần biết Gini là gì. */
+function verdict(gini: number): { title: string; tone: string } {
+  if (gini < 0.1) return { title: 'Phần bất tiện được chia rất đồng đều', tone: 'text-emerald-700' };
+  if (gini < 0.2) return { title: 'Phần bất tiện được chia khá đồng đều', tone: 'text-emerald-700' };
+  if (gini < 0.3) return { title: 'Có chênh lệch đáng kể giữa các giáo viên', tone: 'text-amber-700' };
+  return { title: 'Chênh lệch lớn: một số giáo viên gánh phần lớn bất tiện', tone: 'text-red-700' };
 }
+
+const CARD = 'rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6';
+
+/** Mỗi dòng của bảng từng giáo viên cao bằng nhau, để bảng không co giãn khi chuyển trang hay lọc. */
+const TEACHER_ROW_HEIGHT = '4.5rem';
+
+/** Số người mỗi trang ở danh sách nên ưu tiên xem lại: vừa để khung này cao bằng khung bên cạnh. */
+const WORST_OFF_PAGE_SIZE = 3;
 
 export default function FairnessPage() {
   const [report, setReport] = useState<FairnessReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [semesterId, setSemesterId] = useState('');
+  const [band, setBand] = useState<BandKey | 'ALL'>('ALL');
+  const [query, setQuery] = useState('');
 
   const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem('token') ?? ''}`,
@@ -71,11 +97,47 @@ export default function FairnessPage() {
     load();
   }, [load]);
 
+  const teachers = useMemo(() => report?.teachers ?? [], [report]);
+
+  const bandCounts = useMemo(() => {
+    const counts: Record<BandKey, number> = { GOOD: 0, FAIR: 0, AVERAGE: 0, POOR: 0 };
+    for (const teacher of teachers) counts[bandOf(teacher.quality).key]++;
+    return counts;
+  }, [teachers]);
+
+  // Mỗi loại bất tiện: bao nhiêu giáo viên gặp, bao nhiêu lần, mất tổng bao nhiêu điểm
+  const burdenTotals = useMemo(() => {
+    const totals = new Map<string, { label: string; teachers: number; count: number; cost: number }>();
+    for (const teacher of teachers) {
+      for (const burden of teacher.burdens) {
+        const entry = totals.get(burden.label) ?? { label: burden.label, teachers: 0, count: 0, cost: 0 };
+        entry.teachers++;
+        entry.count += burden.count;
+        entry.cost += burden.cost;
+        totals.set(burden.label, entry);
+      }
+    }
+    return [...totals.values()].sort((a, b) => b.cost - a.cost);
+  }, [teachers]);
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase('vi');
+    return teachers.filter(
+      (teacher) =>
+        (band === 'ALL' || bandOf(teacher.quality).key === band) &&
+        (!needle ||
+          teacher.name.toLocaleLowerCase('vi').includes(needle) ||
+          teacher.code.toLocaleLowerCase('vi').includes(needle)),
+    );
+  }, [teachers, band, query]);
+  const paged = usePaged(filtered);
+  const worstPaged = usePaged(report?.worstOff ?? [], WORST_OFF_PAGE_SIZE);
+
   if (isLoading) {
     return <p className="py-16 text-center text-sm text-[var(--text-muted)]">Đang tính…</p>;
   }
 
-  if (!report || report.teachers.length === 0) {
+  if (!report || teachers.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-[var(--border-default)] p-10 text-center">
         <Scale size={32} className="mx-auto mb-3 text-[var(--text-muted)]" />
@@ -84,142 +146,280 @@ export default function FairnessPage() {
     );
   }
 
-  const reading = readGini(report.gini);
+  const reading = verdict(report.gini);
+  const atLeastFair = bandCounts.GOOD + bandCounts.FAIR;
+  const maxBurdenCost = burdenTotals[0]?.cost ?? 1;
+
+  const chooseBand = (key: BandKey | 'ALL') => {
+    setBand(key);
+    paged.setPage(1);
+  };
 
   return (
     <div className="space-y-6 pb-12">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      {/* Tiêu đề */}
+      <div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="flex items-center gap-2 text-2xl font-bold text-[var(--text-primary)]">
             <Scale size={24} className="text-indigo-500" />
             Công bằng giữa các giáo viên
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-[var(--text-muted)]">
-            Điểm tổng của thời khóa biểu không nói gì về việc phần bất tiện rơi vào ai. Trang
-            này chấm điểm tuần làm việc của từng giáo viên rồi đo độ chênh lệch giữa họ.
-          </p>
+          <button
+            type="button"
+            onClick={load}
+            className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]"
+          >
+            <RefreshCw size={15} />
+            Tính lại
+          </button>
         </div>
-
-        <button
-          onClick={load}
-          className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]"
-        >
-          <RefreshCw size={15} />
-          Tính lại
-        </button>
+        <p data-page-description className="mt-1 text-sm text-[var(--text-muted)]">
+          Mỗi giáo viên được chấm lịch dạy từ 0 đến 100, so với chính số tiết của họ. Trang này cho
+          biết bất tiện (tiết trống, tiết cuối buổi, đi lại nhiều buổi...) có dồn vào ai không.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 lg:col-span-1">
-          <p className="text-sm text-[var(--text-muted)]">Hệ số Gini</p>
-          <p className={`mt-1 text-4xl font-bold ${reading.tone}`}>{report.gini.toFixed(3)}</p>
-          <p className={`mt-1 text-sm font-medium ${reading.tone}`}>{reading.label}</p>
-          <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)]">
-            0 nghĩa là mọi giáo viên có tuần làm việc tốt như nhau. Không trường nào đạt 0 -
-            điều đáng xem là con số này tăng hay giảm giữa hai phương án.
-          </p>
-
-          <dl className="mt-4 space-y-1.5 border-t border-[var(--border-light)] pt-4 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-[var(--text-muted)]">Lịch tốt nhất</dt>
-              <dd className="font-semibold text-emerald-600">{report.summary.best} điểm</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-[var(--text-muted)]">Trung vị</dt>
-              <dd className="font-semibold text-[var(--text-primary)]">{report.summary.median} điểm</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-[var(--text-muted)]">Lịch tệ nhất</dt>
-              <dd className="font-semibold text-red-600">{report.summary.worst} điểm</dd>
-            </div>
-            <div className="flex justify-between border-t border-[var(--border-light)] pt-1.5">
-              <dt className="text-[var(--text-muted)]">Khoảng chênh</dt>
-              <dd className="font-bold text-[var(--text-primary)]">{report.summary.spread} điểm</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 lg:col-span-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">Đường cong Lorenz</h2>
-          <p className="mb-3 text-xs text-[var(--text-muted)]">
-            Đường chéo là phân bố hoàn toàn đồng đều. Đường cong càng võng xuống xa đường chéo,
-            chênh lệch càng lớn.
-          </p>
-          <LorenzCurve points={report.lorenz} />
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6">
-        <div className="mb-1 flex items-center gap-2">
-          <TriangleAlert size={18} className="text-amber-500" />
-          <h2 className="font-semibold text-[var(--text-primary)]">Giáo viên thiệt thòi nhất</h2>
-        </div>
-        <p className="mb-4 text-xs text-[var(--text-muted)]">
-          Với mỗi người, điều gì làm tuần của họ nặng nhất và sửa được bằng cách nào.
+      {/* 1. Nhận định chung + phân bố */}
+      <section className={CARD} aria-labelledby="fairness-verdict">
+        <h2 id="fairness-verdict" className={`text-2xl font-bold ${reading.tone}`}>
+          {reading.title}
+        </h2>
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
+          <strong className="text-[var(--text-primary)]">{atLeastFair}/{teachers.length}</strong> giáo viên có lịch từ mức Khá
+          trở lên. Lịch tốt nhất <strong className="text-[var(--text-primary)]">{report.summary.best}</strong> điểm, tệ nhất{' '}
+          <strong className="text-[var(--text-primary)]">{report.summary.worst}</strong> điểm, người ở giữa{' '}
+          <strong className="text-[var(--text-primary)]">{report.summary.median}</strong> điểm.
         </p>
 
-        <ul className="space-y-3">
-          {report.worstOff.map((teacher) => (
-            <li
-              key={teacher.teacherId}
-              className="flex flex-wrap items-start gap-4 rounded-lg bg-[var(--bg-surface-hover)] p-4"
-            >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-lg font-bold text-red-600">
-                {teacher.quality}
-              </div>
-              <div className="min-w-48 flex-1">
-                <p className="font-semibold text-[var(--text-primary)]">{teacher.name}</p>
-                <p className="mt-0.5 text-sm text-[var(--text-muted)]">{teacher.biggestBurden}</p>
-                <p className="mt-1 text-sm text-[var(--text-primary)]">{teacher.suggestion}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="mt-6">
+          <div className="flex h-10 w-full overflow-hidden rounded-lg" role="img" aria-label="Phân bố giáo viên theo mức lịch">
+            {BANDS.map((item) =>
+              bandCounts[item.key] > 0 ? (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => chooseBand(item.key)}
+                  title={`${item.label}: ${bandCounts[item.key]} giáo viên - bấm để lọc bảng bên dưới`}
+                  className={`${item.bar} flex items-center justify-center text-sm font-semibold text-white transition-opacity hover:opacity-85`}
+                  style={{ width: `${(bandCounts[item.key] / teachers.length) * 100}%` }}
+                >
+                  {bandCounts[item.key]}
+                </button>
+              ) : null,
+            )}
+          </div>
+          <ul className="mt-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+            {BANDS.map((item) => (
+              <li key={item.key} className="flex items-start gap-2">
+                <span className={`mt-1 h-3 w-3 shrink-0 rounded-sm ${item.bar}`} aria-hidden="true" />
+                <span>
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {item.label}: {bandCounts[item.key]} giáo viên
+                  </span>
+                  <span className="block text-xs text-[var(--text-muted)]">{item.range}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Đường cong Lorenz và hệ số Gini: cùng câu trả lời ở trên, dưới dạng hình */}
+      <section className={CARD} aria-labelledby="fairness-lorenz">
+        <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div>
+            <h2 id="fairness-lorenz" className="font-semibold text-[var(--text-primary)]">
+              Đường cong Lorenz
+            </h2>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              Xếp giáo viên từ lịch kém nhất đến tốt nhất rồi cộng dồn. Đường chéo nét đứt là chia đều tuyệt
+              đối; đường cong càng võng xa đường chéo thì bất tiện càng dồn vào ít người.
+            </p>
+            <div className="mt-4 border-t border-[var(--border-light)] pt-4">
+              <p className="text-sm text-[var(--text-muted)]">Hệ số Gini</p>
+              <p className={`text-3xl font-bold ${reading.tone}`}>{report.gini.toFixed(3).replace('.', ',')}</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                Đo độ hở giữa đường chéo và đường cong: 0 là mọi giáo viên có lịch tốt như nhau, càng
+                gần 1 càng chênh lệch. Dưới 0,1 là rất đồng đều, từ 0,3 trở lên là chênh lệch lớn. Điều đáng xem
+                là con số này tăng hay giảm khi xếp lại thời khóa biểu.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <LorenzCurve points={report.lorenz} />
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {/* 2. Điều gây bất tiện */}
+        <section className={CARD} aria-labelledby="fairness-burdens">
+          <h2 id="fairness-burdens" className="font-semibold text-[var(--text-primary)]">
+            Điều gây bất tiện nhiều nhất
+          </h2>
+          <p className="mb-4 mt-1 text-sm text-[var(--text-muted)]">
+            Tổng số điểm bị trừ trên toàn trường. Sửa được loại đứng đầu là cải thiện lịch cho nhiều người nhất.
+          </p>
+          <ul className="space-y-4">
+            {burdenTotals.map((burden) => (
+              <li key={burden.label}>
+                <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="font-medium text-[var(--text-primary)]">{burden.label}</span>
+                  <span className="shrink-0 text-[var(--text-muted)]">
+                    {burden.teachers} giáo viên · {burden.count} lần · −{burden.cost} điểm
+                  </span>
+                </div>
+                <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[var(--border-light)]">
+                  <div className="h-full rounded-full bg-indigo-500" style={{ width: `${(burden.cost / maxBurdenCost) * 100}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* 3. Người cần ưu tiên */}
+        <section className={`${CARD} flex flex-col`} aria-labelledby="fairness-worst">
+          <h2 id="fairness-worst" className="font-semibold text-[var(--text-primary)]">
+            Giáo viên nên ưu tiên xem lại
+          </h2>
+          <p className="mb-4 mt-1 text-sm text-[var(--text-muted)]">
+            {report.worstOff.length} người có lịch dưới mức Khá, điều làm tuần của họ nặng nhất và cách gỡ.
+          </p>
+          <ol className="flex-1 divide-y divide-[var(--border-light)]">
+            {worstPaged.visible.map((teacher, offset) => {
+              const index = worstPaged.pageStart + offset;
+              const level = bandOf(teacher.quality);
+              return (
+                <li key={teacher.teacherId} className="flex gap-4 py-3 first:pt-0 last:pb-0">
+                  <span className="w-5 shrink-0 pt-0.5 text-sm font-semibold text-[var(--text-muted)]">{index + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <span className="font-semibold text-[var(--text-primary)]">{teacher.name}</span>
+                      <span className={`text-sm font-semibold ${level.text}`}>
+                        {teacher.quality} điểm · {level.label}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-sm text-[var(--text-secondary)]">{teacher.biggestBurden}</p>
+                    <p className="mt-0.5 text-sm text-[var(--text-muted)]">Gợi ý: {teacher.suggestion}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+          <div className="-mx-6 -mb-6 mt-4">
+            <Pager paged={worstPaged} noun="giáo viên" label="Phân trang giáo viên nên ưu tiên xem lại" />
+          </div>
+        </section>
       </div>
+
+      {/* 4. Bảng tra cứu */}
+      <section className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)]" aria-labelledby="fairness-table">
+        <div className="space-y-3 p-6 pb-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 id="fairness-table" className="font-semibold text-[var(--text-primary)]">
+                Lịch của từng giáo viên
+              </h2>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">Xếp từ lịch kém nhất đến tốt nhất.</p>
+            </div>
+            <label className="relative block w-full sm:w-72">
+              <span className="sr-only">Tìm giáo viên</span>
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  paged.setPage(1);
+                }}
+                placeholder="Tìm theo tên hoặc mã..."
+                className="min-h-10 w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] pl-9 pr-3 text-sm text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              />
+            </label>
+          </div>
+          <FilterChips
+            label="Lọc giáo viên theo mức lịch"
+            value={band}
+            onChange={chooseBand}
+            options={[
+              { value: 'ALL', label: 'Tất cả', count: teachers.length },
+              ...BANDS.map((item) => ({ value: item.key, label: item.label, count: bandCounts[item.key] })),
+            ]}
+          />
+        </div>
+
+        <table className="data-table">
+          <colgroup>
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '26%' }} />
+            <col style={{ width: '36%' }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Mã GV</th>
+              <th>Họ và tên</th>
+              <th>Số tiết</th>
+              <th>Điểm lịch</th>
+              <th>Bất tiện gặp phải</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr style={{ height: TEACHER_ROW_HEIGHT }}>
+                <td colSpan={5} className="text-center text-sm text-[var(--text-muted)]">
+                  Không có giáo viên nào khớp bộ lọc.
+                </td>
+              </tr>
+            ) : (
+              paged.visible.map((teacher) => {
+                const level = bandOf(teacher.quality);
+                return (
+                  <tr key={teacher.teacherId} style={{ height: TEACHER_ROW_HEIGHT }}>
+                    <td>{teacher.code}</td>
+                    <td className="text-[var(--text-primary)]">{teacher.name}</td>
+                    <td className="text-center">{teacher.periods}</td>
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <div className="h-2 min-w-10 flex-1 overflow-hidden rounded-full bg-[var(--border-light)]">
+                          <div className={`h-full rounded-full ${level.bar}`} style={{ width: `${teacher.quality}%` }} />
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap">
+                          {teacher.quality} · {level.label}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      {teacher.burdens.length === 0 ? (
+                        'Không có'
+                      ) : (
+                        // Dài quá hai dòng thì cắt bớt, rê chuột để xem đủ - giữ mọi dòng cao bằng nhau
+                        <span
+                          className="line-clamp-2"
+                          title={teacher.burdens.map((burden) => `${burden.label} (${burden.count} lần)`).join(', ')}
+                        >
+                          {teacher.burdens.map((burden) => `${burden.label} (${burden.count} lần)`).join(', ')}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+            {/* Trang thiếu dòng thì chèn dòng trống cho đủ, để bảng không thu lại */}
+            {Array.from({ length: paged.pageSize - Math.max(1, paged.visible.length) }, (_, i) => (
+              <tr key={`filler-${i}`} aria-hidden="true" style={{ height: TEACHER_ROW_HEIGHT }}>
+                <td colSpan={5} />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <Pager paged={paged} noun="giáo viên" label="Phân trang giáo viên" keepVisible />
+      </section>
 
       {semesterId && <ParetoCurve semesterId={semesterId} />}
 
-      <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6">
-        <h2 className="mb-1 font-semibold text-[var(--text-primary)]">Điểm lịch từng giáo viên</h2>
-        <p className="mb-4 text-xs text-[var(--text-muted)]">
-          Mỗi giáo viên được chấm so với chính khối lượng dạy của họ - người dạy 20 tiết không
-          thể có tuần giống người dạy 8 tiết, nên trừ điểm vì điều đó là không công bằng.
-        </p>
-
-        <ul className="space-y-2">
-          {report.teachers.map((teacher) => (
-            <li
-              key={teacher.teacherId}
-              title={
-                teacher.burdens.length > 0
-                  ? teacher.burdens.map((b) => `${b.label}: ${b.count} lần (−${b.cost})`).join('\n')
-                  : 'Không có điểm trừ nào'
-              }
-              className="flex items-center gap-3 text-sm"
-            >
-              <span className="w-32 shrink-0 truncate text-[var(--text-primary)]">{teacher.name}</span>
-              <div className="h-3 flex-1 overflow-hidden rounded-full bg-[var(--border-light)]">
-                <div
-                  className={`h-full rounded-full ${
-                    teacher.quality >= 80
-                      ? 'bg-emerald-500'
-                      : teacher.quality >= 60
-                        ? 'bg-amber-500'
-                        : 'bg-red-500'
-                  }`}
-                  style={{ width: `${teacher.quality}%` }}
-                />
-              </div>
-              <span className="w-12 shrink-0 text-right font-medium text-[var(--text-primary)]">
-                {teacher.quality}
-              </span>
-              <span className="w-20 shrink-0 text-right text-xs text-[var(--text-muted)]">
-                {teacher.periods} tiết
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
     </div>
   );
 }
@@ -237,24 +437,22 @@ function LorenzCurve({ points }: { points: Array<{ population: number; quality: 
   const area = `${x(0)},${y(0)} ${curve} ${x(1)},${y(0)}`;
 
   return (
-    <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${size} ${size}`} className="h-64 w-full max-w-sm" role="img" aria-label="Đường cong Lorenz">
-        <polygon points={area} fill="rgb(99 102 241 / 0.12)" />
-        <line
-          x1={x(0)} y1={y(0)} x2={x(1)} y2={y(1)}
-          stroke="currentColor" strokeDasharray="4 4" strokeWidth="1"
-          className="text-[var(--text-muted)]"
-        />
-        <polyline points={curve} fill="none" stroke="rgb(99 102 241)" strokeWidth="2.5" />
-        <line x1={x(0)} y1={y(0)} x2={x(1)} y2={y(0)} stroke="currentColor" strokeWidth="1" className="text-[var(--border-default)]" />
-        <line x1={x(0)} y1={y(0)} x2={x(0)} y2={y(1)} stroke="currentColor" strokeWidth="1" className="text-[var(--border-default)]" />
-        <text x={size / 2} y={size - 6} textAnchor="middle" className="fill-[var(--text-muted)] text-[9px]">
-          % giáo viên (lịch tệ nhất trước)
-        </text>
-        <text x={9} y={size / 2} textAnchor="middle" transform={`rotate(-90 9 ${size / 2})`} className="fill-[var(--text-muted)] text-[9px]">
-          % tổng chất lượng lịch
-        </text>
-      </svg>
-    </div>
+    <svg viewBox={`0 0 ${size} ${size}`} className="h-64 w-full max-w-sm" role="img" aria-label="Đường cong Lorenz">
+      <polygon points={area} fill="rgb(99 102 241 / 0.12)" />
+      <line
+        x1={x(0)} y1={y(0)} x2={x(1)} y2={y(1)}
+        stroke="currentColor" strokeDasharray="4 4" strokeWidth="1"
+        className="text-[var(--text-muted)]"
+      />
+      <polyline points={curve} fill="none" stroke="rgb(99 102 241)" strokeWidth="2.5" />
+      <line x1={x(0)} y1={y(0)} x2={x(1)} y2={y(0)} stroke="currentColor" strokeWidth="1" className="text-[var(--border-default)]" />
+      <line x1={x(0)} y1={y(0)} x2={x(0)} y2={y(1)} stroke="currentColor" strokeWidth="1" className="text-[var(--border-default)]" />
+      <text x={size / 2} y={size - 6} textAnchor="middle" className="fill-[var(--text-muted)] text-[9px]">
+        % giáo viên (lịch tệ nhất trước)
+      </text>
+      <text x={9} y={size / 2} textAnchor="middle" transform={`rotate(-90 9 ${size / 2})`} className="fill-[var(--text-muted)] text-[9px]">
+        % tổng chất lượng lịch
+      </text>
+    </svg>
   );
 }

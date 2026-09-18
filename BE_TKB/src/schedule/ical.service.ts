@@ -66,7 +66,7 @@ export class IcalService {
 
         const summary = `${period.subjectName} · ${period.className}`;
         const description = [
-          period.roomName ? `Phòng ${period.roomName}` : null,
+          period.roomLabel ?? (period.roomName ? `Phòng ${period.roomName}` : null),
           period.change?.note,
         ]
           .filter(Boolean)
@@ -81,7 +81,7 @@ export class IcalService {
             `DTEND:${this.localStamp(iso, bell[1])}`,
             `SUMMARY:${this.escape(summary)}`,
             description ? `DESCRIPTION:${this.escape(description)}` : null,
-            period.roomName ? `LOCATION:${this.escape(period.roomName)}` : null,
+            period.roomLabel || period.roomName ? `LOCATION:${this.escape(period.roomLabel ?? period.roomName!)}` : null,
             'END:VEVENT',
           ]
             .filter(Boolean)

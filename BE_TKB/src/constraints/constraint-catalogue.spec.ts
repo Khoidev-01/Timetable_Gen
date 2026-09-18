@@ -52,11 +52,14 @@ describe('constraint catalogue', () => {
     expect(new Set(codes).size).toBe(codes.length);
   });
 
-  it('keeps the three physical clashes impossible to switch off', () => {
+  it('keeps physical clashes and school-mandated rules impossible to switch off', () => {
     const alwaysOn = CONSTRAINT_CATALOGUE.filter((e) => e.kind === 'HARD' && !e.canDisable);
     expect(alwaysOn.map((e) => e.key).sort()).toEqual([
       'classConflict',
+      'physicalDefenceDifferentDays',
+      'requiredOppositeSession',
       'roomConflict',
+      'subjectMaxTwoConsecutive',
       'teacherConflict',
     ]);
   });

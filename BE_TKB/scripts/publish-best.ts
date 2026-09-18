@@ -9,6 +9,7 @@
  * moi so, va ghi de diem cu de man hinh khong con so la.
  */
 import '../src/load-env';
+import { randomBytes } from 'crypto';
 import { writeSync } from 'fs';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
@@ -80,7 +81,12 @@ async function main() {
       prisma.generatedTimetable.update({ where: { id: row.id }, data: { fitness_score: row.score } }),
     ),
     prisma.generatedTimetable.updateMany({ where: { is_official: true }, data: { is_official: false } }),
-    prisma.generatedTimetable.update({ where: { id: best.id }, data: { is_official: true } }),
+    // Cap luon ma lien ket cong khai, nhu nut Cong bo tren giao dien: thieu no thi ban chinh
+    // thuc khong lay duoc ma QR
+    prisma.generatedTimetable.update({
+      where: { id: best.id },
+      data: { is_official: true, public_token: (await prisma.generatedTimetable.findUnique({ where: { id: best.id } }))?.public_token ?? randomBytes(16).toString('hex') },
+    }),
   ]);
 
   const official = await prisma.generatedTimetable.findMany({ where: { is_official: true } });

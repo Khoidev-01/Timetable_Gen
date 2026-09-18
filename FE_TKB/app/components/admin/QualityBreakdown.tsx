@@ -127,7 +127,12 @@ export default function QualityBreakdown({
             không thể tránh và tính theo quy mô trường, nên trường lớn và trường nhỏ so được với nhau.
           </p>
 
-          <table className="w-full text-sm">
+          <table className="data-table data-table--compact w-full text-sm">
+            <colgroup>
+              <col style={{ width: '60%' }} />
+              <col style={{ width: '20%' }} />
+              <col style={{ width: '20%' }} />
+            </colgroup>
             <thead>
               <tr className="text-left text-xs text-[var(--text-muted)]">
                 <th className="py-1 font-medium">Chỗ chưa tối ưu</th>

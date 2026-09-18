@@ -54,3 +54,4 @@ tai-khoan-giao-vien*.csv
 
 # Bao cao do phu test, sinh ra moi lan chay jest --coverage
 coverage/
+reports/

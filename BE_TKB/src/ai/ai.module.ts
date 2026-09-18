@@ -9,12 +9,16 @@ import { KnowledgeService } from './knowledge/knowledge.service';
 import { AssistantEvalService } from './eval/assistant-eval.service';
 import { LLM_PROVIDER } from './providers/llm-provider.interface';
 import { OpenAiCompatibleProvider } from './providers/openai-compatible.provider';
+import { AssistantGuardService } from './assistant-guard.service';
+import { ConversationMemoryService } from './conversation-memory.service';
 import { AiService } from './ai.service';
 
 @Module({
     imports: [PrismaModule, AlgorithmModule],
     controllers: [ToolsController, AssistantController],
     providers: [
+        AssistantGuardService,
+        ConversationMemoryService,
         AiService,
         ScheduleTools,
         OrchestratorService,

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { formatRoomLabel } from '../schedule/room-label';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { AlgorithmService } from '../algorithm/algorithm.service';
@@ -119,9 +120,10 @@ export class AlgorithmProducer {
         const roomIds = [...new Set(latestTkb.slots.map(t => t.room_id).filter(Boolean))];
         const rooms = await this.prisma.room.findMany({
             where: { id: { in: roomIds as number[] } },
-            select: { id: true, name: true }
+            select: { id: true, name: true, type: true }
         });
         const roomMap = new Map(rooms.map(r => [r.id, r.name]));
+        const roomById = new Map(rooms.map(r => [r.id, r]));
 
         // Fetch Subject Names, Codes, Colors
         const subjectIds = [...new Set(latestTkb.slots.map(t => t.subject_id).filter(Boolean))];
@@ -152,6 +154,7 @@ export class AlgorithmProducer {
                 teacherName: tiet.teacher_id ? teacherMap.get(tiet.teacher_id) : undefined,
                 roomId: tiet.room_id,
                 roomName: tiet.room_id ? roomMap.get(tiet.room_id) : undefined,
+                roomLabel: formatRoomLabel(tiet.room_id ? roomById.get(tiet.room_id) : null, subj?.code),
                 day: tiet.day,
                 period: tiet.period,
                 session: tiet.period <= 5 ? 0 : 1,

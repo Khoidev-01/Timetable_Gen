@@ -100,6 +100,7 @@ export const HEADER_ALIASES = {
     reduction: ['giamtrutuan', 'gimtrtun', 'giamtru'],
     effectiveLoad: ['dinhmuchieuluc', 'nhmchiulc', 'dinhmucthuchien', 'dinhmucthucte'],
     homeroomClass: ['gvcn', 'chunhiem', 'lopchunhiem', 'chunhiemlop'],
+    position: ['chucvu', 'chcv', 'vitri', 'chucvutrongto'],
     phone: ['lienhe', 'linhe', 'sodienthoai', 'sdt', 'dienthoai', 'phone'],
     email: ['email', 'mail', 'thudientu'],
     notes: ['ghichu', 'ghich'],
@@ -177,31 +178,37 @@ export interface CurriculumPeriodItem {
  * Môn lựa chọn: chỉ áp dụng cho lớp có tổ hợp chứa môn đó.
  * Admin có thể override qua DB (bảng curriculum_config).
  */
+/**
+ * Số tiết/tuần mỗi lớp - nguồn duy nhất cho mẫu phân công của tổ, phân công tự động và bộ dữ
+ * liệu mẫu. Mỗi lớp 29 tiết dạy: 26 tiết buổi chính (vừa 26 ô còn lại sau tiết nghỉ thứ Năm,
+ * chào cờ, sinh hoạt) + GDTC 2 và GDQP 1 học trái buổi. Môn lựa chọn: ba môn 3 tiết (đã gộp
+ * chuyên đề) và một môn 2 tiết.
+ */
 export const GDPT2018_CURRICULUM: CurriculumPeriodItem[] = [
   // === Bắt buộc ===
   { subjectCode: 'TOAN',  grade10: 3, grade11: 3, grade12: 3, hasPractice: false },
   { subjectCode: 'VAN',   grade10: 3, grade11: 3, grade12: 3, hasPractice: false },
   { subjectCode: 'ANH',   grade10: 3, grade11: 3, grade12: 3, hasPractice: false },
-  { subjectCode: 'LS',    grade10: 1, grade11: 1, grade12: 2, hasPractice: false },
+  { subjectCode: 'LS',    grade10: 2, grade11: 2, grade12: 2, hasPractice: false },
   { subjectCode: 'GDTC',  grade10: 2, grade11: 2, grade12: 2, hasPractice: false },
   { subjectCode: 'GDQP',  grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
   { subjectCode: 'HDTN',  grade10: 3, grade11: 3, grade12: 3, hasPractice: false },
   { subjectCode: 'GDDP',  grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
 
   // === Lựa chọn (chỉ áp dụng nếu lớp có tổ hợp chứa môn) ===
-  // Tiết đã gộp chuyên đề (CD) vào môn gốc: VD LY = 2 lý thuyết + 1 thực hành (đã bao gồm CD)
-  { subjectCode: 'LY',    grade10: 2, grade11: 2, grade12: 3,
-    hasPractice: true, practiceGrade10: 1, practiceGrade11: 1, practiceGrade12: 1 },
-  { subjectCode: 'HOA',   grade10: 2, grade11: 2, grade12: 3,
-    hasPractice: true, practiceGrade10: 1, practiceGrade11: 1, practiceGrade12: 1 },
-  { subjectCode: 'SINH',  grade10: 2, grade11: 2, grade12: 3,
-    hasPractice: true, practiceGrade10: 1, practiceGrade11: 1, practiceGrade12: 1 },
-  { subjectCode: 'DIA',   grade10: 2, grade11: 2, grade12: 2, hasPractice: false },
-  { subjectCode: 'GDKT',  grade10: 2, grade11: 2, grade12: 2, hasPractice: false },
-  { subjectCode: 'CNCN',  grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
-  { subjectCode: 'CNNN',  grade10: 1, grade11: 1, grade12: 1, hasPractice: false },
+  // Môn có thực hành: 1 tiết lý thuyết + 2 tiết thực hành (đã gộp chuyên đề)
+  { subjectCode: 'LY',    grade10: 1, grade11: 1, grade12: 1,
+    hasPractice: true, practiceGrade10: 2, practiceGrade11: 2, practiceGrade12: 2 },
+  { subjectCode: 'HOA',   grade10: 1, grade11: 1, grade12: 1,
+    hasPractice: true, practiceGrade10: 2, practiceGrade11: 2, practiceGrade12: 2 },
+  { subjectCode: 'SINH',  grade10: 1, grade11: 1, grade12: 1,
+    hasPractice: true, practiceGrade10: 2, practiceGrade11: 2, practiceGrade12: 2 },
   { subjectCode: 'TIN',   grade10: 1, grade11: 1, grade12: 1,
-    hasPractice: true, practiceGrade10: 1, practiceGrade11: 1, practiceGrade12: 1 },
+    hasPractice: true, practiceGrade10: 2, practiceGrade11: 2, practiceGrade12: 2 },
+  { subjectCode: 'DIA',   grade10: 3, grade11: 3, grade12: 3, hasPractice: false },
+  { subjectCode: 'GDKT',  grade10: 3, grade11: 3, grade12: 3, hasPractice: false },
+  { subjectCode: 'CNCN',  grade10: 2, grade11: 2, grade12: 2, hasPractice: false },
+  { subjectCode: 'CNNN',  grade10: 2, grade11: 2, grade12: 2, hasPractice: false },
   { subjectCode: 'MT',    grade10: 2, grade11: 2, grade12: 2, hasPractice: false },
 
   // === Hoạt động tập thể (special, xếp cố định) ===
