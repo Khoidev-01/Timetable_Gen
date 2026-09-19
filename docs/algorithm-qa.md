@@ -505,8 +505,9 @@ sửa chữa tốn kém. Luyện kim với nước đi Kempe giữ tính hợp l
 Kết quả đo ủng hộ lựa chọn này: ở cùng ngân sách, hướng đang dùng hơn hẳn Tabu Search và
 Late Acceptance, ngang Local Search và luyện kim thuần nhưng ổn định hơn.
 
-> **Cảnh báo:** `CHUC_NANG.md` hiện đang viết hệ thống dùng thuật toán di truyền với quần
-> thể, lai ghép, đột biến. Điều đó **không đúng với code**. Xem mục cuối.
+> **Cảnh báo:** tài liệu `CHUC_NANG.md` từng viết hệ thống dùng thuật toán di truyền với
+> quần thể, lai ghép, đột biến — sai so với code, nên file đã được gỡ khỏi repo. Nếu còn
+> bản in hoặc bản sao cũ đang lưu hành thì thu lại. Xem mục cuối.
 
 ### 12. Sao Tabu Search lại tệ hơn cả không làm gì?
 
@@ -611,10 +612,11 @@ xong trong 8 phút 45.
 
 ## D. Ba chỗ phải chốt trước khi bảo vệ
 
-**1. `CHUC_NANG.md` mô tả sai thuật toán.** File ghi "Genetic Algorithm" với khởi tạo quần
-thể, chọn lọc, lai ghép, đột biến. Code không có bất cứ thứ nào trong đó. File cũng ghi "5
-ràng buộc cứng, 6 ràng buộc mềm" trong khi thực tế là 13 và 19. Nếu ban giám khảo đọc tài
-liệu này rồi hỏi, bạn sẽ phải bảo vệ một thuật toán không tồn tại. **Nên sửa file trước.**
+**1. `CHUC_NANG.md` đã bị xoá — đừng phát bản cũ cho ai.** File đó mô tả thuật toán là
+"Genetic Algorithm" với khởi tạo quần thể, chọn lọc, lai ghép, đột biến; code không có bất
+cứ thứ nào trong đó. Nó cũng ghi "5 ràng buộc cứng, 6 ràng buộc mềm" trong khi thực tế là
+13 và 19. File đã được gỡ khỏi repo, nhưng nếu bản in hay bản sao cũ còn nằm đâu đó thì
+phải thu lại: ban giám khảo đọc nó rồi hỏi là bạn phải bảo vệ một thuật toán không tồn tại.
 
 **2. Số liệu trong báo cáo Word lệch với dữ liệu thật.** Báo cáo ghi 20 môn, 42 phòng;
 dữ liệu thật là 19 môn, 44 phòng. Bảng Gini tính trên 76 giáo viên trong khi bộ dữ liệu có
