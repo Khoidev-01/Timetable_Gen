@@ -6,16 +6,22 @@ sẽ hiện ra để biết mình đang đi đúng.
 Toàn bộ kịch bản mất khoảng 15–20 phút, trong đó có một quãng chờ máy xếp lịch (được lấp
 bằng Cảnh 2b). Đọc mục **Chuẩn bị** trước ngày demo, đừng để đến lúc lên sân khấu mới làm.
 
+**Đường dẫn:** `gettimetable.cloud` giờ là **trang giới thiệu**, không còn là màn đăng nhập.
+Muốn đăng nhập thì bấm nút **Đăng nhập** ở góc phải trên, hoặc mở thẳng
+`gettimetable.cloud/login`.
+
 ---
 
 ## Chuẩn bị (làm trước, không làm trên sân khấu)
 
 | Việc | Cách kiểm |
 |---|---|
-| Đã deploy bản mới nhất | Mở https://gettimetable.cloud, đăng nhập admin được |
+| Đã deploy bản mới nhất | Mở https://gettimetable.cloud, thấy trang giới thiệu có ảnh 3D |
+| Đăng nhập được | Bấm **Đăng nhập** góc phải trên, vào bằng `admin` |
 | File Excel của Tổ Toán nằm trên máy demo | `Desktop\ExcelNCKH\phan-cong-tổ-toán-2026-2027.xlsx` |
 | Tài khoản gv004 đã khai email nhận OTP | Đăng nhập thử một lần trước, xem mục dưới |
 | Trợ lý AI trả lời được | Đăng nhập, mở khung chat, hỏi "tôi dạy môn gì" |
+| Mã QR trỏ đúng tên miền | Xem Cảnh 5; link dưới mã phải bắt đầu bằng `https://gettimetable.cloud` |
 
 **Tài khoản**
 
@@ -29,12 +35,25 @@ tài khoản, để trên sân khấu chỉ còn gõ mật khẩu.
 
 ---
 
+## Cảnh 0 — Trang giới thiệu (30 giây, tuỳ chọn)
+
+Mở `gettimetable.cloud` và cuộn chậm một lượt: khối mở đầu, ba tính năng, quy trình ba
+bước, trợ lý Miki, rồi dừng ở khối kêu gọi đăng nhập.
+
+Cuộn xuống thì thanh menu trên cùng tự ẩn đi cho rộng màn hình, cuộn ngược lên là nó hiện
+lại ngay. Các hình minh họa 3D nhúc nhích nhẹ như đang thở.
+
+Xong thì bấm **Đăng nhập** ở góc phải trên để sang Cảnh 1.
+
+---
+
 ## Cảnh 1 — Tổ trưởng nộp bảng phân công (2 phút)
 
 Câu dẫn: *"Mỗi tổ chuyên môn tự phân công giáo viên cho tổ mình. Hệ thống phát mẫu Excel
 điền sẵn, tổ trưởng chỉ điền mã giáo viên."*
 
-1. Đăng nhập `gv004`.
+1. Từ trang giới thiệu, bấm **Đăng nhập** (hoặc mở thẳng `gettimetable.cloud/login`), rồi
+   đăng nhập `gv004`.
 2. Menu trái, bấm **Phân công tổ**.
 3. Chỉ cho ban giám khảo thấy: đây là Tổ Toán, 30 dòng lớp – môn, chưa nộp lần nào.
 4. Bấm **Tải mẫu phân công** — mở file vừa tải, cho thấy các cột đã điền sẵn lớp, môn, số
@@ -174,6 +193,25 @@ Câu chốt: *"Ba người, ba vai, không ai sửa tay vào thời khóa biểu
 
 ---
 
+## Cảnh 5 — Mã QR dán bảng tin (1 phút)
+
+Câu dẫn: *"Giáo viên không cần tài khoản để xem lịch. Nhà trường dán một mã QR lên bảng
+tin là xong."*
+
+1. Cửa sổ `admin`, menu trái bấm **Thời khóa biểu**, kéo xuống khối **Công bố**.
+2. Bấm **Công bố bản mới nhất**. Xếp lịch xong **không** tự công bố, mà chưa công bố thì
+   chưa có mã QR.
+3. Bấm **Mã QR**.
+4. Chỉ vào dòng chữ ngay dưới mã: đường dẫn phải bắt đầu bằng `https://gettimetable.cloud`.
+5. Quét bằng điện thoại thật, đưa màn hình điện thoại cho ban giám khảo xem: trang mở ra
+   cho tra theo lớp hoặc theo giáo viên, kèm lịch hôm nay đã tính cả tiết dạy thay.
+
+> Nếu đường dẫn hiện `http://localhost:3000` thì máy chủ thiếu biến `PUBLIC_WEB_URL`. Hệ
+> thống có lưới an toàn nên thường vẫn ra tên miền thật, nhưng thấy localhost là bỏ cảnh
+> này, đừng quét trước mặt ban giám khảo.
+
+---
+
 ## Phương án dự phòng
 
 **Nếu trợ lý AI không trả lời** (báo "Trợ lý tạm thời không phản hồi"): bỏ Cảnh 3, làm
@@ -202,8 +240,13 @@ biểu tự cập nhật khi xong. Đừng bấm Phân công tự động lần 
 
 | Cửa sổ | Tài khoản | Trang |
 |---|---|---|
-| 1 | `gv004` | Phân công tổ |
-| 2 | `admin` | Tổng hợp |
-| 3 | `admin` | Thời khóa biểu |
+| 1 | chưa đăng nhập | `gettimetable.cloud` (trang giới thiệu, cho Cảnh 0) |
+| 2 | `gv004` | Phân công tổ |
+| 3 | `admin` | Tổng hợp |
+| 4 | `admin` | Thời khóa biểu |
 
-Mở sẵn ba cửa sổ này trước khi lên, đăng nhập xong cả ba. Trên sân khấu chỉ chuyển tab.
+Mở sẵn bốn cửa sổ này trước khi lên, đăng nhập xong. Trên sân khấu chỉ chuyển tab.
+
+> Cửa sổ 1 phải là cửa sổ ẩn danh, hoặc trình duyệt khác. Trang giới thiệu không tự chuyển
+> hướng, nhưng dùng chung cửa sổ đã đăng nhập thì bấm **Đăng nhập** sẽ nhảy thẳng vào trong,
+> mất mạch Cảnh 0.
