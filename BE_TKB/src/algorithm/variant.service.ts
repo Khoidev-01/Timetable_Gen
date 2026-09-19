@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { resolvePublicBaseUrl } from './public-base-url';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConstraintService, TimeSlot } from './constraint.service';
 import * as crypto from 'crypto';
@@ -143,7 +144,7 @@ export class VariantService {
    * The public link plus a QR image of it. Teachers scan this off the noticeboard and
    * read today's schedule on their phone - no account, no app.
    */
-  async publicLink(timetableId: string) {
+  async publicLink(timetableId: string, requestOrigin?: string) {
     const timetable = await this.prisma.generatedTimetable.findUnique({
       where: { id: timetableId },
       select: { public_token: true, is_official: true },
@@ -162,7 +163,7 @@ export class VariantService {
       await this.prisma.generatedTimetable.update({ where: { id: timetableId }, data: { public_token: token } });
     }
 
-    const base = process.env.PUBLIC_WEB_URL ?? 'http://localhost:3000';
+    const base = resolvePublicBaseUrl(process.env.PUBLIC_WEB_URL, requestOrigin);
     const url = `${base}/xem/${token}`;
 
     return {
@@ -178,8 +179,8 @@ export class VariantService {
    * The shared noticeboard code opens the whole school, which on a phone means scrolling a
    * list of twenty-one names to find yourself. These get printed and handed out instead.
    */
-  async teacherLinks(timetableId: string) {
-    const { url, token } = await this.publicLink(timetableId);
+  async teacherLinks(timetableId: string, requestOrigin?: string) {
+    const { url, token } = await this.publicLink(timetableId, requestOrigin);
 
     const timetable = await this.prisma.generatedTimetable.findUnique({
       where: { id: timetableId },

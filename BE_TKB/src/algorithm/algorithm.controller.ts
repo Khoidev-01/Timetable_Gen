@@ -10,6 +10,25 @@ import { VariantService } from './variant.service';
 import { SwapGraphService } from './swap-graph.service';
 import { ChangeLogService } from './change-log.service';
 import { AnalyticsService } from './analytics.service';
+
+/**
+ * Địa chỉ trang web đã gọi tới, dùng làm phương án dự phòng khi máy chủ quên khai
+ * PUBLIC_WEB_URL. Trình duyệt tự gắn `Origin` và trang khác không giả được, vì CORS đã
+ * chặn từ trước; `Referer` chỉ dùng khi không có `Origin` (điều hướng thường).
+ */
+const originOf = (request: Request): string | undefined => {
+    const origin = request.headers.origin;
+    if (typeof origin === 'string' && origin) return origin;
+    const referer = request.headers.referer;
+    if (typeof referer === 'string' && referer) {
+        try {
+            return new URL(referer).origin;
+        } catch {
+            return undefined;
+        }
+    }
+    return undefined;
+};
 import { PatternMiningService } from './pattern-mining.service';
 import { FairnessService } from './fairness.service';
 import { ParetoService } from './pareto.service';
@@ -125,15 +144,15 @@ export class AlgorithmController {
     /** One QR per teacher, each opening straight to that person's own day. */
     @Roles('ADMIN')
     @Get('teacher-links/:timetableId')
-    async teacherLinks(@Param('timetableId') timetableId: string) {
-        return this.variantService.teacherLinks(timetableId);
+    async teacherLinks(@Param('timetableId') timetableId: string, @Req() request: Request) {
+        return this.variantService.teacherLinks(timetableId, originOf(request));
     }
 
     /** Public link and QR image for a published timetable. */
     @Roles('ADMIN')
     @Get('public-link/:timetableId')
-    async publicLink(@Param('timetableId') timetableId: string) {
-        return this.variantService.publicLink(timetableId);
+    async publicLink(@Param('timetableId') timetableId: string, @Req() request: Request) {
+        return this.variantService.publicLink(timetableId, originOf(request));
     }
 
     @Roles('ADMIN')
