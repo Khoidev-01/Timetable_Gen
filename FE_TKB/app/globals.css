@@ -484,8 +484,8 @@ html {
 .landing-hero-grid {
   /* Trước đây cao cố định 49rem trong khi nội dung chỉ chiếm chừng 22rem, nên phần đầu
      trang thừa hơn 200px trống ngay dưới header. */
-  min-height: 36rem;
-  padding-block: 32px 56px;
+  min-height: 31rem;
+  padding-block: 16px 48px;
 }
 
 .landing-section-copy {
