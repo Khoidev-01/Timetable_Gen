@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Ảnh chụp kiểm tra giao diện, sinh ra lúc làm việc
+.visual-check/
