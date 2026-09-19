@@ -272,9 +272,6 @@ export default function Home() {
           <nav className="landing-footer-column" aria-label="Thông tin chung">
             <h2>Thông tin chung</h2>
             <Link href="/">Trang chủ</Link>
-            <a href="#tinh-nang">Tính năng</a>
-            <a href="#cach-hoat-dong">Cách hoạt động</a>
-            <a href="#tro-ly-miki">Trợ lý Miki</a>
             <Link href="/login">Đăng nhập</Link>
           </nav>
 
