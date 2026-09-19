@@ -973,8 +973,10 @@ html {
   outline-offset: 4px;
 }
 
+/* Không kẻ giữa ba cột và hàng bản quyền: đường kẻ ở đỉnh footer đã tách footer khỏi nội
+   dung, thêm một đường nữa bên trong chỉ cắt vụn chính footer. */
 .landing-footer-bottom {
-  border-top: 1px solid var(--landing-line);
+  border-top: 0;
 }
 
 .landing-footer-bottom .landing-container {
