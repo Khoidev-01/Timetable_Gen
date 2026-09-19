@@ -1,8 +1,0 @@
-Thuat_toan,So_lan_chay,Diem_tot_nhat,Diem_te_nhat,Diem_trung_binh,Do_lech_chuan,Loi_cung_TB,Ty_le_hop_le_%,Thoi_gian_TB_ms,So_vong_lap_TB
-Hybrid của hệ thống,5,-3007,-3088,-3045,26,1,20,429414,700000
-Local Search (chấp nhận bằng điểm),5,-2977,-3192,-3058,83,0.6,60,407804,700000
-Simulated Annealing,5,-2934,-3249,-3064,120,2.2,0,443212,700000
-Hill Climbing,5,-3423,-3622,-3528,71,1.6,0,322591,700000
-Late Acceptance,5,-6621,-6736,-6659,42,8.4,0,430335,700000
-Tabu Search,5,-10428,-10853,-10619,136,39.8,0,526754,700000
-Greedy thuần,5,-12450,-13086,-12775,270,49.4,0,30,0
