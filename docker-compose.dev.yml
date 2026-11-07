@@ -1,0 +1,12 @@
+# Dùng khi chạy backend/frontend trực tiếp trên máy dev (README, Cách 2) và cần nối vào
+# Postgres/Redis của compose. Chỉ bind 127.0.0.1 nên máy khác trong mạng không nối được.
+# KHÔNG dùng file này trên máy chủ deploy.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5435:5432"
+  redis:
+    ports:
+      - "127.0.0.1:6381:6379"

@@ -1,6 +1,7 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, Logger, OnModuleDestroy, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
+import { redisConnectionOptions } from '../../redis-connection';
 import { APIError } from 'better-auth/api';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MailService } from './mail.service';
@@ -34,8 +35,7 @@ export class OtpService implements OnModuleDestroy {
   private readonly logger = new Logger(OtpService.name);
   private readonly auth: ReturnType<typeof createBetterAuth>;
   private readonly redis = new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
+    ...redisConnectionOptions(),
     maxRetriesPerRequest: 2,
   });
 
