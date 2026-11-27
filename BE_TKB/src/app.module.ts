@@ -13,6 +13,7 @@ import { AssignmentsModule } from './assignments/assignments.module';
 import { TimetablesModule } from './timetables/timetables.module';
 import { AlgorithmModule } from './algorithm/algorithm.module';
 import { BullModule } from '@nestjs/bullmq';
+import { redisConnectionOptions } from './redis-connection';
 import { WorkerModule } from './worker/worker.module';
 import { AuthModule } from './auth/auth.module';
 import { ExcelModule } from './excel/excel.module';
@@ -33,10 +34,7 @@ import { DepartmentAssignmentsModule } from './department-assignments/department
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
     PrismaModule,
     BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-      },
+      connection: redisConnectionOptions(),
     }),
     SystemModule,
     ResourcesModule,

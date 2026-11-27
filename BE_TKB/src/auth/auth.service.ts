@@ -6,14 +6,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import Redis from 'ioredis';
+import { redisConnectionOptions } from '../redis-connection';
 
 const CAPTCHA_TTL_SECONDS = 300;
 
 @Injectable()
 export class AuthService implements OnModuleDestroy {
     private readonly redis = new Redis({
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
+        ...redisConnectionOptions(),
         maxRetriesPerRequest: 2,
     });
 

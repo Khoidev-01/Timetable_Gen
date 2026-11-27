@@ -7,8 +7,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_DB: ${POSTGRES_DB:-tkb_db}
-    ports:
-      - "5435:5432"
+    # Không publish cổng ra máy chủ: chỉ backend trong cùng mạng compose được nối tới.
+    # Cần nối từ máy dev thì dùng docker-compose.dev.yml (chỉ bind 127.0.0.1).
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,12 +21,15 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
-    ports:
-      - "6381:6379"
+    # Bắt buộc có mật khẩu: Redis không mật khẩu mà lộ cổng thì ai cũng ghi/đọc được
+    # captcha, mã OTP và hàng đợi. Cổng cũng không publish ra máy chủ (xem dev.yml).
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Hãy đặt REDIS_PASSWORD trong .env}
+    command: ["sh", "-c", 'exec redis-server --requirepass "$$REDIS_PASSWORD"']
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -46,6 +49,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-tkb_db}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Hãy đặt REDIS_PASSWORD trong .env}
       # Local-development fallback only; production must provide a private JWT_SECRET.
       JWT_SECRET: ${JWT_SECRET:-mikitimetable-local-dev-secret-change-me}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://airouter.mikitech.io/api/v1}

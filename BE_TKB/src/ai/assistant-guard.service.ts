@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
+import { redisConnectionOptions } from '../redis-connection';
 
 /** Câu trả lời từ chối phải chứa cụm này (được ghi trong lời nhắc hệ thống), để đếm được. */
 export const OFF_TOPIC_MARKER = 'chỉ hỗ trợ về thời khóa biểu';
@@ -20,8 +21,7 @@ const BLOCK_SECONDS = 10 * 60;
 @Injectable()
 export class AssistantGuardService implements OnModuleDestroy {
   private readonly redis = new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
+    ...redisConnectionOptions(),
     maxRetriesPerRequest: 2,
   });
 

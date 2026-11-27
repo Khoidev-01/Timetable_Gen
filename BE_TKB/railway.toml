@@ -1,0 +1,12 @@
+# Cấu hình Railway cho backend. Đặt Root Directory của service là BE_TKB.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# startup.sh đồng bộ schema và (lần đầu) nạp dữ liệu mẫu trước khi bật app,
+# nên cho 5 phút trước khi coi là lỗi.
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
